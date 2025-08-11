@@ -1,0 +1,96 @@
+body, html {
+    height: 100%;
+    margin: 0;
+    font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+}
+
+.left-panel {
+    background-color: #3C435C; /* close to the navy tone in the mock */
+    color: white;
+    text-align: center;
+}
+
+.logo {
+    width: 80px;
+    height: 80px;
+    background-color: #D9D9D9;
+    border-radius: 20px;
+    margin: 0 auto 20px;
+}
+
+.title {
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.subtitle {
+    color: #D3D7E0;
+}
+
+.description {
+    max-width: 320px;
+    margin: 0 auto;
+    color: #BFC5D2;
+    font-size: 0.95rem;
+}
+
+.language-selector a {
+    color: #6B7280;
+    text-decoration: none;
+}
+.language-selector a.active {
+    color: #111827;
+    font-weight: 600;
+}
+
+.input-underline {
+    border: none;
+    border-bottom: 2px solid #e5e7eb;
+    border-radius: 0;
+    padding-left: 0;
+    padding-right: 0;
+    box-shadow: none !important;
+}
+.input-underline:focus {
+    border-bottom-color: #38BDF8; /* cyan accent */
+}
+
+.btn-scan {
+    background-color: #12B7F5;
+    border: none;
+    padding: 12px 18px;
+    border-radius: 999px;
+    color: #fff;
+    font-weight: 600;
+}
+.btn-scan:hover {
+    background-color: #0ea5e9;
+}
+
+.contact-info {
+    line-height: 1.4;
+}
+
+.login-form {
+    width: 350px;
+}
+
+.btn-primary {
+    background-color: #00BFFF;
+    border: none;
+    width: 100%;
+    padding: 15px;
+    border-radius: 25px;
+}
+
+.contact-info {
+    margin-top: 40px;
+    text-align: center;
+    font-size: 12px;
+}
+
+.contact-info {
+    margin-top: 40px;
+    text-align: center;
+    font-size: 12px;
+}

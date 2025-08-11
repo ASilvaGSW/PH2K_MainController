@@ -1,0 +1,126 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{xcolor}
+
+\title{Hose Puller Controller Documentation}
+\author{Alan Silva \\ \texttt{asilva@gswiring.com}}
+\date{July 25, 2025}
+
+\begin{document}
+
+\maketitle
+
+\section{Overview}
+This document provides comprehensive documentation for the Hose Puller Controller firmware, which manages a robotic system for hose manipulation using an ESP32 with dual CAN bus support.
+
+\section{Hardware Connections}
+
+\subsection{ESP32 Pin Configuration}
+
+\subsubsection{CAN Bus 1 (TWAI - ESP32 Integrated)}
+\begin{itemize}
+    \item \textbf{TX}: GPIO4 (CAN0\_TX)
+    \item \textbf{RX}: GPIO5 (CAN0\_RX)
+\end{itemize}
+
+\subsubsection{CAN Bus 2 (MCP2515)}
+\begin{itemize}
+    \item \textbf{CS}: GPIO16
+    \item \textbf{INT}: GPIO17
+    \item \textbf{SPI}: Uses default ESP32 SPI pins
+\end{itemize}
+
+\subsubsection{Stepper Motor}
+\begin{itemize}
+    \item \textbf{STEP}: GPIO25
+    \item \textbf{DIR}: GPIO26
+    \item \textbf{ENABLE}: GPIO27 (active LOW)
+    \item \textbf{Configuration}: 
+    \begin{itemize}
+        \item 200 steps/revolution
+        \item 1000 steps/s max speed
+        \item 500 steps/s² acceleration
+    \end{itemize}
+\end{itemize}
+
+\subsubsection{Digital Gripper}
+\begin{itemize}
+    \item \textbf{PWM Pin}: GPIO32
+    \item \textbf{Open Pin}: GPIO33
+    \item \textbf{Close Pin}: GPIO34
+\end{itemize}
+
+\subsubsection{Linear Actuators}
+\begin{itemize}
+    \item \textbf{Y-Axis}: CAN ID 0x2CB
+    \item \textbf{Z-Axis}: CAN ID 0x2CC
+\end{itemize}
+
+\section{CAN Protocol}
+
+\subsection{Device Addressing}
+\begin{itemize}
+    \item \textbf{Device CAN ID}: 0x192
+    \item \textbf{Response CAN ID}: 0x592
+\end{itemize}
+
+\subsection{Command Reference}
+\begin{table}[h]
+\centering
+\begin{tabular}{llll}
+\toprule
+\textbf{Command} & \textbf{Description} & \textbf{Data Bytes} & \textbf{Response} \\
+\midrule
+0x01 & Reset microcontroller & - & - \\
+0x02 & Heartbeat & - & Status (0x01) \\
+0x03 & Home actuators (Y and Z) & - & Status (0x01=OK, 0x02=FAIL) \\
+0x04 & Move Y actuator & 4 bytes (int32\_t) & Status (0x01=OK, 0x02=FAIL) \\
+0x05 & Move Z actuator & 4 bytes (int32\_t) & Status (0x01=OK, 0x02=FAIL) \\
+0x06 & Read Z actuator counter & - & 4 bytes (uint32\_t) \\
+0x07 & Read Y actuator counter & - & 4 bytes (uint32\_t) \\
+0x08 & Reset Y counter & - & Status (0x01) \\
+0x09 & Reset Z counter & - & Status (0x01) \\
+0x0A & Stepper motor (reserved) & - & - \\
+0x0B & Move stepper & 4 bytes (int32\_t) & Status (0x01=OK) \\
+0x0C & Home stepper & - & Status (0x01=OK) \\
+0x0D & Open gripper & - & Status (0x01=OK) \\
+0x0E & Close gripper & - & Status (0x01=OK) \\
+0x0F & Set gripper force & 1 byte (0-255) & Status (0x01=OK) \\
+0xFF & Power off, home all axes & - & - \\
+\bottomrule
+\end{tabular}
+\caption{CAN Command Reference}
+\end{table}
+
+\section{EEPROM Usage}
+\begin{itemize}
+    \item \textbf{Size}: 8 bytes
+    \item \textbf{Address 0-3}: Y-axis movement counter
+    \item \textbf{Address 4-7}: Z-axis movement counter
+\end{itemize}
+
+\section{Dependencies}
+\begin{itemize}
+    \item ESP32-TWAI-CAN
+    \item mcp\_can
+    \item SPI
+    \item ESP32Servo
+    \item AccelStepper
+    \item FreeRTOS
+    \item EEPROM (ESP32)
+    \item Custom: src/linear\_actuator.h, src/gripper\_digital.h
+\end{itemize}
+
+\section{Status Codes}
+\begin{itemize}
+    \item \textbf{0x01}: OK
+    \item \textbf{0x02}: FAIL
+    \item \textbf{0x03}: TIMEOUT
+    \item \textbf{0x04}: NO LOCAL NETWORK
+\end{itemize}
+
+\end{document}

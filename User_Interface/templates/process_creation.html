@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POWER HOSE 2K - Process Creation</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <style>
+        .part-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #12B7F5;
+        }
+        
+        .part-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .part-number {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .part-name {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .requirement-section {
+            margin-bottom: 15px;
+        }
+        
+        .requirement-title {
+            font-weight: bold;
+            color: #12B7F5;
+            margin-bottom: 8px;
+        }
+        
+        .requirement-item {
+            background: #f8f9fa;
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+        
+        .btn-create {
+            background: linear-gradient(135deg, #12B7F5 0%, #0ea5e9 100%);
+            border: none;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-weight: 500;
+        }
+        
+        .btn-create:hover {
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+            color: white;
+        }
+        
+        .modal-header {
+            background: linear-gradient(135deg, #12B7F5 0%, #0ea5e9 100%);
+            color: white;
+        }
+        
+        .form-section {
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .form-section-title {
+            font-weight: bold;
+            color: #12B7F5;
+            margin-bottom: 10px;
+        }
+        
+        .dynamic-item {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+        
+        .btn-remove {
+            background: #dc3545;
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+        
+        .btn-add {
+            background: #28a745;
+            border: none;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid min-vh-100 g-0">
+        <!-- Sign Out Confirmation Modal -->
+        <div class="modal fade" id="signOutModal" tabindex="-1" aria-labelledby="signOutModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title lang-text" id="signOutModalLabel" data-en="Confirm Sign Out" data-es="Confirmar Cierre de Sesión" data-jp="サインアウトの確認">Confirm Sign Out</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="lang-text" data-en="Are you sure you want to sign out?" data-es="¿Está seguro de que desea cerrar la sesión?" data-jp="サインアウトしてもよろしいですか？">Are you sure you want to sign out?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <a href="{{ url_for('logout') }}" class="btn btn-primary btn-sm lang-text" data-en="Sign Out" data-es="Cerrar Sesión" data-jp="サインアウト">Sign Out</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create/Edit Part Number Modal -->
+        <div class="modal fade" id="partNumberModal" tabindex="-1" aria-labelledby="partNumberModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="partNumberModalLabel">
+                            <span class="lang-text" data-en="Create Part Number" data-es="Crear Número de Parte" data-jp="部品番号を作成">Create Part Number</span>
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="partNumberForm">
+                            <!-- Basic Information -->
+                            <div class="form-section">
+                                <div class="form-section-title lang-text" data-en="Basic Information" data-es="Información Básica" data-jp="基本情報">Basic Information</div>
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <label for="partNumber" class="form-label lang-text" data-en="Part Number" data-es="Número de Parte" data-jp="部品番号">Part Number</label>
+                                        <input type="text" class="form-control" id="partNumber" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="partName" class="form-label lang-text" data-en="Part Name" data-es="Nombre de la Parte" data-jp="部品名">Part Name</label>
+                                        <input type="text" class="form-control" id="partName" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="totalLength" class="form-label lang-text" data-en="Total Length (mm)" data-es="Longitud Total (mm)" data-jp="全長 (mm)">Total Length (mm)</label>
+                                        <input type="number" class="form-control" id="totalLength" step="0.1" min="0" required>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Visual Preview -->
+                            <div class="form-section">
+                                <div class="form-section-title lang-text" data-en="Visual Preview" data-es="Vista Previa Visual" data-jp="ビジュアルプレビュー">Visual Preview</div>
+                                <div id="visualPreview" style="min-height: 100px; border: 1px solid #dee2e6; border-radius: 6px; padding: 20px; background: #f8f9fa;">
+                                    <div class="text-center text-muted">
+                                        <span class="lang-text" data-en="Enter total length to see preview" data-es="Ingrese la longitud total para ver la vista previa" data-jp="プレビューを表示するには全長を入力してください">Enter total length to see preview</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Tape Requirements -->
+                            <div class="form-section">
+                                <div class="form-section-title lang-text" data-en="Tape Requirements" data-es="Requisitos de Cinta" data-jp="テープ要件">Tape Requirements</div>
+                                <div id="tapeContainer">
+                                    <!-- Dynamic tape items will be added here -->
+                                </div>
+                                <button type="button" class="btn btn-add" onclick="addTape()">
+                                    <i class="bi bi-plus"></i> <span class="lang-text" data-en="Add Tape" data-es="Agregar Cinta" data-jp="テープを追加">Add Tape</span>
+                                </button>
+                            </div>
+
+                            <!-- Stamp Requirements -->
+                            <div class="form-section">
+                                <div class="form-section-title lang-text" data-en="Stamp Requirements" data-es="Requisitos de Sello" data-jp="スタンプ要件">Stamp Requirements</div>
+                                <div id="stampContainer">
+                                    <!-- Dynamic stamp items will be added here -->
+                                </div>
+                                <button type="button" class="btn btn-add" onclick="addStamp()">
+                                    <i class="bi bi-plus"></i> <span class="lang-text" data-en="Add Stamp" data-es="Agregar Sello" data-jp="スタンプを追加">Add Stamp</span>
+                                </button>
+                            </div>
+
+                            <!-- Insertion Requirements -->
+                            <div class="form-section">
+                                <div class="form-section-title lang-text" data-en="Insertion Requirements" data-es="Requisitos de Inserción" data-jp="挿入要件">Insertion Requirements</div>
+                                <div id="insertionContainer">
+                                    <!-- Dynamic insertion items will be added here -->
+                                </div>
+                                <button type="button" class="btn btn-add" onclick="addInsertion()">
+                                    <i class="bi bi-plus"></i> <span class="lang-text" data-en="Add Insertion" data-es="Agregar Inserción" data-jp="挿入を追加">Add Insertion</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <span class="lang-text" data-en="Cancel" data-es="Cancelar" data-jp="キャンセル">Cancel</span>
+                        </button>
+                        <button type="button" class="btn btn-create" onclick="savePartNumber()">
+                            <span class="lang-text" data-en="Save Part Number" data-es="Guardar Número de Parte" data-jp="部品番号を保存">Save Part Number</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <header class="header py-2 px-4 d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center">
+                <a href="{{ url_for('engineering') }}" class="back-button me-3">
+                    <i class="bi bi-arrow-left"></i>
+                    <span class="ms-2 lang-text" data-en="Back to Engineering" data-es="Volver a Ingeniería" data-jp="エンジニアリングに戻る">Back to Engineering</span>
+                </a>
+            </div>
+            <div class="d-flex align-items-center">
+                <div class="language-selector me-4">
+                    <a href="#" class="active" onclick="changeLanguage('en'); return false;">English</a>
+                    <a href="#" class="ms-3" onclick="changeLanguage('es'); return false;">Español</a>
+                    <a href="#" class="ms-3" onclick="changeLanguage('jp'); return false;">日本語</a>
+                </div>
+                <div class="user-info d-flex align-items-center">
+                    <div class="user-avatar me-2">
+                        <div class="avatar-circle">
+                            <i class="bi bi-person-fill"></i>
+                        </div>
+                    </div>
+                    <div class="user-details">
+                        <div class="operator-name">{{ username }}</div>
+                        <a href="#" onclick="showSignOutModal(); return false;" class="sign-out lang-text" data-en="Sign Out" data-es="Cerrar Sesión" data-jp="サインアウト">Sign Out</a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="main-content p-4">
+            <div class="d-flex align-items-center justify-content-between mb-4">
+                <div class="d-flex align-items-center">
+                    <div class="me-3">
+                        <div class="d-inline-block" style="background-color: #12B7F5; width: 8px; height: 30px; margin-right: 10px;"></div>
+                    </div>
+                    <h1 class="engineering-title lang-text" data-en="Process Creation (WI - I)" data-es="Creación de Proceso (WI - I)" data-jp="プロセス作成 (WI - I)">Process Creation (WI - I)</h1>
+                </div>
+                <button class="btn btn-create" onclick="showCreateModal()">
+                    <i class="bi bi-plus"></i> <span class="lang-text" data-en="Create New Part Number" data-es="Crear Nuevo Número de Parte" data-jp="新しい部品番号を作成">Create New Part Number</span>
+                </button>
+            </div>
+            
+            <div class="row">
+                <div class="col-12">
+                    {% if part_data %}
+                        {% for item in part_data %}
+                        <div class="part-card">
+                            <div class="part-header">
+                                <div>
+                                    <div class="part-number">{{ item.part.part_number }}</div>
+                                    <div class="part-name">{{ item.part.name }}</div>
+                                    <div class="text-info mb-2">
+                                        <strong class="lang-text" data-en="Total Length" data-es="Longitud Total" data-jp="全長">Total Length</strong>: {{ item.part.total_length }}mm
+                                    </div>
+                                    <small class="text-muted">
+                                        <span class="lang-text" data-en="Created by" data-es="Creado por" data-jp="作成者">Created by</span>: {{ item.part.created_by }} | 
+                                        <span class="lang-text" data-en="Updated" data-es="Actualizado" data-jp="更新日">Updated</span>: {{ item.part.updated_at.strftime('%Y-%m-%d %H:%M') }}
+                                    </small>
+                                </div>
+                                <div>
+                                    <button class="btn btn-sm btn-outline-primary me-2" onclick="editPartNumber({{ item.part.id }})">
+                                        <i class="bi bi-pencil"></i> <span class="lang-text" data-en="Edit" data-es="Editar" data-jp="編集">Edit</span>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="deletePartNumber({{ item.part.id }})">
+                                        <i class="bi bi-trash"></i> <span class="lang-text" data-en="Delete" data-es="Eliminar" data-jp="削除">Delete</span>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Visual Preview -->
+                            <div class="mb-3">
+                                <div class="requirement-title lang-text" data-en="Visual Preview" data-es="Vista Previa Visual" data-jp="ビジュアルプレビュー">Visual Preview</div>
+                                <div id="partPreview_{{ item.part.id }}"></div>
+                            </div>
+                            
+                            <div class="row">
+                                {% if item.tapes %}
+                                <div class="col-md-4">
+                                    <div class="requirement-section">
+                                        <div class="requirement-title lang-text" data-en="Tape Requirements" data-es="Requisitos de Cinta" data-jp="テープ要件">Tape Requirements</div>
+                                        {% for tape in item.tapes %}
+                                        <div class="requirement-item">
+                                            <strong class="lang-text" data-en="Color" data-es="Color" data-jp="色">Color</strong>: {{ tape.color }}<br>
+                                            <strong class="lang-text" data-en="Width" data-es="Ancho" data-jp="幅">Width</strong>: {{ tape.width }}mm<br>
+                                            <strong class="lang-text" data-en="Position" data-es="Posición" data-jp="位置">Position</strong>: {{ tape.position }}mm
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                                
+                                {% if item.stamps %}
+                                <div class="col-md-4">
+                                    <div class="requirement-section">
+                                        <div class="requirement-title lang-text" data-en="Stamp Requirements" data-es="Requisitos de Sello" data-jp="スタンプ要件">Stamp Requirements</div>
+                                        {% for stamp in item.stamps %}
+                                        <div class="requirement-item">
+                                            <strong class="lang-text" data-en="Color" data-es="Color" data-jp="色">Color</strong>: {{ stamp.color }}<br>
+                                            <strong class="lang-text" data-en="Position" data-es="Posición" data-jp="位置">Position</strong>: {{ stamp.position }}mm
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                                
+                                {% if item.insertions %}
+                                <div class="col-md-4">
+                                    <div class="requirement-section">
+                                        <div class="requirement-title lang-text" data-en="Insertion Requirements" data-es="Requisitos de Inserción" data-jp="挿入要件">Insertion Requirements</div>
+                                        {% for insertion in item.insertions %}
+                                        <div class="requirement-item">
+                                            <strong class="lang-text" data-en="Side" data-es="Lado" data-jp="側面">Side</strong>: {{ insertion.side }}<br>
+                                            <strong class="lang-text" data-en="Component" data-es="Componente" data-jp="コンポーネント">Component</strong>: {{ insertion.component }}
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="bi bi-info-circle" style="font-size: 3rem; color: #12B7F5;"></i>
+                            <h3 class="mt-3 lang-text" data-en="No Part Numbers Created" data-es="No se han creado números de parte" data-jp="部品番号が作成されていません">No Part Numbers Created</h3>
+                            <p class="text-muted lang-text" data-en="Click the 'Create New Part Number' button to get started." data-es="Haga clic en el botón 'Crear Nuevo Número de Parte' para comenzar." data-jp="「新しい部品番号を作成」ボタンをクリックして開始してください。">Click the 'Create New Part Number' button to get started.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentEditId = null;
+        let tapeCounter = 0;
+        let stampCounter = 0;
+        let insertionCounter = 0;
+
+        function changeLanguage(lang) {
+            // Update active class on language selector
+            document.querySelectorAll('.language-selector a').forEach(el => {
+                el.classList.remove('active');
+            });
+            document.querySelector(`.language-selector a[onclick*="'${lang}'"]`).classList.add('active');
+            
+            // Update all language elements
+            document.querySelectorAll('.lang-text').forEach(el => {
+                if (el.dataset[lang]) {
+                    el.textContent = el.dataset[lang];
+                }
+            });
+            
+            // Save language preference to database via AJAX
+            fetch('/set_language', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ language: lang }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Language preference saved:', data);
+            })
+            .catch(error => {
+                console.error('Error saving language preference:', error);
+            });
+        }
+        
+        function showSignOutModal() {
+            const signOutModal = new bootstrap.Modal(document.getElementById('signOutModal'));
+            signOutModal.show();
+        }
+
+        function showCreateModal() {
+            currentEditId = null;
+            document.getElementById('partNumberModalLabel').querySelector('.lang-text').textContent = 
+                document.getElementById('partNumberModalLabel').querySelector('.lang-text').dataset[getCurrentLanguage()] || 'Create Part Number';
+            clearForm();
+            const modal = new bootstrap.Modal(document.getElementById('partNumberModal'));
+            modal.show();
+        }
+
+        function editPartNumber(partId) {
+            currentEditId = partId;
+            document.getElementById('partNumberModalLabel').querySelector('.lang-text').textContent = 'Edit Part Number';
+            
+            // Fetch part number data
+            fetch(`/get_part_number/${partId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        populateForm(data.part);
+                        const modal = new bootstrap.Modal(document.getElementById('partNumberModal'));
+                        modal.show();
+                    } else {
+                        alert('Error loading part number: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error loading part number');
+                });
+        }
+
+        function deletePartNumber(partId) {
+            if (confirm('Are you sure you want to delete this part number?')) {
+                fetch(`/delete_part_number/${partId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Error deleting part number: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error deleting part number');
+                });
+            }
+        }
+
+        function clearForm() {
+            document.getElementById('partNumber').value = '';
+            document.getElementById('partName').value = '';
+            document.getElementById('totalLength').value = '';
+            document.getElementById('tapeContainer').innerHTML = '';
+            document.getElementById('stampContainer').innerHTML = '';
+            document.getElementById('insertionContainer').innerHTML = '';
+            tapeCounter = 0;
+            stampCounter = 0;
+            insertionCounter = 0;
+            
+            // Clear visual preview
+            updateVisualPreview();
+        }
+
+        function populateForm(part) {
+            document.getElementById('partNumber').value = part.part_number;
+            document.getElementById('partName').value = part.name;
+            document.getElementById('totalLength').value = part.total_length || '';
+            
+            // Clear containers
+            document.getElementById('tapeContainer').innerHTML = '';
+            document.getElementById('stampContainer').innerHTML = '';
+            document.getElementById('insertionContainer').innerHTML = '';
+            
+            // Populate tapes
+            part.tapes.forEach(tape => {
+                addTape(tape);
+            });
+            
+            // Populate stamps
+            part.stamps.forEach(stamp => {
+                addStamp(stamp);
+            });
+            
+            // Populate insertions
+            part.insertions.forEach(insertion => {
+                addInsertion(insertion);
+            });
+            
+            // Update visual preview
+            updateVisualPreview();
+        }
+
+        function addTape(data = null) {
+            const container = document.getElementById('tapeContainer');
+            const tapeId = tapeCounter++;
+            
+            const tapeHtml = `
+                <div class="dynamic-item" id="tape-${tapeId}">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label class="form-label lang-text" data-en="Color" data-es="Color" data-jp="色">Color</label>
+                            <select class="form-control tape-color" required>
+                                <option value="">Select Color</option>
+                                <option value="black" ${data && data.color === 'black' ? 'selected' : ''}>Black</option>
+                                <option value="yellow" ${data && data.color === 'yellow' ? 'selected' : ''}>Yellow</option>
+                                <option value="green" ${data && data.color === 'green' ? 'selected' : ''}>Green</option>
+                                <option value="red" ${data && data.color === 'red' ? 'selected' : ''}>Red</option>
+                                <option value="white" ${data && data.color === 'white' ? 'selected' : ''}>White</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label lang-text" data-en="Width (mm)" data-es="Ancho (mm)" data-jp="幅 (mm)">Width (mm)</label>
+                            <input type="number" step="0.1" class="form-control tape-width" value="${data ? data.width : ''}" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label lang-text" data-en="Position (mm)" data-es="Posición (mm)" data-jp="位置 (mm)">Position (mm)</label>
+                            <input type="number" step="0.1" class="form-control tape-position" value="${data ? data.position : ''}" required>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button type="button" class="btn btn-remove" onclick="removeTape(${tapeId})">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            container.insertAdjacentHTML('beforeend', tapeHtml);
+            updateVisualPreview(); // Update preview when tape is added
+        }
+
+        function removeTape(tapeId) {
+            document.getElementById(`tape-${tapeId}`).remove();
+            updateVisualPreview(); // Update preview when tape is removed
+        }
+
+        function addStamp(data = null) {
+            const container = document.getElementById('stampContainer');
+            const stampId = stampCounter++;
+            
+            const stampHtml = `
+                <div class="dynamic-item" id="stamp-${stampId}">
+                    <div class="row">
+                        <div class="col-md-5">
+                            <label class="form-label lang-text" data-en="Color" data-es="Color" data-jp="色">Color</label>
+                            <select class="form-control stamp-color" required>
+                                <option value="">Select Color</option>
+                                <option value="yellow" ${data && data.color === 'yellow' ? 'selected' : ''}>Yellow</option>
+                                <option value="white" ${data && data.color === 'white' ? 'selected' : ''}>White</option>
+                                <option value="red" ${data && data.color === 'red' ? 'selected' : ''}>Red</option>
+                            </select>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label lang-text" data-en="Position (mm)" data-es="Posición (mm)" data-jp="位置 (mm)">Position (mm)</label>
+                            <input type="number" step="0.1" class="form-control stamp-position" value="${data ? data.position : ''}" required>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button type="button" class="btn btn-remove" onclick="removeStamp(${stampId})">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            container.insertAdjacentHTML('beforeend', stampHtml);
+            updateVisualPreview(); // Update preview when stamp is added
+        }
+
+        function removeStamp(stampId) {
+            document.getElementById(`stamp-${stampId}`).remove();
+            updateVisualPreview(); // Update preview when stamp is removed
+        }
+
+        function addInsertion(data = null) {
+            const container = document.getElementById('insertionContainer');
+            const insertionId = insertionCounter++;
+            
+            const insertionHtml = `
+                <div class="dynamic-item" id="insertion-${insertionId}">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <label class="form-label lang-text" data-en="Side" data-es="Lado" data-jp="側面">Side</label>
+                            <select class="form-control insertion-side" required onchange="updateComponentOptions(${insertionId})">
+                                <option value="">Select Side</option>
+                                <option value="A" ${data && data.side === 'A' ? 'selected' : ''}>A</option>
+                                <option value="B" ${data && data.side === 'B' ? 'selected' : ''}>B</option>
+                            </select>
+                        </div>
+                        <div class="col-md-7">
+                            <label class="form-label lang-text" data-en="Component" data-es="Componente" data-jp="コンポーネント">Component</label>
+                            <select class="form-control insertion-component" id="component-${insertionId}" required>
+                                <option value="">Select Component</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button type="button" class="btn btn-remove" onclick="removeInsertion(${insertionId})">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            container.insertAdjacentHTML('beforeend', insertionHtml);
+            
+            // If data is provided, set the initial component options and selection
+            if (data && data.side) {
+                updateComponentOptions(insertionId, data.component);
+            }
+            
+            updateVisualPreview(); // Update preview when insertion is added
+        }
+
+        function removeInsertion(insertionId) {
+            document.getElementById(`insertion-${insertionId}`).remove();
+            updateVisualPreview(); // Update preview when insertion is removed
+        }
+
+        function savePartNumber() {
+            const partNumber = document.getElementById('partNumber').value;
+            const partName = document.getElementById('partName').value;
+            const totalLength = document.getElementById('totalLength').value;
+            
+            if (!partNumber || !partName || !totalLength) {
+                alert('Part number, name, and total length are required');
+                return;
+            }
+            
+            // Collect tapes
+            const tapes = [];
+            document.querySelectorAll('#tapeContainer .dynamic-item').forEach(item => {
+                const color = item.querySelector('.tape-color').value;
+                const width = item.querySelector('.tape-width').value;
+                const position = item.querySelector('.tape-position').value;
+                
+                if (color && width && position) {
+                    tapes.push({ color, width, position });
+                }
+            });
+            
+            // Collect stamps
+            const stamps = [];
+            document.querySelectorAll('#stampContainer .dynamic-item').forEach(item => {
+                const color = item.querySelector('.stamp-color').value;
+                const position = item.querySelector('.stamp-position').value;
+                
+                if (color && position) {
+                    stamps.push({ color, position });
+                }
+            });
+            
+            // Collect insertions
+            const insertions = [];
+            document.querySelectorAll('#insertionContainer .dynamic-item').forEach(item => {
+                const side = item.querySelector('.insertion-side').value;
+                const component = item.querySelector('.insertion-component').value;
+                
+                if (side && component) {
+                    insertions.push({ side, component });
+                }
+            });
+            
+            const data = {
+                part_number: partNumber,
+                name: partName,
+                total_length: totalLength,
+                tapes: tapes,
+                stamps: stamps,
+                insertions: insertions
+            };
+            
+            const url = currentEditId ? `/update_part_number/${currentEditId}` : '/create_part_number';
+            
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error saving part number: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error saving part number');
+            });
+        }
+
+        function getCurrentLanguage() {
+            const activeLink = document.querySelector('.language-selector a.active');
+            if (activeLink.textContent === 'English') return 'en';
+            if (activeLink.textContent === 'Español') return 'es';
+            if (activeLink.textContent === '日本語') return 'jp';
+            return 'en';
+        }
+        
+        function updateVisualPreview() {
+            const totalLength = parseFloat(document.getElementById('totalLength').value) || 0;
+            const previewContainer = document.getElementById('visualPreview');
+            
+            if (totalLength <= 0) {
+                previewContainer.innerHTML = '<p class="text-muted lang-text" data-en="Enter total length to see preview" data-es="Ingrese la longitud total para ver la vista previa" data-jp="プレビューを表示するには全長を入力してください">Enter total length to see preview</p>';
+                return;
+            }
+            
+            // Create scale bar (max width 400px)
+            const maxWidth = 400;
+            const scale = maxWidth / totalLength;
+            
+            let previewHtml = `
+                <div style="display: flex; justify-content: center; margin: 20px 0;">
+                    <div class="preview-scale-bar" style="width: ${maxWidth}px; height: 60px; border: 2px solid #333; position: relative; background: #f8f9fa;">
+                        <div style="position: absolute; top: -25px; left: 0; font-size: 12px;">0mm</div>
+                        <div style="position: absolute; top: -25px; right: 0; font-size: 12px;">${totalLength}mm</div>
+            `;
+            
+            // Add Side A Connector (left side)
+            previewHtml += `
+                        <div style="position: absolute; left: -20px; top: 15px; width: 18px; height: 30px; background-color: #666; border: 2px solid #333; border-radius: 3px;" title="Side A Connector"></div>
+                        <div style="position: absolute; left: -30px; top: 50px; font-size: 10px; font-weight: bold; color: #333;">A</div>
+            `;
+            
+            // Add Side B Connector (right side)
+            previewHtml += `
+                        <div style="position: absolute; right: -20px; top: 15px; width: 18px; height: 30px; background-color: #666; border: 2px solid #333; border-radius: 3px;" title="Side B Connector"></div>
+                        <div style="position: absolute; right: -30px; top: 50px; font-size: 10px; font-weight: bold; color: #333;">B</div>
+            `;
+            
+            // Add tapes
+            document.querySelectorAll('#tapeContainer .dynamic-item').forEach(item => {
+                const color = item.querySelector('.tape-color').value;
+                const width = parseFloat(item.querySelector('.tape-width').value) || 0;
+                const position = parseFloat(item.querySelector('.tape-position').value) || 0;
+                
+                if (color && width > 0 && position >= 0 && position <= totalLength) {
+                    const leftPos = position * scale;
+                    const tapeWidth = Math.max(width * scale, 2); // Minimum 2px width for visibility
+                    
+                    previewHtml += `
+                        <div style="position: absolute; left: ${leftPos}px; top: 10px; width: ${tapeWidth}px; height: 40px; background-color: ${color.toLowerCase()}; border: 1px solid #000; opacity: 0.8;" title="Tape: ${color} at ${position}mm"></div>
+                    `;
+                }
+            });
+            
+            // Add stamps (made bigger)
+            document.querySelectorAll('#stampContainer .dynamic-item').forEach(item => {
+                const color = item.querySelector('.stamp-color').value;
+                const position = parseFloat(item.querySelector('.stamp-position').value) || 0;
+                
+                if (color && position >= 0 && position <= totalLength) {
+                    const leftPos = position * scale - 5; // Center the 10px square
+                    
+                    previewHtml += `
+                        <div style="position: absolute; left: ${leftPos}px; top: 25px; width: 10px; height: 10px; background-color: ${color.toLowerCase()}; border: 1px solid #000;" title="Stamp: ${color} at ${position}mm"></div>
+                    `;
+                }
+            });
+            
+            // Check for insertion components and highlight connector sides
+            const sideAComponents = [];
+            const sideBComponents = [];
+            
+            document.querySelectorAll('#insertionContainer .dynamic-item').forEach(item => {
+                const side = item.querySelector('.insertion-side').value;
+                const component = item.querySelector('.insertion-component').value;
+                
+                if (side && component) {
+                    if (side === 'A') {
+                        sideAComponents.push(component);
+                    } else if (side === 'B') {
+                        sideBComponents.push(component);
+                    }
+                }
+            });
+            
+            // Add component indicators for connectors
+            if (sideAComponents.length > 0) {
+                previewHtml += `
+                    <div style="position: absolute; left: -45px; top: 15px; width: 20px; height: 30px; background-color: #28a745; border: 2px solid #1e7e34; border-radius: 3px; opacity: 0.8;" title="Side A Components: ${sideAComponents.join(', ')}"></div>
+                `;
+            }
+            
+            if (sideBComponents.length > 0) {
+                previewHtml += `
+                    <div style="position: absolute; right: -45px; top: 15px; width: 20px; height: 30px; background-color: #28a745; border: 2px solid #1e7e34; border-radius: 3px; opacity: 0.8;" title="Side B Components: ${sideBComponents.join(', ')}"></div>
+                `;
+            }
+            
+            previewHtml += `
+                    </div>
+                </div>
+            `;
+            
+            previewContainer.innerHTML = previewHtml;
+        }
+        
+        function updateComponentOptions(insertionId, selectedComponent = null) {
+            const sideSelect = document.querySelector(`#insertion-${insertionId} .insertion-side`);
+            const componentSelect = document.getElementById(`component-${insertionId}`);
+            const selectedSide = sideSelect.value;
+            
+            // Clear existing options
+            componentSelect.innerHTML = '<option value="">Select Component</option>';
+            
+            if (selectedSide === 'A') {
+                // Fetch joints for Side A
+                fetch('/get_joints')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            data.joints.forEach(joint => {
+                                const option = document.createElement('option');
+                                option.value = joint.model;
+                                option.textContent = joint.model;
+                                if (selectedComponent && joint.model === selectedComponent) {
+                                    option.selected = true;
+                                }
+                                componentSelect.appendChild(option);
+                            });
+                        }
+                    })
+                    .catch(error => console.error('Error fetching joints:', error));
+            } else if (selectedSide === 'B') {
+                // Fetch nozzles for Side B
+                fetch('/get_nozzles')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            data.nozzles.forEach(nozzle => {
+                                const option = document.createElement('option');
+                                option.value = nozzle.model;
+                                option.textContent = nozzle.model;
+                                if (selectedComponent && nozzle.model === selectedComponent) {
+                                    option.selected = true;
+                                }
+                                componentSelect.appendChild(option);
+                            });
+                        }
+                    })
+                    .catch(error => console.error('Error fetching nozzles:', error));
+            }
+        }
+        
+        function createPartPreview(part) {
+            if (!part.total_length || part.total_length <= 0) {
+                return '<p class="text-muted small">No preview available</p>';
+            }
+            
+            const totalLength = parseFloat(part.total_length);
+            const maxWidth = 300; // Smaller for list view
+            const scale = maxWidth / totalLength;
+            
+            let previewHtml = `
+                <div style="display: flex; justify-content: center; margin: 10px 0;">
+                    <div style="width: ${maxWidth}px; height: 40px; border: 2px solid #333; position: relative; background: #f8f9fa;">
+                        <div style="position: absolute; top: -20px; left: 0; font-size: 10px;">0mm</div>
+                        <div style="position: absolute; top: -20px; right: 0; font-size: 10px;">${totalLength}mm</div>
+            `;
+            
+            // Add Side A Connector
+            previewHtml += `
+                        <div style="position: absolute; left: -15px; top: 10px; width: 12px; height: 20px; background-color: #666; border: 1px solid #333; border-radius: 2px;" title="Side A"></div>
+                        <div style="position: absolute; left: -20px; top: 32px; font-size: 8px; font-weight: bold;">A</div>
+            `;
+            
+            // Add Side B Connector
+            previewHtml += `
+                        <div style="position: absolute; right: -15px; top: 10px; width: 12px; height: 20px; background-color: #666; border: 1px solid #333; border-radius: 2px;" title="Side B"></div>
+                        <div style="position: absolute; right: -20px; top: 32px; font-size: 8px; font-weight: bold;">B</div>
+            `;
+            
+            // Add tapes
+            if (part.tapes) {
+                part.tapes.forEach(tape => {
+                    const position = parseFloat(tape.position) || 0;
+                    const width = parseFloat(tape.width) || 0;
+                    
+                    if (position >= 0 && position <= totalLength && width > 0) {
+                        const leftPos = position * scale;
+                        const tapeWidth = Math.max(width * scale, 2);
+                        
+                        previewHtml += `
+                            <div style="position: absolute; left: ${leftPos}px; top: 5px; width: ${tapeWidth}px; height: 30px; background-color: ${tape.color.toLowerCase()}; border: 1px solid #000; opacity: 0.8;" title="Tape: ${tape.color}"></div>
+                        `;
+                    }
+                });
+            }
+            
+            // Add stamps (bigger)
+            if (part.stamps) {
+                part.stamps.forEach(stamp => {
+                    const position = parseFloat(stamp.position) || 0;
+                    
+                    if (position >= 0 && position <= totalLength) {
+                        const leftPos = position * scale - 4; // Center the 8px square
+                        
+                        previewHtml += `
+                            <div style="position: absolute; left: ${leftPos}px; top: 16px; width: 8px; height: 8px; background-color: ${stamp.color.toLowerCase()}; border: 1px solid #000;" title="Stamp: ${stamp.color}"></div>
+                        `;
+                    }
+                });
+            }
+            
+            // Add component indicators
+            const sideAComponents = part.insertions ? part.insertions.filter(i => i.side === 'A') : [];
+            const sideBComponents = part.insertions ? part.insertions.filter(i => i.side === 'B') : [];
+            
+            if (sideAComponents.length > 0) {
+                previewHtml += `
+                    <div style="position: absolute; left: -30px; top: 10px; width: 12px; height: 20px; background-color: #28a745; border: 1px solid #1e7e34; border-radius: 2px; opacity: 0.8;" title="Side A Components"></div>
+                `;
+            }
+            
+            if (sideBComponents.length > 0) {
+                previewHtml += `
+                    <div style="position: absolute; right: -30px; top: 10px; width: 12px; height: 20px; background-color: #28a745; border: 1px solid #1e7e34; border-radius: 2px; opacity: 0.8;" title="Side B Components"></div>
+                `;
+            }
+            
+            previewHtml += `
+                    </div>
+                </div>
+            `;
+            
+            return previewHtml;
+        }
+        
+        // Load initial language preference from server
+        document.addEventListener('DOMContentLoaded', function() {
+            const initialLanguage = '{{ language }}';
+            changeLanguage(initialLanguage);
+            
+            // Initialize part previews for existing parts
+            {% for item in part_data %}
+            const partData_{{ item.part.id }} = {
+                total_length: {{ item.part.total_length or 0 }},
+                tapes: [
+                    {% for tape in item.tapes %}
+                    {
+                        color: '{{ tape.color }}',
+                        width: {{ tape.width }},
+                        position: {{ tape.position }}
+                    }{% if not loop.last %},{% endif %}
+                    {% endfor %}
+                ],
+                stamps: [
+                    {% for stamp in item.stamps %}
+                    {
+                        color: '{{ stamp.color }}',
+                        position: {{ stamp.position }}
+                    }{% if not loop.last %},{% endif %}
+                    {% endfor %}
+                ],
+                insertions: [
+                    {% for insertion in item.insertions %}
+                    {
+                        side: '{{ insertion.side }}',
+                        component: '{{ insertion.component }}'
+                    }{% if not loop.last %},{% endif %}
+                    {% endfor %}
+                ]
+            };
+            document.getElementById('partPreview_{{ item.part.id }}').innerHTML = createPartPreview(partData_{{ item.part.id }});
+            {% endfor %}
+            
+            // Add event listeners for real-time preview updates
+            if (document.getElementById('totalLength')) {
+                document.getElementById('totalLength').addEventListener('input', updateVisualPreview);
+            }
+            
+            // Add event listeners for dynamic content (using event delegation)
+             document.addEventListener('input', function(e) {
+                 if (e.target.matches('.tape-color, .tape-width, .tape-position, .stamp-color, .stamp-position, .insertion-side, .insertion-component')) {
+                     updateVisualPreview();
+                 }
+             });
+        });
+    </script>
+</body>
+</html>

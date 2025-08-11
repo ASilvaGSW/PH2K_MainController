@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POWER HOSE 2K</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="container-fluid min-vh-100 g-0">
+        <div class="row g-0 min-vh-100">
+            <div class="col-12 col-md-5 left-panel d-flex align-items-center justify-content-center">
+                <div class="content-box px-4">
+                    <div class="logo"></div>
+                    <h1 class="title mb-1">POWER HOSE 2K</h1>
+                    <p class="subtitle">“Accurate, Fast, Friendly”</p>
+                    <p class="description mt-4">A powerful too easy-to-use application for managing Power Hose 2K machine data.</p>
+                </div>
+            </div>
+            <div class="col-12 col-md-7 right-panel d-flex flex-column align-items-center justify-content-center position-relative p-4 p-md-5">
+                <div class="language-selector position-absolute top-0 end-0 p-3">
+                    <a href="#" class="active" onclick="changeLanguage('en'); return false;">English</a>
+                    <a href="#" class="ms-3" onclick="changeLanguage('es'); return false;">Español</a>
+                    <a href="#" class="ms-3" onclick="changeLanguage('jp'); return false;">日本語</a>
+                </div>
+                <div class="login-form w-100" style="max-width: 420px;">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                    <form method="POST" action="{{ url_for('welcome') }}" id="loginForm">
+                        <div class="mb-4">
+                            <label for="userId" class="form-label lang-label" data-en="User ID" data-es="ID de Usuario" data-jp="ユーザーID">User ID</label>
+                            <input type="text" class="form-control input-underline" id="userId" name="userId" placeholder="Enter your user ID">
+                        </div>
+                        <div class="mb-4">
+                            <label for="password" class="form-label lang-label" data-en="Password" data-es="Contraseña" data-jp="パスワード">Password</label>
+                            <input type="password" class="form-control input-underline" id="password" name="password" placeholder="Enter your password">
+                        </div>
+                        <input type="hidden" id="badgeId" name="badgeId">
+                        <button type="submit" class="btn btn-primary w-100 mb-3 lang-btn" data-en="Login" data-es="Iniciar Sesión" data-jp="ログイン">Login</button>
+                        <button type="button" class="btn btn-scan w-100 lang-btn" data-en="Scan Badge" data-es="Escanear Credencial" data-jp="バッジをスキャン" data-bs-toggle="modal" data-bs-target="#scanBadgeModal">Scan Badge</button>
+                    </form>
+                    <div class="contact-info mt-4 text-muted small text-center">
+                        <p class="mb-1 lang-text" data-en="Need Help? Please Contact R&D" data-es="¿Necesita ayuda? Contacte a I+D" data-jp="ヘルプが必要ですか？R&Dにお問い合わせください">Need Help? Please Contact R&D</p>
+                        <p class="mb-0"><i class="bi bi-telephone me-2"></i>Ext. 1250-1257 <span class="mx-2">|</span> <i class="bi bi-envelope me-2"></i>asilva@gswiring.com</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Badge Scanner Modal -->
+    <div class="modal fade" id="scanBadgeModal" tabindex="-1" aria-labelledby="scanBadgeModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title lang-modal-title" id="scanBadgeModalLabel" data-en="Scan Your Badge" data-es="Escanee Su Credencial" data-jp="バッジをスキャンしてください">Scan Your Badge</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <div class="mb-4">
+                        <i class="bi bi-upc-scan" style="font-size: 3rem;"></i>
+                    </div>
+                    <p class="lang-modal-text" data-en="Please scan your badge now" data-es="Por favor escanee su credencial ahora" data-jp="バッジを今すぐスキャンしてください">Please scan your badge now</p>
+                    <input type="text" id="badgeScanInput" class="form-control" autofocus>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary lang-modal-cancel" data-bs-dismiss="modal" data-en="Cancel" data-es="Cancelar" data-jp="キャンセル">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function changeLanguage(lang) {
+            // Update active class on language selector
+            document.querySelectorAll('.language-selector a').forEach(el => {
+                el.classList.remove('active');
+            });
+            document.querySelector(`.language-selector a[onclick*="'${lang}'"]`).classList.add('active');
+            
+            // Update all language elements
+            document.querySelectorAll('.lang-label, .lang-btn, .lang-text, .lang-modal-title, .lang-modal-text, .lang-modal-cancel').forEach(el => {
+                if (el.dataset[lang]) {
+                    el.textContent = el.dataset[lang];
+                }
+            });
+            
+            // Update placeholders based on language
+            if (lang === 'en') {
+                document.getElementById('userId').placeholder = 'Enter your user ID';
+                document.getElementById('password').placeholder = 'Enter your password';
+            } else if (lang === 'es') {
+                document.getElementById('userId').placeholder = 'Ingrese su ID de usuario';
+                document.getElementById('password').placeholder = 'Ingrese su contraseña';
+            } else if (lang === 'jp') {
+                document.getElementById('userId').placeholder = 'ユーザーIDを入力してください';
+                document.getElementById('password').placeholder = 'パスワードを入力してください';
+            }
+        }
+
+        // Badge scanner functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const badgeModal = new bootstrap.Modal(document.getElementById('scanBadgeModal'));
+            const badgeScanInput = document.getElementById('badgeScanInput');
+            const loginForm = document.getElementById('loginForm');
+            
+            // When modal is shown, focus on the input field
+            document.getElementById('scanBadgeModal').addEventListener('shown.bs.modal', function () {
+                badgeScanInput.value = '';
+                badgeScanInput.focus();
+            });
+            
+            // Handle badge scan input
+            badgeScanInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    const badgeValue = badgeScanInput.value.trim();
+                    if (badgeValue) {
+                        // Set the badge ID in the hidden field and submit the form
+                        document.getElementById('badgeId').value = badgeValue;
+                        document.getElementById('userId').value = ''; // Clear user ID field
+                        document.getElementById('password').value = ''; // Clear password field
+                        badgeModal.hide();
+                        loginForm.submit();
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
