@@ -161,12 +161,32 @@
         </div>
     </div>
 
+    <!-- Sign Out Modal -->
+    <div class="modal fade" id="signOutModal" tabindex="-1" aria-labelledby="signOutModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title lang-text" id="signOutModalLabel" data-en="Confirm Sign Out" data-es="Confirmar Cierre de Sesión" data-jp="サインアウトの確認">Confirm Sign Out</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="lang-text" data-en="Are you sure you want to sign out?" data-es="¿Está seguro de que desea cerrar la sesión?" data-jp="サインアウトしてもよろしいですか？">Are you sure you want to sign out?</p>
+                </div>
+                <div class="modal-footer">
+                    <a href="{{ url_for('logout') }}" class="btn btn-primary lang-text" data-en="Sign Out" data-es="Cerrar Sesión" data-jp="サインアウト">Sign Out</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="operator-container">
         <header class="header py-2 px-4 d-flex justify-content-between align-items-center mb-4">
             <div class="d-flex align-items-center">
                 <a href="{{ url_for('main') }}" class="back-button me-3">
-                    <span class="ms-2 lang-text" data-en="Operator Screen" data-es="Pantalla del Operador" data-jp="オペレーター画面">Operator Screen</span>
+                    <i class="bi bi-arrow-left"></i>
+                    <span class="ms-2 lang-text" data-en="Main Menu" data-es="Menú Principal" data-jp="メインメニュー">Main Menu</span>
                 </a>
+                <span class="ms-3 lang-text" data-en="Operator Screen" data-es="Pantalla del Operador" data-jp="オペレーター画面" style="color: #3C435C; font-weight: 600;">Operator Screen</span>
             </div>
             <div class="d-flex align-items-center">
                 <div class="language-selector me-4">
@@ -182,7 +202,7 @@
                     </div>
                     <div class="user-details">
                         <div class="operator-name">{{ username }}</div>
-                        <a href="#" onclick="showExitModal(); return false;" class="sign-out lang-text" data-en="Sign Out" data-es="Cerrar Sesión" data-jp="サインアウト">Sign Out</a>
+                        <a href="#" onclick="showSignOutModal(); return false;" class="sign-out lang-text" data-en="Sign Out" data-es="Cerrar Sesión" data-jp="サインアウト">Sign Out</a>
                     </div>
                 </div>
             </div>
@@ -208,7 +228,7 @@
                     <div class="mb-3 d-flex gap-2">
                         <button class="btn btn-secondary btn-sm lang-text" data-en="Auto Run" data-es="Ejecución Automática" data-jp="自動実行">Auto Run</button>
                         <button class="btn btn-secondary btn-sm lang-text" data-en="Manual Run" data-es="Ejecución Manual" data-jp="手動実行">Manual Run</button>
-                        <button class="btn btn-info btn-sm lang-text" data-en="Live View" data-es="Vista en Vivo" data-jp="ライブビュー">Live View</button>
+                        <button class="btn btn-info btn-sm lang-text" data-en="Live View" data-es="Vista en Vivo" data-jp="ライブビュー" onclick="window.location.href='{{ url_for('live_view') }}'">Live View</button>
                     </div>
 
                     <!-- Work Orders Table -->
@@ -499,6 +519,11 @@
 
         function confirmExit() {
             window.location.href = '{{ url_for("logout") }}';
+        }
+
+        function showSignOutModal() {
+            const signOutModal = new bootstrap.Modal(document.getElementById('signOutModal'));
+            signOutModal.show();
         }
 
         // Filter work orders by part number

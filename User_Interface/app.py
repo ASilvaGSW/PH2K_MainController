@@ -3,7 +3,7 @@ from datetime import datetime, date, timedelta
 import os
 
 # Import database models
-from models import db, User, UserPreference, ProdHis, initialize_database,PartNumber,Tape,Stamp,Insertion,Nozzle,Joint,Device,DeviceType,WorkOrder
+from models import db, User, UserPreference, ProdHis, initialize_database,PartNumber,Tape,Stamp,Insertion,Nozzle,Joint,Device,DeviceType,DeviceFunction,WorkOrder
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'gswrnd2025'
@@ -114,6 +114,24 @@ def operator_screen():
                          language=language,
                          work_orders=work_orders,
                          part_numbers=part_numbers)
+
+@app.route('/live_view')
+def live_view():
+    # Check if user is logged in
+    if not session.get('logged_in'):
+        return redirect(url_for('welcome'))
+    
+    # Get user's language preference
+    username = session.get('username')
+    user_pref = UserPreference.query.filter_by(username=username).first()
+    language = 'en'  # Default language
+    
+    if user_pref:
+        language = user_pref.language
+    
+    return render_template('live_view.html', 
+                         username=username, 
+                         language=language)
 
 @app.route('/engineering')
 def engineering():
@@ -1154,6 +1172,35 @@ def delete_device_type(device_type_id):
         
     except Exception as e:
         db.session.rollback()
+        return jsonify(success=False, message=str(e)), 500
+
+# Device Function Management Routes
+@app.route('/get_device_functions/<int:device_type_id>', methods=['GET'])
+def get_device_functions(device_type_id):
+    if 'username' not in session:
+        return jsonify(success=False, message='Not authenticated'), 401
+    
+    try:
+        device_functions = DeviceFunction.query.filter_by(device_type_id=device_type_id, active=True).all()
+        
+        return jsonify(
+            success=True,
+            functions=[{
+                'id': df.id,
+                'function_id': df.function_id,
+                'description': df.description,
+                'bit0': df.bit0,
+                'bit1': df.bit1,
+                'bit2': df.bit2,
+                'bit3': df.bit3,
+                'bit4': df.bit4,
+                'bit5': df.bit5,
+                'bit6': df.bit6,
+                'bit7': df.bit7
+            } for df in device_functions]
+        )
+        
+    except Exception as e:
         return jsonify(success=False, message=str(e)), 500
 
 

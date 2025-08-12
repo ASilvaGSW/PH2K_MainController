@@ -119,6 +119,25 @@ class Device(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     active = db.Column(db.Boolean, default=True)
 
+class DeviceFunction(db.Model):
+    __tablename__ = 'device_functions'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    device_type_id = db.Column(db.Integer, db.ForeignKey('device_types.id'), nullable=False)
+    function_id = db.Column(db.Integer, nullable=False)
+    description = db.Column(db.String(200), nullable=False)
+    bit0 = db.Column(db.Boolean, default=False)
+    bit1 = db.Column(db.Boolean, default=False)
+    bit2 = db.Column(db.Boolean, default=False)
+    bit3 = db.Column(db.Boolean, default=False)
+    bit4 = db.Column(db.Boolean, default=False)
+    bit5 = db.Column(db.Boolean, default=False)
+    bit6 = db.Column(db.Boolean, default=False)
+    bit7 = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    active = db.Column(db.Boolean, default=True)
+    device_type = db.relationship('DeviceType', backref='device_functions')
+
 class WorkOrder(db.Model):
     __tablename__ = 'work_orders'
     
@@ -199,6 +218,50 @@ def initialize_database(app):
         
         db.session.add(device1)
         db.session.add(device2)
+        db.session.add(device3)
+        db.session.add(device4)
+        
+        # Create sample device functions
+        device_func1 = DeviceFunction(
+            device_type_id=device_type1.id,
+            function_id=1,
+            description='Camera capture function',
+            bit0=True,
+            bit1=False,
+            bit2=True
+        )
+        
+        device_func2 = DeviceFunction(
+            device_type_id=device_type1.id,
+            function_id=2,
+            description='Camera zoom function',
+            bit0=False,
+            bit1=True,
+            bit3=True
+        )
+        
+        device_func3 = DeviceFunction(
+            device_type_id=device_type2.id,
+            function_id=1,
+            description='Sensor reading function',
+            bit0=True,
+            bit2=True,
+            bit4=True
+        )
+        
+        device_func4 = DeviceFunction(
+            device_type_id=device_type3.id,
+            function_id=1,
+            description='Actuator movement function',
+            bit1=True,
+            bit3=True,
+            bit5=True
+        )
+        
+        db.session.add(device_func1)
+        db.session.add(device_func2)
+        db.session.add(device_func3)
+        db.session.add(device_func4)
         db.session.add(device3)
         db.session.add(device4)
         

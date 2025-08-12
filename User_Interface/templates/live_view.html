@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POWER HOSE 2K - Live View</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <style>
+        .live-view-container {
+            background: #f5f5f5;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .device-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+        
+        .device-status {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            position: absolute;
+            top: 15px;
+            right: 15px;
+        }
+        
+        .status-online {
+            background-color: #00bcd4;
+        }
+        
+        .status-offline {
+            background-color: #ff5722;
+        }
+        
+        .device-status-circle {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-left: 8px;
+        }
+        
+        .device-status-circle.online {
+            background-color: #28a745;
+            box-shadow: 0 0 4px rgba(40, 167, 69, 0.5);
+        }
+        
+        .device-status-circle.offline {
+            background-color: #dc3545;
+            box-shadow: 0 0 4px rgba(220, 53, 69, 0.5);
+        }
+        
+        .device-header {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        
+        .device-name {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .device-id {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .device-info {
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+            margin-top: 10px;
+        }
+        
+        .device-card:hover {
+            cursor: pointer;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+            transition: all 0.3s ease;
+        }
+        
+        /* Device Details Modal Styles */
+        #deviceModal .modal-content {
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        #deviceModal .modal-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .device-details {
+            margin-bottom: 30px;
+        }
+        
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .detail-label {
+            font-weight: 600;
+            color: #666;
+        }
+        
+        .detail-value {
+            color: #333;
+        }
+        
+        .functions-section {
+            margin-top: 30px;
+        }
+        
+        .functions-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        .function-card {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .function-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .function-id {
+            font-weight: 600;
+            color: #007bff;
+        }
+        
+        .function-description {
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        .bits-container {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 5px;
+        }
+        
+        .bit-item {
+            text-align: center;
+            padding: 5px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .bit-active {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .bit-inactive {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+        
+        @media (max-width: 1200px) {
+            .grid-container {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .grid-container {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .grid-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="live-view-container">
+        <!-- Sign Out Confirmation Modal -->
+        <div class="modal fade" id="signOutModal" tabindex="-1" aria-labelledby="signOutModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title lang-text" id="signOutModalLabel" data-en="Confirm Sign Out" data-es="Confirmar Cierre de Sesión" data-jp="サインアウトの確認">Confirm Sign Out</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="lang-text" data-en="Are you sure you want to sign out?" data-es="¿Está seguro de que desea cerrar la sesión?" data-jp="サインアウトしてもよろしいですか？">Are you sure you want to sign out?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <a href="{{ url_for('logout') }}" class="btn btn-primary lang-text" data-en="Sign Out" data-es="Cerrar Sesión" data-jp="サインアウト">Sign Out</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <header class="header py-2 px-4 d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center">
+                <a href="{{ url_for('operator_screen') }}" class="back-button me-3">
+                    <i class="bi bi-arrow-left-circle"></i>
+                    <span class="ms-2 lang-text" data-en="Operator Screen" data-es="Pantalla del Operador" data-jp="オペレーター画面">Operator Screen</span>
+                </a>
+                <span class="ms-3 lang-text" data-en="Live View" data-es="Vista en Vivo" data-jp="ライブビュー" style="color: #3C435C; font-weight: 600;">Live View</span>
+            </div>
+            <div class="d-flex align-items-center">
+                <div class="language-selector me-4">
+                    <a href="#" class="active" onclick="changeLanguage('en'); return false;">English</a>
+                    <a href="#" class="ms-3" onclick="changeLanguage('es'); return false;">Español</a>
+                    <a href="#" class="ms-3" onclick="changeLanguage('jp'); return false;">日本語</a>
+                </div>
+                <div class="user-info d-flex align-items-center">
+                    <div class="user-avatar me-2">
+                        <div class="avatar-circle">
+                            <i class="bi bi-person-fill"></i>
+                        </div>
+                    </div>
+                    <div class="user-details">
+                        <div class="operator-name">{{ username }}</div>
+                        <a href="#" onclick="showSignOutModal(); return false;" class="sign-out lang-text" data-en="Sign Out" data-es="Cerrar Sesión" data-jp="サインアウト">Sign Out</a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="main-content p-4">
+            <h1 class="main-title mb-5 lang-text" data-en="Live View" data-es="Vista en Vivo" data-jp="ライブビュー">Live View</h1>
+            
+            <div class="grid-container" id="devicesGrid">
+                <!-- Devices will be populated by JavaScript -->
+            </div>
+        </main>
+    </div>
+
+    <!-- Device Details Modal -->
+    <div class="modal fade" id="deviceModal" tabindex="-1" aria-labelledby="deviceModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title lang-text" data-en="Device Details" data-es="Detalles del Dispositivo" data-jp="デバイス詳細" id="deviceModalLabel">Device Details</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="device-details" id="deviceDetailsContent">
+                        <!-- Device details will be populated here -->
+                    </div>
+                    
+                    <div class="functions-section">
+                        <h3 class="functions-title lang-text" data-en="Device Functions" data-es="Funciones del Dispositivo" data-jp="デバイス機能">Device Functions</h3>
+                        <div id="deviceFunctionsContent">
+                            <!-- Device functions will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Device data will be loaded from API
+        let deviceData = [];
+
+        function renderDevices(devices) {
+             const container = document.getElementById('devicesGrid');
+             
+             if (!container) {
+                 console.error('Device container not found');
+                 return;
+             }
+             
+             if (!devices || devices.length === 0) {
+                 container.innerHTML = '<div class="no-devices lang-text" data-en="No devices found" data-es="No se encontraron dispositivos" data-jp="デバイスが見つかりません">No devices found</div>';
+                 return;
+             }
+             
+             container.innerHTML = devices.map(device => `
+                 <div class="device-card ${device.status}" onclick="openDeviceModal(${device.id})">
+                     <div class="device-status ${device.status === 'online' ? 'status-online' : 'status-offline'}"></div>
+                     <div class="device-header">
+                         <div class="device-name">${device.name}</div>
+                         <div class="device-id">ID: 0x${device.canbus_id.toString(16).toUpperCase().padStart(2, '0')}</div>
+                     </div>
+                     <div class="device-info">
+                         <span class="lang-text" data-en="Click for details" data-es="Haga clic para ver detalles" data-jp="詳細はクリック">Click for details</span>
+                     </div>
+                 </div>
+             `).join('');
+             
+             // Apply language after rendering
+             applyLanguage();
+         }
+        
+        // Device Modal Functions
+        function openDeviceModal(deviceId) {
+            const device = deviceData.find(d => d.id === deviceId);
+            if (!device) {
+                console.error('Device not found:', deviceId);
+                return;
+            }
+            
+            // Populate device details
+            const detailsContent = document.getElementById('deviceDetailsContent');
+            detailsContent.innerHTML = `
+                <div class="detail-row">
+                    <span class="detail-label lang-text" data-en="Name:" data-es="Nombre:" data-jp="名前:">Name:</span>
+                    <span class="detail-value">${device.name}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label lang-text" data-en="CAN Bus ID:" data-es="ID CAN Bus:" data-jp="CAN Bus ID:">CAN Bus ID:</span>
+                    <span class="detail-value">${device.id}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label lang-text" data-en="Device Type:" data-es="Tipo de Dispositivo:" data-jp="デバイスタイプ:">Device Type:</span>
+                    <span class="detail-value">${device.device_type}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label lang-text" data-en="Status:" data-es="Estado:" data-jp="ステータス:">Status:</span>
+                    <span class="detail-value ${device.status}">${device.status}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label lang-text" data-en="Temperature:" data-es="Temperatura:" data-jp="温度:">Temperature:</span>
+                    <span class="detail-value">${device.temp}°C</span>
+                </div>
+            `;
+            
+            // Load device functions
+             loadDeviceFunctions(device.device_type_id);
+            
+            // Show modal using Bootstrap
+            const deviceModal = new bootstrap.Modal(document.getElementById('deviceModal'));
+            deviceModal.show();
+            
+            // Apply language to modal content
+            applyLanguage();
+        }
+        
+        function closeDeviceModal() {
+            const deviceModal = bootstrap.Modal.getInstance(document.getElementById('deviceModal'));
+            if (deviceModal) {
+                deviceModal.hide();
+            }
+        }
+        
+        // Load device functions from API
+         function loadDeviceFunctions(deviceTypeId) {
+              fetch(`/get_device_functions/${deviceTypeId}`)
+                 .then(response => response.json())
+                 .then(data => {
+                     const functionsContent = document.getElementById('deviceFunctionsContent');
+                     const functions = data.functions || [];
+                     
+                     if (functions.length === 0) {
+                        functionsContent.innerHTML = '<p class="lang-text" data-en="No functions available for this device type" data-es="No hay funciones disponibles para este tipo de dispositivo" data-jp="このデバイスタイプには利用可能な機能がありません">No functions available for this device type</p>';
+                        return;
+                    }
+                    
+                    functionsContent.innerHTML = functions.map(func => `
+                        <div class="function-card">
+                            <div class="function-header">
+                                <span class="function-id lang-text" data-en="Function ${func.function_id}" data-es="Función ${func.function_id}" data-jp="機能 ${func.function_id}">Function ${func.function_id}</span>
+                            </div>
+                            <div class="function-description">${func.description}</div>
+                            <div class="bits-container">
+                                <div class="bit-item ${func.bit0 ? 'bit-active' : 'bit-inactive'}">Bit0</div>
+                                <div class="bit-item ${func.bit1 ? 'bit-active' : 'bit-inactive'}">Bit1</div>
+                                <div class="bit-item ${func.bit2 ? 'bit-active' : 'bit-inactive'}">Bit2</div>
+                                <div class="bit-item ${func.bit3 ? 'bit-active' : 'bit-inactive'}">Bit3</div>
+                                <div class="bit-item ${func.bit4 ? 'bit-active' : 'bit-inactive'}">Bit4</div>
+                                <div class="bit-item ${func.bit5 ? 'bit-active' : 'bit-inactive'}">Bit5</div>
+                                <div class="bit-item ${func.bit6 ? 'bit-active' : 'bit-inactive'}">Bit6</div>
+                                <div class="bit-item ${func.bit7 ? 'bit-active' : 'bit-inactive'}">Bit7</div>
+                            </div>
+                        </div>
+                    `).join('');
+                    
+                    // Apply language to functions content
+                    applyLanguage();
+                })
+                .catch(error => {
+                    console.error('Error loading device functions:', error);
+                    document.getElementById('deviceFunctionsContent').innerHTML = '<p class="lang-text" data-en="Error loading functions" data-es="Error al cargar funciones" data-jp="機能の読み込みエラー">Error loading functions</p>';
+                });
+        }
+        
+        function applyLanguage() {
+            const currentLang = document.querySelector('.language-selector a.active').getAttribute('onclick').match(/'([^']+)'/)[1];
+            changeLanguage(currentLang);
+        }
+        
+        // Load devices from API
+        function loadDevices() {
+            fetch('/get_devices')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Transform API data to match our display format
+                        deviceData = data.devices.map(device => ({
+                            id: device.id,
+                            name: device.name,
+                            device_type: device.device_type_name,
+                            device_type_id: device.device_type_id,
+                            canbus_id: device.canbus_id,
+                            temp: Math.floor(Math.random() * 50) + 20, // Random temp for demo
+                            status: Math.random() > 0.2 ? 'online' : 'offline' // Random status for demo
+                        }));
+                         renderDevices(deviceData);
+                        // Update language after rendering
+                        const currentLang = document.querySelector('.language-selector a.active').getAttribute('onclick').match(/'([^']+)'/)[1];
+                        changeLanguage(currentLang);
+                    } else {
+                        console.error('Failed to load devices:', data.message);
+                        deviceData = [];
+                        renderDevices(deviceData);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading devices:', error);
+                    deviceData = [];
+                    renderDevices(deviceData);
+                });
+        }
+
+        function changeLanguage(lang) {
+            // Update active class on language selector
+            document.querySelectorAll('.language-selector a').forEach(el => {
+                el.classList.remove('active');
+            });
+            document.querySelector(`.language-selector a[onclick*="'${lang}'"]`).classList.add('active');
+            
+            // Update all language elements
+            document.querySelectorAll('.lang-text').forEach(el => {
+                if (el.dataset[lang]) {
+                    el.textContent = el.dataset[lang];
+                }
+            });
+            
+            // Save language preference to database via AJAX
+            fetch('/set_language', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ language: lang }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Language preference saved:', data);
+            })
+            .catch(error => {
+                console.error('Error saving language preference:', error);
+            });
+        }
+        
+        function showSignOutModal() {
+            const signOutModal = new bootstrap.Modal(document.getElementById('signOutModal'));
+            signOutModal.show();
+        }
+        
+        // Auto-refresh device data every 5 seconds
+        function refreshDeviceData() {
+            loadDevices();
+        }
+        
+        // Load initial language preference and render devices
+        document.addEventListener('DOMContentLoaded', function() {
+            const initialLanguage = '{{ language }}';
+            changeLanguage(initialLanguage);
+            loadDevices();
+        });
+    </script>
+</body>
+</html>

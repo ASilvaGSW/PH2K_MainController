@@ -195,7 +195,7 @@
                         </form>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-primary" onclick="updateDevice()" class="lang-text" data-en="Update Device" data-es="Actualizar Dispositivo" data-jp="デバイスを更新">Update Device</button>
+                        <button type="button" class="btn btn-primary lang-text" onclick="updateDevice()" data-en="Update Device" data-es="Actualizar Dispositivo" data-jp="デバイスを更新">Update Device</button>
                     </div>
                 </div>
             </div>
@@ -206,7 +206,7 @@
             <div class="modal-dialog">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title" id="deleteModalLabel" class="lang-text" data-en="Confirm Delete" data-es="Confirmar Eliminación" data-jp="削除の確認">Confirm Delete</h5>
+                        <h5 class="modal-title lang-text" id="deleteModalLabel" data-en="Confirm Delete" data-es="Confirmar Eliminación" data-jp="削除の確認">Confirm Delete</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
@@ -214,8 +214,8 @@
                         <strong id="deleteDeviceName"></strong>?
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" class="lang-text" data-en="Cancel" data-es="Cancelar" data-jp="キャンセル">Cancel</button>
-                        <button type="button" class="btn btn-danger" onclick="confirmDelete()" class="lang-text" data-en="Delete" data-es="Eliminar" data-jp="削除">Delete</button>
+                        <button type="button" class="btn btn-secondary lang-text" data-bs-dismiss="modal" data-en="Cancel" data-es="Cancelar" data-jp="キャンセル">Cancel</button>
+                        <button type="button" class="btn btn-danger lang-text" onclick="confirmDelete()" data-en="Delete" data-es="Eliminar" data-jp="削除">Delete</button>
                     </div>
                 </div>
             </div>
@@ -301,10 +301,10 @@
                                 <td>{{ device.canbus_id }}</td>
                                 <td>
                                     <div class="action-buttons">
-                                        <button class="btn btn-sm btn-success me-1" onclick="showEditModal({{ device.id }}, '{{ device.name }}', '{{ device.device_type_id }}', '{{ device.canbus_id }})" title="Edit">
+                                        <button class="btn btn-sm btn-success me-1" onclick="showEditModal({{ device.id }}, '{{ device.name|replace("'", "\\'")|safe }}', '{{ device.device_type_id or '' }}', '{{ device.canbus_id|replace("'", "\\'")|safe }}')" title="Edit">
                                             <i class="bi bi-pencil-fill"></i>
                                         </button>
-                                        <button class="btn btn-sm btn-danger" onclick="showDeleteModal({{ device.id }}, '{{ device.name }})" title="Delete">
+                                        <button class="btn btn-sm btn-danger" onclick="showDeleteModal({{ device.id }}, '{{ device.name|replace("'", "\\'")|safe }}')" title="Delete">
                                             <i class="bi bi-trash-fill"></i>
                                         </button>
                                     </div>
