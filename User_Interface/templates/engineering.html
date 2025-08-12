@@ -69,12 +69,14 @@
             <div class="row g-4">
                 <!-- Device Management -->
                 <div class="col-md-6 col-lg-6">
-                    <div class="engineering-card">
-                        <div class="engineering-icon">
-                            <i class="bi bi-chevron-right"></i>
+                    <a href="{{ url_for('device_management') }}" class="text-decoration-none">
+                        <div class="engineering-card">
+                            <div class="engineering-icon">
+                                <i class="bi bi-chevron-right"></i>
+                            </div>
+                            <div class="card-title lang-text" data-en="Device Management" data-es="Gestión de Dispositivos" data-jp="デバイス管理">Device Management</div>
                         </div>
-                        <div class="card-title lang-text" data-en="Device Management" data-es="Gestión de Dispositivos" data-jp="デバイス管理">Device Management</div>
-                    </div>
+                    </a>
                 </div>
                 
                 <!-- Process -->
@@ -84,14 +86,14 @@
                             <div class="engineering-icon">
                                 <i class="bi bi-info-circle"></i>
                             </div>
-                            <div class="card-title lang-text" data-en="Process Creation" data-es="Creación de Proceso" data-jp="プロセス作成">Process Creation</div>
+                            <div class="card-title lang-text" data-en="Work Instruction" data-es="Instruccion de Trabajo" data-jp="ワークインストラクション">Work Instruction</div>
                             <div class="card-subtitle lang-text" data-en="(WI - I)" data-es="(WI - I)" data-jp="(WI - I)">(WI - I)</div>
                         </div>
                     </a>
                 </div>
                 
                 <!-- Routine -->
-                <div class="col-md-6 col-lg-6">
+                <!-- <div class="col-md-6 col-lg-6">
                     <div class="engineering-card">
                         <div class="engineering-icon">
                             <i class="bi bi-list-check"></i>
@@ -99,7 +101,7 @@
                         <div class="card-title lang-text" data-en="Routine Creation" data-es="Creación de Rutina" data-jp="ルーチン作成">Routine Creation</div>
                         <div class="card-subtitle lang-text" data-en="(WI - II)" data-es="(WI - II)" data-jp="(WI - II)">(WI - II)</div>
                     </div>
-                </div>
+                </div> -->
                 
                 <!-- Capacity and Rate -->
                 <div class="col-md-6 col-lg-6">

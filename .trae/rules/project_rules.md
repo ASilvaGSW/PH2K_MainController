@@ -5,3 +5,4 @@ Always considere the 3 languages in all the application
 - Japanese
 Do not run application from console I will dude automatically
 Keep consistent and responsive design all over the project
+Always update User_Interface/models.py when table need to be created

@@ -95,6 +95,30 @@ class Joint(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     active = db.Column(db.Boolean, default=True)
 
+class DeviceType(db.Model):
+    __tablename__ = 'device_types'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    created_by = db.Column(db.String(80), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    active = db.Column(db.Boolean, default=True)
+
+class Device(db.Model):
+    __tablename__ = 'devices'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    canbus_id = db.Column(db.String(10), unique=True, nullable=False)
+    device_type_id = db.Column(db.Integer, db.ForeignKey('device_types.id'), nullable=False)
+    device_type = db.relationship('DeviceType', backref='devices')
+    created_by = db.Column(db.String(80), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    active = db.Column(db.Boolean, default=True)
+
 def initialize_database(app):
     """Initialize database with sample data"""
     db.create_all()
@@ -136,6 +160,31 @@ def initialize_database(app):
         db.session.add(joint1)
         db.session.add(joint2)
         db.session.add(joint3)
+        
+        # Create sample device types
+        device_type1 = DeviceType(name='Camera', description='Vision and imaging devices', created_by='admin')
+        device_type2 = DeviceType(name='Sensor', description='Measurement and detection devices', created_by='admin')
+        device_type3 = DeviceType(name='Actuator', description='Motion and control devices', created_by='admin')
+        device_type4 = DeviceType(name='Controller', description='Processing and control units', created_by='admin')
+        
+        db.session.add(device_type1)
+        db.session.add(device_type2)
+        db.session.add(device_type3)
+        db.session.add(device_type4)
+        
+        # Commit device types first to get their IDs
+        db.session.commit()
+        
+        # Create sample devices
+        device1 = Device(name='Entity #1', canbus_id='0x101', device_type_id=device_type1.id, created_by='admin')
+        device2 = Device(name='Entity #2', canbus_id='0x102', device_type_id=device_type1.id, created_by='admin')
+        device3 = Device(name='Entity #3', canbus_id='0x103', device_type_id=device_type2.id, created_by='admin')
+        device4 = Device(name='Entity #4', canbus_id='0x104', device_type_id=device_type3.id, created_by='admin')
+        
+        db.session.add(device1)
+        db.session.add(device2)
+        db.session.add(device3)
+        db.session.add(device4)
         
         db.session.commit()
         print("Database initialized with sample data")

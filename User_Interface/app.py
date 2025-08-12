@@ -3,10 +3,10 @@ from datetime import datetime, date, timedelta
 import os
 
 # Import database models
-from models import db, User, UserPreference, ProdHis, initialize_database,PartNumber,Tape,Stamp,Insertion,Nozzle,Joint
+from models import db, User, UserPreference, ProdHis, initialize_database,PartNumber,Tape,Stamp,Insertion,Nozzle,Joint,Device,DeviceType
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key-here'
+app.config['SECRET_KEY'] = 'gswrnd2025'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:root@localhost/maincontroller'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -149,14 +149,14 @@ def production_report():
     start_of_week = today - timedelta(days=today.weekday())
     end_of_week = start_of_week + timedelta(days=6)
     
-    production_data = ProductionHistory.query.filter(
-        ProductionHistory.date >= start_of_week,
-        ProductionHistory.date <= end_of_week,
-        ProductionHistory.deleted == False
-    ).order_by(ProductionHistory.date, ProductionHistory.timestamp).all()
+    production_data = ProdHis.query.filter(
+        ProdHis.date >= start_of_week,
+        ProdHis.date <= end_of_week,
+        ProdHis.deleted == False
+    ).order_by(ProdHis.date, ProdHis.timestamp).all()
     
     # Get unique part numbers for dropdown
-    part_numbers = ProductionHistory.query.with_entities(ProductionHistory.part_number).distinct().all()
+    part_numbers = ProdHis.query.with_entities(ProdHis.part_number).distinct().all()
     part_numbers = [p[0] for p in part_numbers]
     
     return render_template('production_report.html', 
@@ -882,6 +882,252 @@ def get_joints():
         )
         
     except Exception as e:
+        return jsonify(success=False, message=str(e)), 500
+
+# Device Management Routes
+@app.route('/device_management')
+def device_management():
+    if 'username' not in session:
+        return redirect(url_for('welcome'))
+    
+    # Get user language preference
+    user_pref = UserPreference.query.filter_by(username=session['username']).first()
+    language = user_pref.language if user_pref else 'en'
+    
+    # Get all active devices
+    devices = Device.query.filter_by(active=True).all()
+    
+    return render_template('device_management.html', 
+                         username=session['username'], 
+                         language=language,
+                         devices=devices)
+
+@app.route('/create_device', methods=['POST'])
+def create_device():
+    if 'username' not in session:
+        return jsonify(success=False, message='Not authenticated'), 401
+    
+    try:
+        data = request.get_json()
+        
+        # Check if canbus_id already exists
+        existing_device = Device.query.filter_by(canbus_id=data['canbus_id'], active=True).first()
+        if existing_device:
+            return jsonify(success=False, message='CAN Bus ID already exists'), 400
+        
+        # Verify device type exists
+        device_type_id = data.get('device_type_id')
+        if device_type_id:
+            device_type = DeviceType.query.get(device_type_id)
+            if not device_type or not device_type.active:
+                return jsonify(success=False, message='Invalid device type'), 400
+        
+        device = Device(
+            name=data['name'],
+            canbus_id=data['canbus_id'],
+            device_type_id=device_type_id,
+            created_by=session['username']
+        )
+        
+        db.session.add(device)
+        db.session.commit()
+        
+        return jsonify(success=True, message='Device created successfully')
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify(success=False, message=str(e)), 500
+
+@app.route('/update_device/<int:device_id>', methods=['POST'])
+def update_device(device_id):
+    if 'username' not in session:
+        return jsonify(success=False, message='Not authenticated'), 401
+    
+    try:
+        data = request.get_json()
+        device = Device.query.get_or_404(device_id)
+        
+        # Verify device type exists
+        device_type_id = data.get('device_type_id')
+        if device_type_id:
+            device_type = DeviceType.query.get(device_type_id)
+            if not device_type or not device_type.active:
+                return jsonify(success=False, message='Invalid device type'), 400
+        
+        # Check if canbus_id already exists (excluding current device)
+        existing_device = Device.query.filter(
+            Device.canbus_id == data['canbus_id'],
+            Device.id != device_id,
+            Device.active == True
+        ).first()
+        
+        if existing_device:
+            return jsonify(success=False, message='CAN Bus ID already exists'), 400
+        
+        device.name = data['name']
+        device.canbus_id = data['canbus_id']
+        device.device_type_id = device_type_id
+        device.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        return jsonify(success=True, message='Device updated successfully')
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify(success=False, message=str(e)), 500
+
+@app.route('/delete_device/<int:device_id>', methods=['DELETE'])
+def delete_device(device_id):
+    if 'username' not in session:
+        return jsonify(success=False, message='Not authenticated'), 401
+    
+    try:
+        device = Device.query.get_or_404(device_id)
+        device.active = False
+        device.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        return jsonify(success=True, message='Device deleted successfully')
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify(success=False, message=str(e)), 500
+
+@app.route('/get_devices', methods=['GET'])
+def get_devices():
+    if 'username' not in session:
+        return jsonify(success=False, message='Not authenticated'), 401
+    
+    try:
+        devices = Device.query.filter_by(active=True).all()
+        
+        return jsonify(
+            success=True,
+            devices=[{
+                'id': d.id,
+                'name': d.name,
+                'canbus_id': d.canbus_id,
+                'device_type_id': d.device_type_id,
+                'device_type_name': d.device_type.name if d.device_type else 'Unknown'
+            } for d in devices]
+        )
+        
+    except Exception as e:
+        return jsonify(success=False, message=str(e)), 500
+
+# Device Type Management Routes
+@app.route('/get_device_types', methods=['GET'])
+def get_device_types():
+    if 'username' not in session:
+        return jsonify(success=False, message='Not authenticated'), 401
+    
+    try:
+        device_types = DeviceType.query.filter_by(active=True).all()
+        
+        return jsonify([{
+            'id': dt.id,
+            'name': dt.name,
+            'description': dt.description,
+            'created_by': dt.created_by,
+            'created_at': dt.created_at.isoformat()
+        } for dt in device_types])
+        
+    except Exception as e:
+        return jsonify(success=False, message=str(e)), 500
+
+@app.route('/create_device_type', methods=['POST'])
+def create_device_type():
+    if 'username' not in session:
+        return jsonify(success=False, message='Not authenticated'), 401
+    
+    try:
+        name = request.form.get('name')
+        description = request.form.get('description')
+        
+        if not name:
+            return jsonify(success=False, message='Name is required'), 400
+        
+        # Check if device type name already exists
+        existing_device_type = DeviceType.query.filter_by(name=name, active=True).first()
+        if existing_device_type:
+            return jsonify(success=False, message='Device type name already exists'), 400
+        
+        device_type = DeviceType(
+            name=name,
+            description=description,
+            created_by=session['username']
+        )
+        
+        db.session.add(device_type)
+        db.session.commit()
+        
+        return jsonify(success=True, message='Device type created successfully')
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify(success=False, message=str(e)), 500
+
+@app.route('/update_device_type/<int:device_type_id>', methods=['POST'])
+def update_device_type(device_type_id):
+    if 'username' not in session:
+        return jsonify(success=False, message='Not authenticated'), 401
+    
+    try:
+        device_type = DeviceType.query.get_or_404(device_type_id)
+        
+        name = request.form.get('name')
+        description = request.form.get('description')
+        
+        if not name:
+            return jsonify(success=False, message='Name is required'), 400
+        
+        # Check if device type name already exists (excluding current device type)
+        existing_device_type = DeviceType.query.filter(
+            DeviceType.name == name,
+            DeviceType.active == True,
+            DeviceType.id != device_type_id
+        ).first()
+        
+        if existing_device_type:
+            return jsonify(success=False, message='Device type name already exists'), 400
+        
+        device_type.name = name
+        device_type.description = description
+        device_type.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        return jsonify(success=True, message='Device type updated successfully')
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify(success=False, message=str(e)), 500
+
+@app.route('/delete_device_type/<int:device_type_id>', methods=['DELETE'])
+def delete_device_type(device_type_id):
+    if 'username' not in session:
+        return jsonify(success=False, message='Not authenticated'), 401
+    
+    try:
+        device_type = DeviceType.query.get_or_404(device_type_id)
+        
+        # Check if device type is being used by any devices
+        devices_using_type = Device.query.filter_by(device_type_id=device_type_id, active=True).first()
+        if devices_using_type:
+            return jsonify(success=False, message='Cannot delete device type that is being used by devices'), 400
+        
+        # Soft delete
+        device_type.active = False
+        device_type.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        return jsonify(success=True, message='Device type deleted successfully')
+        
+    except Exception as e:
+        db.session.rollback()
         return jsonify(success=False, message=str(e)), 500
 
 
