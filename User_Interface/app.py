@@ -3,7 +3,7 @@ from datetime import datetime, date, timedelta
 import os
 
 # Import database models
-from models import db, User, UserPreference, ProdHis, initialize_database,PartNumber,Tape,Stamp,Insertion,Nozzle,Joint,Device,DeviceType
+from models import db, User, UserPreference, ProdHis, initialize_database,PartNumber,Tape,Stamp,Insertion,Nozzle,Joint,Device,DeviceType,WorkOrder
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'gswrnd2025'
@@ -88,6 +88,32 @@ def set_language():
 def logout():
     session.clear()
     return redirect(url_for('welcome'))
+
+@app.route('/operator_screen')
+def operator_screen():
+    # Check if user is logged in
+    if not session.get('logged_in'):
+        return redirect(url_for('welcome'))
+    
+    # Get user's language preference
+    username = session.get('username')
+    user_pref = UserPreference.query.filter_by(username=username).first()
+    language = 'en'  # Default language
+    
+    if user_pref:
+        language = user_pref.language
+    
+    # Get active work orders
+    work_orders = WorkOrder.query.filter_by(deleted=False).all()
+    
+    # Get part numbers for the dropdown
+    part_numbers = PartNumber.query.filter_by(active=True).all()
+    
+    return render_template('operator_screen.html', 
+                         username=username, 
+                         language=language,
+                         work_orders=work_orders,
+                         part_numbers=part_numbers)
 
 @app.route('/engineering')
 def engineering():
@@ -1130,6 +1156,152 @@ def delete_device_type(device_type_id):
         db.session.rollback()
         return jsonify(success=False, message=str(e)), 500
 
+
+@app.route('/work_orders')
+def work_orders():
+    # Check if user is logged in
+    if not session.get('logged_in'):
+        return redirect(url_for('welcome'))
+    
+    # Get user language preference
+    username = session.get('username')
+    user = User.query.filter_by(username=username).first()
+    language = 'en'  # default
+    if user:
+        user_pref = UserPreference.query.filter_by(username=username).first()
+        if user_pref:
+            language = user_pref.language
+    
+    # Get all active work orders (not deleted)
+    work_orders = WorkOrder.query.filter_by(deleted=False).order_by(WorkOrder.created.desc()).all()
+    
+    # Get all part numbers for the dropdown
+    part_numbers = PartNumber.query.all()
+    
+    return render_template('work_orders.html', 
+                         username=username, 
+                         language=language,
+                         work_orders=work_orders,
+                         part_numbers=part_numbers)
+
+@app.route('/create_work_order', methods=['POST'])
+def create_work_order():
+    # Check if user is logged in
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'message': 'Not logged in'})
+    
+    try:
+        data = request.get_json()
+        username = session.get('username')
+        
+        # Create new work order
+        work_order = WorkOrder(
+            part_number=data['part_number'],
+            qty=int(data['qty']),
+            balance=int(data['balance']),
+            type=data['type'],
+            user=username,
+            created=datetime.now()
+        )
+        
+        # Set optional datetime fields if provided
+        if data.get('started_time'):
+            work_order.started_time = datetime.fromisoformat(data['started_time'])
+        if data.get('end_time'):
+            work_order.end_time = datetime.fromisoformat(data['end_time'])
+        
+        db.session.add(work_order)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Work order created successfully'})
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)})
+
+@app.route('/get_work_order/<int:work_order_id>')
+def get_work_order(work_order_id):
+    # Check if user is logged in
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'message': 'Not logged in'})
+    
+    try:
+        work_order = WorkOrder.query.get_or_404(work_order_id)
+        
+        work_order_data = {
+            'id': work_order.id,
+            'part_number': work_order.part_number,
+            'qty': work_order.qty,
+            'balance': work_order.balance,
+            'type': work_order.type,
+            'user': work_order.user,
+            'created': work_order.created.isoformat() if work_order.created else None,
+            'started_time': work_order.started_time.isoformat() if work_order.started_time else None,
+            'end_time': work_order.end_time.isoformat() if work_order.end_time else None
+        }
+        
+        return jsonify({'success': True, 'work_order': work_order_data})
+    
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)})
+
+@app.route('/update_work_order/<int:work_order_id>', methods=['POST'])
+def update_work_order(work_order_id):
+    # Check if user is logged in
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'message': 'Not logged in'})
+    
+    try:
+        data = request.get_json()
+        work_order = WorkOrder.query.get_or_404(work_order_id)
+        
+        # Update work order fields
+        work_order.part_number = data['part_number']
+        work_order.qty = int(data['qty'])
+        work_order.balance = int(data['balance'])
+        work_order.type = data['type']
+        
+        # Update optional datetime fields
+        if data.get('started_time'):
+            work_order.started_time = datetime.fromisoformat(data['started_time'])
+        else:
+            work_order.started_time = None
+            
+        if data.get('end_time'):
+            work_order.end_time = datetime.fromisoformat(data['end_time'])
+        else:
+            work_order.end_time = None
+        
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Work order updated successfully'})
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)})
+
+@app.route('/delete_work_order/<int:work_order_id>', methods=['POST'])
+def delete_work_order(work_order_id):
+    # Check if user is logged in
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'message': 'Not logged in'})
+    
+    try:
+        work_order = WorkOrder.query.get_or_404(work_order_id)
+        username = session.get('username')
+        
+        # Soft delete - mark as deleted instead of actually deleting
+        work_order.deleted = True
+        work_order.deleted_at = datetime.now()
+        work_order.deleted_user = username
+        
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Work order deleted successfully'})
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)})
 
 if __name__ == '__main__':
     # Host 0.0.0.0 allows access from the local network if needed

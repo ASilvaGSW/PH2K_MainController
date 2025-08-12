@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POWER HOSE 2K - Operator Screen</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <style>
+        .operator-container {
+            background: #f5f5f5;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .main-panel {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        .work-order-table {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .work-order-row {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .work-order-row:hover {
+            background-color: #f8f9fa;
+        }
+        .work-order-row.selected {
+            background-color: #e3f2fd;
+            border-left: 4px solid #2196f3;
+        }
+        .status-badge {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .status-online {
+            background-color: #4caf50;
+            color: white;
+        }
+        .status-in-progress {
+            background-color: #ff9800;
+            color: white;
+        }
+        .status-completed {
+            background-color: #2196f3;
+            color: white;
+        }
+        .control-panel {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .process-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px;
+            margin: 10px;
+            border-radius: 10px;
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+        .process-step.active {
+            background: #4caf50;
+            color: white;
+            transform: scale(1.05);
+        }
+        .process-step.completed {
+            background: #2196f3;
+            color: white;
+        }
+        .process-icon {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        .progress-bar-custom {
+            height: 8px;
+            border-radius: 4px;
+            background: #e0e0e0;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4caf50, #8bc34a);
+            transition: width 0.3s ease;
+        }
+        .control-button {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+        .btn-start {
+            background: #4caf50;
+            color: white;
+        }
+        .btn-start:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+        .btn-stop {
+            background: #f44336;
+            color: white;
+        }
+        .btn-stop:hover {
+            background: #da190b;
+            transform: translateY(-2px);
+        }
+        .btn-pause {
+            background: #ff9800;
+            color: white;
+        }
+        .btn-pause:hover {
+            background: #f57c00;
+            transform: translateY(-2px);
+        }
+        .attention-modal {
+            background: rgba(0,0,0,0.8);
+        }
+        .attention-content {
+            background: #2c3e50;
+            color: white;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- Attention Modal -->
+    <div class="modal fade attention-modal" id="attentionModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content attention-content">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title lang-text" data-en="Attention" data-es="Atención" data-jp="注意">Attention</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="lang-text" data-en="This action will take you to another screen. Do you want to exit?" data-es="Esta acción te llevará a otra pantalla. ¿Quieres salir?" data-jp="この操作により別の画面に移動します。終了しますか？">This action will take you to another screen. Do you want to exit?</p>
+                </div>
+                <div class="modal-footer border-0 justify-content-center">
+                    <button type="button" class="btn btn-primary control-button lang-text" data-en="Continue" data-es="Continuar" data-jp="続行" onclick="confirmExit()">Continue</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="operator-container">
+        <header class="header py-2 px-4 d-flex justify-content-between align-items-center mb-4">
+            <div class="d-flex align-items-center">
+                <a href="{{ url_for('main') }}" class="back-button me-3">
+                    <span class="ms-2 lang-text" data-en="Operator Screen" data-es="Pantalla del Operador" data-jp="オペレーター画面">Operator Screen</span>
+                </a>
+            </div>
+            <div class="d-flex align-items-center">
+                <div class="language-selector me-4">
+                    <a href="#" class="active" onclick="changeLanguage('en'); return false;">English</a>
+                    <a href="#" class="ms-3" onclick="changeLanguage('es'); return false;">Español</a>
+                    <a href="#" class="ms-3" onclick="changeLanguage('jp'); return false;">日本語</a>
+                </div>
+                <div class="user-info d-flex align-items-center">
+                    <div class="user-avatar me-2">
+                        <div class="avatar-circle">
+                            <i class="bi bi-person-fill"></i>
+                        </div>
+                    </div>
+                    <div class="user-details">
+                        <div class="operator-name">{{ username }}</div>
+                        <a href="#" onclick="showExitModal(); return false;" class="sign-out lang-text" data-en="Sign Out" data-es="Cerrar Sesión" data-jp="サインアウト">Sign Out</a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="main-panel">
+            <div class="row">
+                <!-- Work Orders List -->
+                <div class="col-md-4">
+                    <h3 class="lang-text mb-3" data-en="Work Order" data-es="Orden de Trabajo" data-jp="作業指示書">Work Order</h3>
+                    
+                    <!-- Part Number List Dropdown -->
+                    <div class="mb-3">
+                        <select class="form-select" id="partNumberFilter">
+                            <option value="" class="lang-text" data-en="Part Number List" data-es="Lista de Números de Parte" data-jp="部品番号リスト">Part Number List</option>
+                            {% for part in part_numbers %}
+                            <option value="{{ part.part_number }}">{{ part.part_number }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="mb-3 d-flex gap-2">
+                        <button class="btn btn-secondary btn-sm lang-text" data-en="Auto Run" data-es="Ejecución Automática" data-jp="自動実行">Auto Run</button>
+                        <button class="btn btn-secondary btn-sm lang-text" data-en="Manual Run" data-es="Ejecución Manual" data-jp="手動実行">Manual Run</button>
+                        <button class="btn btn-info btn-sm lang-text" data-en="Live View" data-es="Vista en Vivo" data-jp="ライブビュー">Live View</button>
+                    </div>
+
+                    <!-- Work Orders Table -->
+                    <div class="work-order-table">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="lang-text" data-en="Part Number" data-es="Número de Parte" data-jp="部品番号">Part Number</th>
+                                    <th class="lang-text" data-en="QTY" data-es="CANT" data-jp="数量">QTY</th>
+                                    <th class="lang-text" data-en="Status" data-es="Estado" data-jp="状態">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="workOrdersList">
+                                {% for work_order in work_orders %}
+                                <tr class="work-order-row" data-id="{{ work_order.id }}" onclick="selectWorkOrder({{ work_order.id }})">
+                                    <td>{{ work_order.part_number }}</td>
+                                    <td>{{ work_order.qty }}</td>
+                                    <td>
+                                        {% if work_order.balance == work_order.qty %}
+                                            <span class="status-badge status-completed lang-text" data-en="COMPLETED" data-es="COMPLETADO" data-jp="完了">COMPLETED</span>
+                                        {% elif work_order.started_time %}
+                                            <span class="status-badge status-online lang-text" data-en="ONLINE" data-es="EN LÍNEA" data-jp="オンライン">ONLINE</span>
+                                        {% else %}
+                                            <span class="status-badge status-online lang-text" data-en="ONLINE" data-es="EN LÍNEA" data-jp="オンライン">ONLINE</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Process Control Panel -->
+                <div class="col-md-8">
+                    <div id="selectedWorkOrderInfo" class="mb-3" style="display: none;">
+                        <h4 class="lang-text" data-en="Selected Work Order" data-es="Orden de Trabajo Seleccionada" data-jp="選択された作業指示書">Selected Work Order</h4>
+                        <div class="alert alert-info">
+                            <strong class="lang-text" data-en="Part Number:" data-es="Número de Parte:" data-jp="部品番号:">Part Number:</strong> <span id="selectedPartNumber"></span><br>
+                            <strong class="lang-text" data-en="Quantity:" data-es="Cantidad:" data-jp="数量:">Quantity:</strong> <span id="selectedQty"></span><br>
+                            <strong class="lang-text" data-en="Balance:" data-es="Balance:" data-jp="残高:">Balance:</strong> <span id="selectedBalance"></span>
+                        </div>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="lang-text" data-en="In Progress..." data-es="En Progreso..." data-jp="進行中...">In Progress...</span>
+                            <span id="progressPercentage">25%</span>
+                        </div>
+                        <div class="progress-bar-custom">
+                            <div class="progress-fill" id="progressFill" style="width: 25%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Process Steps -->
+                    <div class="mb-4">
+                        <h5 class="lang-text mb-3" data-en="Process" data-es="Proceso" data-jp="プロセス">Process</h5>
+                        <div class="row">
+                            <div class="col-md-2">
+                                <div class="process-step active" id="step-start">
+                                    <div class="process-icon"><i class="bi bi-play-fill"></i></div>
+                                    <div class="lang-text" data-en="START" data-es="INICIO" data-jp="開始">START</div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="process-step" id="step-feed">
+                                    <div class="process-icon"><i class="bi bi-arrow-right"></i></div>
+                                    <div class="lang-text" data-en="Feed" data-es="Alimentar" data-jp="供給">Feed</div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="process-step" id="step-insert">
+                                    <div class="process-icon"><i class="bi bi-arrow-down"></i></div>
+                                    <div class="lang-text" data-en="Insert" data-es="Insertar" data-jp="挿入">Insert</div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="process-step" id="step-transport">
+                                    <div class="process-icon"><i class="bi bi-truck"></i></div>
+                                    <div class="lang-text" data-en="Transport" data-es="Transportar" data-jp="輸送">Transport</div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="process-step" id="step-tape">
+                                    <div class="process-icon"><i class="bi bi-layers"></i></div>
+                                    <div class="lang-text" data-en="Tape" data-es="Cinta" data-jp="テープ">Tape</div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="process-step" id="step-stamp">
+                                    <div class="process-icon"><i class="bi bi-circle-fill"></i></div>
+                                    <div class="lang-text" data-en="Stamp" data-es="Sello" data-jp="スタンプ">Stamp</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-md-2">
+                                <div class="process-step" id="step-release">
+                                    <div class="process-icon"><i class="bi bi-box-arrow-up"></i></div>
+                                    <div class="lang-text" data-en="Release" data-es="Liberar" data-jp="リリース">Release</div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="process-step" id="step-finish">
+                                    <div class="process-icon"><i class="bi bi-check-circle"></i></div>
+                                    <div class="lang-text" data-en="Finish" data-es="Finalizar" data-jp="完了">Finish</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Control Buttons -->
+                    <div class="control-panel">
+                        <div class="d-flex justify-content-center align-items-center gap-3">
+                            <button class="control-button btn-start" id="playBtn" onclick="startProcess()">
+                                <i class="bi bi-play-fill"></i>
+                            </button>
+                            <button class="control-button btn-stop" id="stopBtn" onclick="stopProcess()">
+                                <i class="bi bi-stop-fill"></i>
+                            </button>
+                            <button class="control-button btn-pause" id="pauseBtn" onclick="pauseProcess()">
+                                <i class="bi bi-pause-fill"></i>
+                            </button>
+                            <button class="control-button btn-start" id="skipBtn" onclick="skipStep()">
+                                <i class="bi bi-skip-forward-fill"></i>
+                            </button>
+                            <button class="control-button btn-start" id="backBtn" onclick="previousStep()">
+                                <i class="bi bi-skip-backward-fill"></i>
+                            </button>
+                            <button class="control-button btn-pause" id="infoBtn" onclick="showInfo()">
+                                <i class="bi bi-info-circle-fill"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let selectedWorkOrderId = null;
+        let currentStep = 0;
+        let isProcessRunning = false;
+        let processInterval = null;
+        
+        const steps = ['start', 'feed', 'insert', 'transport', 'tape', 'stamp', 'release', 'finish'];
+
+        function changeLanguage(lang) {
+            document.querySelectorAll('.language-selector a').forEach(el => {
+                el.classList.remove('active');
+            });
+            document.querySelector(`.language-selector a[onclick*="'${lang}'"]`).classList.add('active');
+            
+            document.querySelectorAll('.lang-text').forEach(el => {
+                if (el.dataset[lang]) {
+                    el.textContent = el.dataset[lang];
+                }
+            });
+            
+            fetch('/set_language', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ language: lang }),
+            });
+        }
+
+        function selectWorkOrder(workOrderId) {
+            // Remove previous selection
+            document.querySelectorAll('.work-order-row').forEach(row => {
+                row.classList.remove('selected');
+            });
+            
+            // Add selection to clicked row
+            document.querySelector(`[data-id="${workOrderId}"]`).classList.add('selected');
+            selectedWorkOrderId = workOrderId;
+            
+            // Load work order details
+            fetch(`/get_work_order/${workOrderId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const workOrder = data.work_order;
+                        document.getElementById('selectedPartNumber').textContent = workOrder.part_number;
+                        document.getElementById('selectedQty').textContent = workOrder.qty;
+                        document.getElementById('selectedBalance').textContent = workOrder.balance;
+                        document.getElementById('selectedWorkOrderInfo').style.display = 'block';
+                        
+                        // Update progress based on balance
+                        const progress = ((workOrder.qty - workOrder.balance) / workOrder.qty) * 100;
+                        updateProgress(progress);
+                    }
+                });
+        }
+
+        function updateProgress(percentage) {
+            document.getElementById('progressPercentage').textContent = Math.round(percentage) + '%';
+            document.getElementById('progressFill').style.width = percentage + '%';
+        }
+
+        function startProcess() {
+            if (!selectedWorkOrderId) {
+                alert('Please select a work order first.');
+                return;
+            }
+            
+            isProcessRunning = true;
+            currentStep = 0;
+            updateProcessSteps();
+            
+            // Simulate process progression
+            processInterval = setInterval(() => {
+                if (currentStep < steps.length - 1) {
+                    currentStep++;
+                    updateProcessSteps();
+                    updateProgress((currentStep / (steps.length - 1)) * 100);
+                } else {
+                    stopProcess();
+                }
+            }, 2000);
+        }
+
+        function stopProcess() {
+            isProcessRunning = false;
+            if (processInterval) {
+                clearInterval(processInterval);
+                processInterval = null;
+            }
+            resetProcessSteps();
+        }
+
+        function pauseProcess() {
+            if (processInterval) {
+                clearInterval(processInterval);
+                processInterval = null;
+            }
+        }
+
+        function skipStep() {
+            if (currentStep < steps.length - 1) {
+                currentStep++;
+                updateProcessSteps();
+                updateProgress((currentStep / (steps.length - 1)) * 100);
+            }
+        }
+
+        function previousStep() {
+            if (currentStep > 0) {
+                currentStep--;
+                updateProcessSteps();
+                updateProgress((currentStep / (steps.length - 1)) * 100);
+            }
+        }
+
+        function updateProcessSteps() {
+            steps.forEach((step, index) => {
+                const stepElement = document.getElementById(`step-${step}`);
+                stepElement.classList.remove('active', 'completed');
+                
+                if (index < currentStep) {
+                    stepElement.classList.add('completed');
+                } else if (index === currentStep) {
+                    stepElement.classList.add('active');
+                }
+            });
+        }
+
+        function resetProcessSteps() {
+            steps.forEach(step => {
+                const stepElement = document.getElementById(`step-${step}`);
+                stepElement.classList.remove('active', 'completed');
+            });
+            currentStep = 0;
+            updateProgress(0);
+        }
+
+        function showInfo() {
+            alert('Process information and diagnostics would be displayed here.');
+        }
+
+        function showExitModal() {
+            const modal = new bootstrap.Modal(document.getElementById('attentionModal'));
+            modal.show();
+        }
+
+        function confirmExit() {
+            window.location.href = '{{ url_for("logout") }}';
+        }
+
+        // Filter work orders by part number
+        document.getElementById('partNumberFilter').addEventListener('change', function() {
+            const selectedPart = this.value;
+            const rows = document.querySelectorAll('.work-order-row');
+            
+            rows.forEach(row => {
+                const partNumber = row.cells[0].textContent;
+                if (selectedPart === '' || partNumber === selectedPart) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+
+        // Load initial language preference
+        document.addEventListener('DOMContentLoaded', function() {
+            const initialLanguage = '{{ language }}';
+            changeLanguage(initialLanguage);
+        });
+    </script>
+</body>
+</html>

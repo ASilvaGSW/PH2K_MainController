@@ -88,34 +88,9 @@
         .table tbody tr:hover {
             background-color: #f8f9fa;
         }
-        .btn-action {
-            width: 35px;
-            height: 35px;
-            border-radius: 50%;
-            border: none;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 2px;
-        }
-        .btn-edit {
-            background-color: #3742fa;
-            color: white;
-        }
-        
-        .btn-edit:hover {
-            background-color: #2f3542;
-            color: white;
-        }
-        
-        .btn-delete {
-            background-color: #ff4757;
-            color: white;
-        }
-        
-        .btn-delete:hover {
-            background-color: #ff3742;
-            color: white;
+        .action-buttons {
+            display: flex;
+            gap: 5px;
         }
         .protocol-status {
             position: fixed;
@@ -325,12 +300,14 @@
                                 <td>{{ device.device_type.name if device.device_type else 'Unknown' }}</td>
                                 <td>{{ device.canbus_id }}</td>
                                 <td>
-                                    <button class="btn btn-action btn-edit me-2" onclick="showEditModal({{ device.id }}, '{{ device.name }}', '{{ device.device_type_id }}', '{{ device.canbus_id }}')" title="Edit">
-                                        <i class="bi bi-pencil-fill"></i>
-                                    </button>
-                                    <button class="btn btn-action btn-delete" onclick="showDeleteModal({{ device.id }}, '{{ device.name }}')" title="Delete">
-                                        <i class="bi bi-trash-fill"></i>
-                                    </button>
+                                    <div class="action-buttons">
+                                        <button class="btn btn-sm btn-success me-1" onclick="showEditModal({{ device.id }}, '{{ device.name }}', '{{ device.device_type_id }}', '{{ device.canbus_id }})" title="Edit">
+                                            <i class="bi bi-pencil-fill"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-danger" onclick="showDeleteModal({{ device.id }}, '{{ device.name }})" title="Delete">
+                                            <i class="bi bi-trash-fill"></i>
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                             {% endfor %}

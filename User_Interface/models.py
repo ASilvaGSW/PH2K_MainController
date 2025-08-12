@@ -119,6 +119,22 @@ class Device(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     active = db.Column(db.Boolean, default=True)
 
+class WorkOrder(db.Model):
+    __tablename__ = 'work_orders'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    part_number = db.Column(db.String(100), nullable=False)
+    qty = db.Column(db.Integer, nullable=False)
+    balance = db.Column(db.Integer, nullable=False)
+    type = db.Column(db.String(20), nullable=False)  # 'service' or 'kanban'
+    created = db.Column(db.DateTime, default=datetime.utcnow)
+    started_time = db.Column(db.DateTime, nullable=True)
+    end_time = db.Column(db.DateTime, nullable=True)
+    user = db.Column(db.String(80), nullable=False)
+    deleted = db.Column(db.Boolean, default=False)
+    deleted_at = db.Column(db.DateTime, nullable=True)
+    deleted_user = db.Column(db.String(80), nullable=True)
+
 def initialize_database(app):
     """Initialize database with sample data"""
     db.create_all()
@@ -185,6 +201,88 @@ def initialize_database(app):
         db.session.add(device2)
         db.session.add(device3)
         db.session.add(device4)
+        
+        # Create sample part numbers
+        part1 = PartNumber(part_number='PH2K-001', name='Standard Power Hose Assembly', total_length=150.0, created_by='admin')
+        part2 = PartNumber(part_number='PH2K-002', name='Heavy Duty Power Hose Assembly', total_length=200.0, created_by='admin')
+        part3 = PartNumber(part_number='PH2K-003', name='Compact Power Hose Assembly', total_length=100.0, created_by='admin')
+        part4 = PartNumber(part_number='PH2K-004', name='Extended Power Hose Assembly', total_length=300.0, created_by='admin')
+        part5 = PartNumber(part_number='PH2K-005', name='High Pressure Power Hose Assembly', total_length=180.0, created_by='admin')
+        
+        db.session.add(part1)
+        db.session.add(part2)
+        db.session.add(part3)
+        db.session.add(part4)
+        db.session.add(part5)
+        
+        # Commit part numbers first to get their IDs
+        db.session.commit()
+        
+        # Create sample work orders
+        from datetime import timedelta
+        
+        work_order1 = WorkOrder(
+            part_number='PH2K-001',
+            qty=100,
+            balance=75,
+            type='kanban',
+            user='operator',
+            started_time=datetime.utcnow() - timedelta(hours=2)
+        )
+        
+        work_order2 = WorkOrder(
+            part_number='PH2K-002',
+            qty=50,
+            balance=50,
+            type='service',
+            user='engineer'
+        )
+        
+        work_order3 = WorkOrder(
+            part_number='PH2K-003',
+            qty=200,
+            balance=150,
+            type='kanban',
+            user='operator',
+            started_time=datetime.utcnow() - timedelta(hours=4),
+            end_time=datetime.utcnow() - timedelta(hours=1)
+        )
+        
+        work_order4 = WorkOrder(
+            part_number='PH2K-004',
+            qty=25,
+            balance=25,
+            type='service',
+            user='admin'
+        )
+        
+        work_order5 = WorkOrder(
+            part_number='PH2K-005',
+            qty=75,
+            balance=60,
+            type='kanban',
+            user='operator',
+            started_time=datetime.utcnow() - timedelta(minutes=30)
+        )
+        
+        # Add a deleted work order example
+        work_order6 = WorkOrder(
+            part_number='PH2K-001',
+            qty=30,
+            balance=0,
+            type='service',
+            user='engineer',
+            deleted=True,
+            deleted_at=datetime.utcnow() - timedelta(days=1),
+            deleted_user='admin'
+        )
+        
+        db.session.add(work_order1)
+        db.session.add(work_order2)
+        db.session.add(work_order3)
+        db.session.add(work_order4)
+        db.session.add(work_order5)
+        db.session.add(work_order6)
         
         db.session.commit()
         print("Database initialized with sample data")
