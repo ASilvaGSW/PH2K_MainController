@@ -121,12 +121,12 @@
                 <!-- Test Button (Only for asilva) -->
                 {% if username == 'asilva' %}
                 <div class="col-4">
-                    <a href="#" onclick="testFunction(); return false;" class="text-decoration-none">
+                    <a href="{{ url_for('testing') }}" class="text-decoration-none">
                         <div class="menu-card">
                             <div class="icon-container mb-3">
                                 <i class="bi bi-bug"></i>
                             </div>
-                            <div class="card-title lang-text" data-en="Test" data-es="Prueba" data-jp="テスト">Test</div>
+                            <div class="card-title lang-text" data-en="Testing" data-es="Pruebas" data-jp="テスト">Testing</div>
                         </div>
                     </a>
                 </div>
@@ -174,11 +174,7 @@
             signOutModal.show();
         }
         
-        function testFunction() {
-            // Test function for asilva user
-            alert('Test function executed!');
-            console.log('Test button clicked by asilva');
-        }
+
         
         // Load initial language preference from server
         document.addEventListener('DOMContentLoaded', function() {

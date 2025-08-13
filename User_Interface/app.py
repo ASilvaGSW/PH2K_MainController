@@ -5,6 +5,9 @@ import os
 # Import database models
 from models import db, User, UserPreference, ProdHis, initialize_database,PartNumber,Tape,Stamp,Insertion,Nozzle,Joint,Tool,Device,DeviceType,DeviceFunction,WorkOrder,PreventiveMaintenance,PreventiveMaintenanceComments
 
+# Import blueprints
+from routes.testing_routes import testing_bp
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'gswrnd2025'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:root@localhost/maincontroller'
@@ -16,6 +19,9 @@ db.init_app(app)
 # Initialize the database when the app starts
 with app.app_context():
     initialize_database(app)
+
+# Register blueprints
+app.register_blueprint(testing_bp)
 
 @app.route('/', methods=['GET', 'POST'])
 def welcome():
@@ -171,6 +177,22 @@ def system_setup():
         users = User.query.all()
     
     return render_template('system_setup.html', username=username, language=language, is_admin=is_admin, users=users)
+
+@app.route('/testing')
+def testing():
+    # Check if user is logged in
+    if not session.get('logged_in'):
+        return redirect(url_for('welcome'))
+    
+    # Get user's language preference
+    username = session.get('username')
+    user_pref = UserPreference.query.filter_by(username=username).first()
+    language = 'en'  # Default language
+    
+    if user_pref:
+        language = user_pref.language
+    
+    return render_template('testing.html', username=username, language=language)
 
 @app.route('/production_report')
 def production_report():
