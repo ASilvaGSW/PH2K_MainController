@@ -185,9 +185,27 @@ class PreventiveMaintenance(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     active = db.Column(db.Boolean, default=True)
+    error_count = db.Column(db.Integer, default=0)  # Count of errors/issues encountered
     
     # Relationship
     device = db.relationship('Device', backref='preventive_maintenance')
+
+class PreventiveMaintenanceComments(db.Model):
+    __tablename__ = 'preventive_maintenance_comments'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    device_id = db.Column(db.Integer, db.ForeignKey('devices.id'), nullable=False)
+    comments = db.Column(db.Text, nullable=True)  # Free-text area for maintenance observations
+    maintenance_completed = db.Column(db.Boolean, default=False)  # Maintenance confirmation checkbox
+    next_maintenance_date = db.Column(db.Date, nullable=True)  # Next maintenance date picker
+    errors = db.Column(db.Text, nullable=True)  # Log any issues encountered during maintenance
+    performed_by = db.Column(db.String(80), nullable=False)  # User who performed the maintenance
+    performed_at = db.Column(db.DateTime, default=datetime.utcnow)  # When maintenance was performed
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationship
+    device = db.relationship('Device', backref='maintenance_comments')
 
 def initialize_database(app):
     """Initialize database with sample data"""

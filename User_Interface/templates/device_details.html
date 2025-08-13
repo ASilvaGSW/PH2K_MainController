@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POWER HOSE 2K - Device Details</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <style>
+        .device-details-container {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .breadcrumb-nav {
+            color: #6c757d;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .breadcrumb-nav a {
+            color: #6c757d;
+            text-decoration: none;
+        }
+        .breadcrumb-nav a:hover {
+            color: #12B7F5;
+        }
+        .page-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+        }
+        .page-title::before {
+            content: '';
+            width: 8px;
+            height: 30px;
+            background-color: #12B7F5;
+            margin-right: 15px;
+        }
+        .device-info-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        .info-label {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        .info-value {
+            color: #666;
+        }
+        .status-badge {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .status-good {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status-warning {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .status-critical {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .status-overdue {
+            background-color: #f5c6cb;
+            color: #721c24;
+        }
+        .errors-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #dc3545;
+        }
+        .error-item {
+            background: #f8f9fa;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 3px solid #dc3545;
+        }
+        .error-item:last-child {
+            margin-bottom: 0;
+        }
+        .error-date {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .error-text {
+            color: #721c24;
+            font-weight: 500;
+        }
+        .maintenance-history {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        .history-item {
+            background: #f8f9fa;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 3px solid #12B7F5;
+        }
+        .history-item:last-child {
+            margin-bottom: 0;
+        }
+        .history-date {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .history-user {
+            font-size: 12px;
+            color: #666;
+            font-style: italic;
+        }
+        .history-comments {
+            color: #2c3e50;
+            margin: 10px 0;
+        }
+        .maintenance-completed {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .no-data {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid min-vh-100 g-0">
+        <!-- Sign Out Confirmation Modal -->
+        <div class="modal fade" id="signOutModal" tabindex="-1" aria-labelledby="signOutModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title lang-text" id="signOutModalLabel" data-en="Confirm Sign Out" data-es="Confirmar Cierre de Sesión" data-jp="サインアウトの確認">Confirm Sign Out</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="lang-text" data-en="Are you sure you want to sign out?" data-es="¿Está seguro de que desea cerrar la sesión?" data-jp="サインアウトしてもよろしいですか？">Are you sure you want to sign out?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <a href="{{ url_for('logout') }}" class="btn btn-primary btn-sm lang-text" data-en="Sign Out" data-es="Cerrar Sesión" data-jp="サインアウト">Sign Out</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <header class="header py-2 px-4 d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center">
+                <a href="{{ url_for('preventive_maintenance') }}" class="back-button me-3">
+                    <i class="bi bi-arrow-left"></i>
+                    <span class="ms-2 lang-text" data-en="Back to Preventive Maintenance" data-es="Volver al Mantenimiento Preventivo" data-jp="予防保全に戻る">Back to Preventive Maintenance</span>
+                </a>
+            </div>
+            <div class="d-flex align-items-center">
+                <div class="language-selector me-4">
+                    <a href="#" class="active" onclick="changeLanguage('en'); return false;">English</a>
+                    <a href="#" class="ms-3" onclick="changeLanguage('es'); return false;">Español</a>
+                    <a href="#" class="ms-3" onclick="changeLanguage('jp'); return false;">日本語</a>
+                </div>
+                <div class="user-info d-flex align-items-center">
+                    <div class="user-avatar me-2">
+                        <div class="avatar-circle">
+                            <i class="bi bi-person-fill"></i>
+                        </div>
+                    </div>
+                    <div class="user-details">
+                        <div class="operator-name">{{ username }}</div>
+                        <a href="#" onclick="showSignOutModal(); return false;" class="sign-out lang-text" data-en="Sign Out" data-es="Cerrar Sesión" data-jp="サインアウト">Sign Out</a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="container-fluid">
+                <div class="device-details-container">
+                  
+
+                    <!-- Page Title -->
+                    <h1 class="page-title lang-text" data-en="Device Details" data-es="Detalles del Dispositivo" data-jp="デバイス詳細">Device Details</h1>
+
+                    <!-- Device Information -->
+                    <div class="device-info-card">
+                        <h3 class="mb-3 lang-text" data-en="Device Information" data-es="Información del Dispositivo" data-jp="デバイス情報">Device Information</h3>
+                        
+                        <div class="info-row">
+                            <span class="info-label lang-text" data-en="Device Name:" data-es="Nombre del Dispositivo:" data-jp="デバイス名:">Device Name:</span>
+                            <span class="info-value">{{ device.name }}</span>
+                        </div>
+                        
+                        <div class="info-row">
+                            <span class="info-label lang-text" data-en="Device Type:" data-es="Tipo de Dispositivo:" data-jp="デバイスタイプ:">Device Type:</span>
+                            <span class="info-value">{{ device_type.name if device_type else 'Unknown' }}</span>
+                        </div>
+                        
+                        <div class="info-row">
+                            <span class="info-label lang-text" data-en="CAN Bus ID:" data-es="ID CAN Bus:" data-jp="CAN Bus ID:">CAN Bus ID:</span>
+                            <span class="info-value">{{ device.canbus_id }}</span>
+                        </div>
+                        
+                        {% if pm %}
+                        <div class="info-row">
+                            <span class="info-label lang-text" data-en="Counter:" data-es="Contador:" data-jp="カウンター:">Counter:</span>
+                            <span class="info-value">{{ pm.counter }}</span>
+                        </div>
+                        
+                        <div class="info-row">
+                            <span class="info-label lang-text" data-en="Lifetime:" data-es="Ciclo de Vida:" data-jp="ライフタイム:">Lifetime:</span>
+                            <span class="info-value">{{ pm.lifetime }}</span>
+                        </div>
+                        
+                        <div class="info-row">
+                            <span class="info-label lang-text" data-en="Last PM:" data-es="Último MP:" data-jp="最後のPM:">Last PM:</span>
+                            <span class="info-value">{{ pm.last_pm.strftime('%Y-%m-%d') if pm.last_pm else 'N/A' }}</span>
+                        </div>
+                        
+                        <div class="info-row">
+                            <span class="info-label lang-text" data-en="Next PM:" data-es="Próximo MP:" data-jp="次のPM:">Next PM:</span>
+                            <span class="info-value">{{ pm.next_pm.strftime('%Y-%m-%d') if pm.next_pm else 'N/A' }}</span>
+                        </div>
+                        
+                        <div class="info-row">
+                            <span class="info-label lang-text" data-en="Status:" data-es="Estado:" data-jp="ステータス:">Status:</span>
+                            <span class="info-value">
+                                {% set percentage = (pm.counter / pm.lifetime * 100) if pm.lifetime > 0 else 0 %}
+                                {% if pm.next_pm and pm.next_pm < today %}
+                                    <span class="status-badge status-overdue lang-text" data-en="Overdue" data-es="Vencido" data-jp="期限切れ">Overdue</span>
+                                {% elif percentage >= 90 %}
+                                    <span class="status-badge status-critical lang-text" data-en="Critical" data-es="Crítico" data-jp="クリティカル">Critical</span>
+                                {% elif percentage >= 75 %}
+                                    <span class="status-badge status-warning lang-text" data-en="Warning" data-es="Advertencia" data-jp="警告">Warning</span>
+                                {% else %}
+                                    <span class="status-badge status-good lang-text" data-en="Good" data-es="Bueno" data-jp="良好">Good</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Maintenance Errors Section -->
+                    {% if error_comments %}
+                    <div class="errors-section">
+                        <h3 class="mb-3 lang-text" data-en="Maintenance Issues & Errors" data-es="Problemas y Errores de Mantenimiento" data-jp="メンテナンスの問題とエラー">Maintenance Issues & Errors</h3>
+                        
+                        {% for comment in error_comments %}
+                        <div class="error-item">
+                            <div class="error-date">
+                                <i class="bi bi-calendar"></i>
+                                {{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                {% if comment.performed_by %}
+                                    - <span class="lang-text" data-en="by" data-es="por" data-jp="による">by</span> {{ comment.performed_by }}
+                                {% endif %}
+                            </div>
+                            <div class="error-text">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                {{ comment.errors }}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Maintenance History Section -->
+                    <div class="maintenance-history">
+                        <h3 class="mb-3 lang-text" data-en="Maintenance History" data-es="Historial de Mantenimiento" data-jp="メンテナンス履歴">Maintenance History</h3>
+                        
+                        {% if maintenance_comments %}
+                            {% for comment in maintenance_comments %}
+                            <div class="history-item">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="history-date">
+                                        <i class="bi bi-calendar"></i>
+                                        {{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                    </div>
+                                    {% if comment.maintenance_completed %}
+                                        <span class="maintenance-completed lang-text" data-en="Completed" data-es="Completado" data-jp="完了">Completed</span>
+                                    {% endif %}
+                                </div>
+                                
+                                {% if comment.performed_by %}
+                                <div class="history-user">
+                                    <i class="bi bi-person"></i>
+                                    <span class="lang-text" data-en="Performed by:" data-es="Realizado por:" data-jp="実行者:">Performed by:</span> {{ comment.performed_by }}
+                                </div>
+                                {% endif %}
+                                
+                                {% if comment.comments %}
+                                <div class="history-comments">
+                                    <strong class="lang-text" data-en="Comments:" data-es="Comentarios:" data-jp="コメント:">Comments:</strong><br>
+                                    {{ comment.comments }}
+                                </div>
+                                {% endif %}
+                                
+                                {% if comment.next_maintenance_date %}
+                                <div class="mt-2">
+                                    <small class="text-muted">
+                                        <i class="bi bi-calendar-event"></i>
+                                        <span class="lang-text" data-en="Next maintenance scheduled:" data-es="Próximo mantenimiento programado:" data-jp="次回メンテナンス予定:">Next maintenance scheduled:</span>
+                                        {{ comment.next_maintenance_date.strftime('%Y-%m-%d') }}
+                                    </small>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="no-data">
+                                <i class="bi bi-inbox" style="font-size: 2rem; color: #ccc;"></i>
+                                <div class="mt-2 lang-text" data-en="No maintenance history available" data-es="No hay historial de mantenimiento disponible" data-jp="メンテナンス履歴がありません">No maintenance history available</div>
+                            </div>
+                        {% endif %}
+                        
+                        <!-- Add New Maintenance Comment Section -->
+                        <div class="mt-4 pt-4" style="border-top: 2px solid #e9ecef;">
+                            <h4 class="mb-3 lang-text" data-en="Add Maintenance Comment" data-es="Agregar Comentario de Mantenimiento" data-jp="メンテナンスコメントを追加">Add Maintenance Comment</h4>
+                            
+                            <form id="maintenanceCommentForm" class="row g-3">
+                                <input type="hidden" id="deviceId" value="{{ device.id }}">
+                                
+                                <!-- Comments Field -->
+                                <div class="col-12">
+                                    <label for="comments" class="form-label lang-text" data-en="Comments" data-es="Comentarios" data-jp="コメント">Comments</label>
+                                    <textarea class="form-control" id="comments" name="comments" rows="3" 
+                                        placeholder="Enter maintenance observations..."
+                                        data-en-placeholder="Enter maintenance observations..."
+                                        data-es-placeholder="Ingrese observaciones de mantenimiento..."
+                                        data-jp-placeholder="メンテナンスの観察を入力してください..."></textarea>
+                                </div>
+                                
+                                <!-- Next Maintenance Date -->
+                                <div class="col-md-6">
+                                    <label for="nextMaintenanceDate" class="form-label lang-text" data-en="Next Maintenance Date" data-es="Fecha del Próximo Mantenimiento" data-jp="次回メンテナンス日">Next Maintenance Date</label>
+                                    <input type="date" class="form-control" id="nextMaintenanceDate" name="next_maintenance_date">
+                                </div>
+                                
+                                <!-- Maintenance Completed Checkbox -->
+                                <div class="col-md-6 d-flex align-items-end">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="maintenanceCompleted" name="maintenance_completed">
+                                        <label class="form-check-label lang-text" for="maintenanceCompleted" 
+                                            data-en="Maintenance Completed" 
+                                            data-es="Mantenimiento Completado" 
+                                            data-jp="メンテナンス完了">Maintenance Completed</label>
+                                    </div>
+                                </div>
+                                
+                                <!-- Errors Field -->
+                                <div class="col-12">
+                                    <label for="errors" class="form-label lang-text" data-en="Issues/Errors" data-es="Problemas/Errores" data-jp="問題/エラー">Issues/Errors</label>
+                                    <textarea class="form-control" id="errors" name="errors" rows="2" 
+                                        placeholder="Log any issues encountered during maintenance..."
+                                        data-en-placeholder="Log any issues encountered during maintenance..."
+                                        data-es-placeholder="Registre cualquier problema encontrado durante el mantenimiento..."
+                                        data-jp-placeholder="メンテナンス中に発生した問題を記録してください..."></textarea>
+                                </div>
+                                
+                                <!-- Submit Button -->
+                                <div class="col-12">
+                                    <button type="submit" class="btn btn-primary lang-text" 
+                                        data-en="Save Comment" 
+                                        data-es="Guardar Comentario" 
+                                        data-jp="コメントを保存">Save Comment</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Language switching functionality
+        let currentLanguage = '{{ language }}' || 'en';
+        
+        const translations = {
+            en: {
+                'Main Menu': 'Main Menu',
+                'Preventive Maintenance': 'Preventive Maintenance',
+                'Device Details': 'Device Details',
+                'Device Information': 'Device Information',
+                'Device Name:': 'Device Name:',
+                'Device Type:': 'Device Type:',
+                'CAN Bus ID:': 'CAN Bus ID:',
+                'Counter:': 'Counter:',
+                'Lifetime:': 'Lifetime:',
+                'Last PM:': 'Last PM:',
+                'Next PM:': 'Next PM:',
+                'Status:': 'Status:',
+                'Good': 'Good',
+                'Warning': 'Warning',
+                'Critical': 'Critical',
+                'Overdue': 'Overdue',
+                'Maintenance Issues & Errors': 'Maintenance Issues & Errors',
+                'Maintenance History': 'Maintenance History',
+                'by': 'by',
+                'Performed by:': 'Performed by:',
+                'Comments:': 'Comments:',
+                'Next maintenance scheduled:': 'Next maintenance scheduled:',
+                'Completed': 'Completed',
+                'No maintenance history available': 'No maintenance history available',
+                'Sign Out': 'Sign Out',
+                'Confirm Sign Out': 'Confirm Sign Out',
+                'Are you sure you want to sign out?': 'Are you sure you want to sign out?',
+                'Cancel': 'Cancel',
+                'Comment saved successfully': 'Comment saved successfully',
+                'Error saving comment': 'Error saving comment'
+            },
+            es: {
+                'Main Menu': 'Menú Principal',
+                'Preventive Maintenance': 'Mantenimiento Preventivo',
+                'Device Details': 'Detalles del Dispositivo',
+                'Device Information': 'Información del Dispositivo',
+                'Device Name:': 'Nombre del Dispositivo:',
+                'Device Type:': 'Tipo de Dispositivo:',
+                'CAN Bus ID:': 'ID CAN Bus:',
+                'Counter:': 'Contador:',
+                'Lifetime:': 'Ciclo de Vida:',
+                'Last PM:': 'Último MP:',
+                'Next PM:': 'Próximo MP:',
+                'Status:': 'Estado:',
+                'Good': 'Bueno',
+                'Warning': 'Advertencia',
+                'Critical': 'Crítico',
+                'Overdue': 'Vencido',
+                'Maintenance Issues & Errors': 'Problemas y Errores de Mantenimiento',
+                'Maintenance History': 'Historial de Mantenimiento',
+                'by': 'por',
+                'Performed by:': 'Realizado por:',
+                'Comments:': 'Comentarios:',
+                'Next maintenance scheduled:': 'Próximo mantenimiento programado:',
+                'Completed': 'Completado',
+                'No maintenance history available': 'No hay historial de mantenimiento disponible',
+                'Sign Out': 'Cerrar Sesión',
+                'Confirm Sign Out': 'Confirmar Cierre de Sesión',
+                'Are you sure you want to sign out?': '¿Está seguro de que desea cerrar sesión?',
+                'Cancel': 'Cancelar',
+                'Comment saved successfully': 'Comentario guardado exitosamente',
+                'Error saving comment': 'Error al guardar comentario'
+            },
+            jp: {
+                'Main Menu': 'メインメニュー',
+                'Preventive Maintenance': '予防保全',
+                'Device Details': 'デバイス詳細',
+                'Device Information': 'デバイス情報',
+                'Device Name:': 'デバイス名:',
+                'Device Type:': 'デバイスタイプ:',
+                'CAN Bus ID:': 'CAN Bus ID:',
+                'Counter:': 'カウンター:',
+                'Lifetime:': 'ライフタイム:',
+                'Last PM:': '最後のPM:',
+                'Next PM:': '次のPM:',
+                'Status:': 'ステータス:',
+                'Good': '良好',
+                'Warning': '警告',
+                'Critical': 'クリティカル',
+                'Overdue': '期限切れ',
+                'Maintenance Issues & Errors': 'メンテナンスの問題とエラー',
+                'Maintenance History': 'メンテナンス履歴',
+                'by': 'による',
+                'Performed by:': '実行者:',
+                'Comments:': 'コメント:',
+                'Next maintenance scheduled:': '次回メンテナンス予定:',
+                'Completed': '完了',
+                'No maintenance history available': 'メンテナンス履歴がありません',
+                'Sign Out': 'サインアウト',
+                'Confirm Sign Out': 'サインアウト確認',
+                'Are you sure you want to sign out?': 'サインアウトしてもよろしいですか？',
+                'Cancel': 'キャンセル',
+                'Comment saved successfully': 'コメントが正常に保存されました',
+                'Error saving comment': 'コメントの保存エラー'
+            }
+        };
+
+        // Handle maintenance comment form submission
+        document.getElementById('maintenanceCommentForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = {
+                device_id: document.getElementById('deviceId').value,
+                comments: document.getElementById('comments').value,
+                next_maintenance_date: document.getElementById('nextMaintenanceDate').value || null,
+                maintenance_completed: document.getElementById('maintenanceCompleted').checked,
+                errors: document.getElementById('errors').value || null
+            };
+            
+            try {
+                const response = await fetch('/save_maintenance_comments', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        // Show success message
+                        alert(translations[currentLanguage]['Comment saved successfully'] || 'Comment saved successfully');
+                        // Reload the page to show the new comment
+                        location.reload();
+                    } else {
+                        alert(translations[currentLanguage]['Error saving comment'] || 'Error saving comment: ' + result.message);
+                    }
+                } else {
+                    alert(translations[currentLanguage]['Error saving comment'] || 'Error saving comment');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert(translations[currentLanguage]['Error saving comment'] || 'Error saving comment');
+            }
+        });
+
+        function changeLanguage(lang) {
+            // Update current language
+            currentLanguage = lang;
+            
+            // Update all text elements
+            updateLanguage(lang);
+            
+            // Update active language selector
+            document.querySelectorAll('.language-selector a').forEach(link => {
+                link.classList.remove('active');
+            });
+            document.querySelector(`.language-selector a[onclick*="'${lang}'"]`).classList.add('active');
+            
+            // Save language preference to database
+            fetch('/set_language', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ language: lang })
+            }).catch(error => {
+                console.error('Error saving language preference:', error);
+            });
+        }
+        
+        function updateLanguage(lang) {
+            const elements = document.querySelectorAll('.lang-text');
+            elements.forEach(element => {
+                const key = element.getAttribute('data-en');
+                if (translations[lang] && translations[lang][key]) {
+                    element.textContent = translations[lang][key];
+                }
+            });
+            
+            // Update placeholders for form fields
+            const placeholderElements = document.querySelectorAll('[data-' + lang + '-placeholder]');
+            placeholderElements.forEach(element => {
+                const placeholder = element.getAttribute('data-' + lang + '-placeholder');
+                if (placeholder) {
+                    element.placeholder = placeholder;
+                }
+            });
+        }
+        
+        function showSignOutModal() {
+            const modal = new bootstrap.Modal(document.getElementById('signOutModal'));
+            modal.show();
+        }
+
+        // Apply language on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            updateLanguage(currentLanguage);
+            
+            // Update active language selector
+            document.querySelectorAll('.language-selector a').forEach(link => {
+                link.classList.remove('active');
+            });
+            const activeLink = document.querySelector('.language-selector a[onclick*="' + currentLanguage + '"]');
+            if (activeLink) {
+                activeLink.classList.add('active');
+            }
+        });
+    </script>
+</body>
+</html>

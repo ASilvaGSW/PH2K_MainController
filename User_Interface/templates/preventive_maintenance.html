@@ -109,10 +109,11 @@
             color: #495057;
             font-weight: 600;
             border: none;
-            padding: 15px;
+            padding: 8px;
+            font-size: 13px;
         }
         .device-table td {
-            padding: 15px;
+            padding: 8px;
             border-color: #e9ecef;
             vertical-align: middle;
         }
@@ -135,20 +136,13 @@
         .calendar-container {
             background: white;
             border-radius: 10px;
-            padding: 20px;
+            padding: 15px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 30px;
-        }
-        .calendar-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
+            height: fit-content;
         }
         .calendar-nav {
             background: none;
             border: none;
-            font-size: 18px;
             color: #6c757d;
             cursor: pointer;
         }
@@ -156,8 +150,6 @@
             color: #12B7F5;
         }
         .calendar-title {
-            font-size: 18px;
-            font-weight: 600;
             color: #2c3e50;
         }
         .calendar-grid {
@@ -170,10 +162,10 @@
         }
         .calendar-day {
             background: white;
-            padding: 12px 8px;
+            padding: 8px 4px;
             text-align: center;
-            font-size: 14px;
-            min-height: 50px;
+            font-size: 12px;
+            min-height: 35px;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -183,50 +175,23 @@
             background-color: #f8f9fa;
             font-weight: 600;
             color: #495057;
-            min-height: 40px;
+            min-height: 30px;
+            font-size: 11px;
         }
         .calendar-day.pm-scheduled {
             background-color: #12B7F5;
             color: white;
             font-weight: 600;
         }
-        .calendar-day.other-month {
-            color: #adb5bd;
+        .calendar-day.selected-date {
+            background-color: #ffc107 !important;
+            color: #000 !important;
+            font-weight: bold;
+            border: 2px solid #ff6b35;
         }
-        .calendar-container {
-            margin-top: 30px;
-        }
-        .calendar-grid {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 2px;
-            background-color: #e9ecef;
-            border-radius: 12px;
-            overflow: hidden;
-            max-width: 100%;
-        }
-        .calendar-day {
-            background: white;
-            padding: 20px 12px;
-            text-align: center;
-            font-size: 16px;
-            min-height: 70px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-        }
-        .calendar-day.header {
-            background-color: #f8f9fa;
-            font-weight: 600;
-            color: #495057;
-            min-height: 50px;
-            font-size: 14px;
-        }
-        .calendar-day.pm-scheduled {
-            background-color: #12B7F5;
-            color: white;
-            font-weight: 600;
+        .calendar-day.pm-scheduled.selected-date {
+            background-color: #ff6b35 !important;
+            color: white !important;
         }
         .calendar-day.other-month {
             color: #adb5bd;
@@ -281,111 +246,206 @@
         </header>
 
         <main class="main-content p-4">
-            <div class="d-flex align-items-center mb-4">
+            <div class="d-flex align-items-center mb-3">
                 <div class="me-3">
                     <div class="d-inline-block" style="background-color: #12B7F5; width: 8px; height: 30px; margin-right: 10px;"></div>
                 </div>
                 <h1 class="engineering-title lang-text" data-en="Preventive Maintenance" data-es="Mantenimiento Preventivo" data-jp="予防保守">Preventive Maintenance</h1>
             </div>
 
-                    <!-- Device List Section -->
-                    <div class="mb-4">
-                        <h5 class="mb-3 lang-text" data-en="Device List" data-es="Lista de Dispositivos" data-jp="デバイスリスト">Device List</h5>
-                        
-                        <div class="device-table">
-                            <table class="table table-hover mb-0">
-                                <thead>
-                                    <tr>
-                                        <th class="lang-text" data-en="Device" data-es="Dispositivo" data-jp="デバイス">Device</th>
-                                        <th class="lang-text" data-en="Counter" data-es="Contador" data-jp="カウンター">Counter</th>
-                                        <th class="lang-text" data-en="Lifetime" data-es="Ciclo de Vida" data-jp="ライフタイム">Lifetime</th>
-                                        <th class="lang-text" data-en="Last PM" data-es="Último MP" data-jp="最終PM">Last PM</th>
-                                        <th class="lang-text" data-en="Next PM" data-es="Próximo MP" data-jp="次回PM">Next PM</th>
-                                        <th class="lang-text" data-en="Details" data-es="Detalles" data-jp="詳細">Details</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for item in devices_data %}
-                                    {% set device = item.device %}
-                                    {% set pm = item.pm %}
-                                    {% set device_type = item.device_type %}
-                                    {% set status = item.status %}
-                                    <tr>
-                                        <td>
-                                            <div class="d-flex align-items-center">
-                                                <span class="status-indicator status-{{ status }}"></span>
-                                                <div>
-                                                    <div class="fw-bold">{{ device.name }}</div>
-                                                    <small class="text-muted">{{ device_type.name }}</small>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div class="d-flex align-items-center">
-                                                <span class="me-2">{{ pm.counter if pm else '0' }}/{{ pm.lifetime if pm else 'N/A' }}</span>
-                                                {% if pm and pm.lifetime %}
-                                                <div class="progress-bar-container">
-                                                    {% set percentage = (pm.counter / pm.lifetime * 100) if pm.lifetime > 0 else 0 %}
-                                                    {% if percentage >= 90 %}
-                                                        {% set progress_class = 'progress-critical' %}
-                                                    {% elif percentage >= 75 %}
-                                                        {% set progress_class = 'progress-warning' %}
-                                                    {% else %}
-                                                        {% set progress_class = 'progress-good' %}
-                                                    {% endif %}
-                                                    <div class="progress-bar {{ progress_class }}" style="width: {{ percentage }}%"></div>
-                                                </div>
-                                                {% endif %}
-                                            </div>
-                                        </td>
-                                        <td>{{ pm.lifetime if pm else 'N/A' }}</td>
-                                        <td>{{ pm.last_pm.strftime('%Y-%m-%d') if pm and pm.last_pm else 'N/A' }}</td>
-                                        <td>
-                                            {% if pm and pm.next_pm %}
-                                                {% if status == 'overdue' %}
-                                                    <span class="text-danger fw-bold">{{ pm.next_pm.strftime('%Y-%m-%d') }} (Overdue)</span>
-                                                {% else %}
-                                                    {{ pm.next_pm.strftime('%Y-%m-%d') }}
-                                                {% endif %}
-                                            {% else %}
-                                                N/A
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if pm %}
-                                                <button class="btn btn-perform-maintenance" onclick="performMaintenance({{ device.id }})" title="Perform Maintenance">
-                                                    <i class="bi bi-wrench"></i>
-                                                </button>
-                                            {% endif %}
-                                            <button class="btn btn-details" onclick="viewDetails({{ device.id }})" title="View Details">
-                                                <i class="bi bi-search"></i>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                    {% else %}
-                                    <tr>
-                                        <td colspan="6" class="text-center text-muted py-4">
-                                            <i class="bi bi-inbox" style="font-size: 2rem;"></i>
-                                            <div class="mt-2 lang-text" data-en="No devices found" data-es="No se encontraron dispositivos" data-jp="デバイスが見つかりません">No devices found</div>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+            <!-- Two Column Layout -->
+            <div class="row g-3">
+                <!-- Calendar Section (Left Column) -->
+                
+                <div class="col-md-5">
+                <h5 class="mb-3 lang-text" data-en="Calendar View" data-es="Vista Calendario" data-jp="カレンダービュー">Calendar View</h5>
 
-                    <!-- Calendar Section -->
                     <div class="calendar-container">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <i class="bi bi-chevron-left calendar-nav" onclick="previousMonth()" style="font-size: 24px;"></i>
-                            <h3 class="calendar-title" id="calendarTitle" style="font-size: 24px; font-weight: 700;">February</h3>
-                            <i class="bi bi-chevron-right calendar-nav" onclick="nextMonth()" style="font-size: 24px;"></i>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <i class="bi bi-chevron-left calendar-nav" onclick="previousMonth()" style="font-size: 20px;"></i>
+                            <h5 class="calendar-title" id="calendarTitle" style="font-size: 18px; font-weight: 600;">February</h5>
+                            <i class="bi bi-chevron-right calendar-nav" onclick="nextMonth()" style="font-size: 20px;"></i>
                         </div>
                         <div class="calendar-grid" id="calendarGrid">
                             <!-- Calendar will be generated by JavaScript -->
                         </div>
                     </div>
+                </div>
+
+                <!-- Device List Section (Right Column) -->
+                <div class="col-md-7">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0 lang-text" data-en="Device List" data-es="Lista de Dispositivos" data-jp="デバイスリスト">Device List</h5>
+                        <div class="d-flex align-items-center gap-2">
+                            <label class="form-label mb-0 lang-text" data-en="Per page:" data-es="Por página:" data-jp="ページあたり:">Per page:</label>
+                            <select class="form-select form-select-sm" id="perPageSelect" style="width: auto;" onchange="changePerPage()">
+                                <option value="5" {{ 'selected' if per_page == 5 else '' }}>5</option>
+                                <option value="10" {{ 'selected' if per_page == 10 else '' }}>10</option>
+                                <option value="20" {{ 'selected' if per_page == 20 else '' }}>20</option>
+                                <option value="50" {{ 'selected' if per_page == 50 else '' }}>50</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Selected Date Filter -->
+                    {% if selected_date %}
+                    <div class="alert alert-info alert-sm d-flex justify-content-between align-items-center mb-3" style="padding: 8px 12px;">
+                        <span class="lang-text" data-en="Showing devices for: {{ selected_date }}" data-es="Mostrando dispositivos para: {{ selected_date }}" data-jp="表示中のデバイス: {{ selected_date }}">Showing devices for: {{ selected_date }}</span>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="clearDateFilter()" style="padding: 2px 8px; font-size: 12px;">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="device-table">
+                        <table class="table table-hover mb-0 table-sm">
+                            <thead>
+                                <tr>
+                                    <th class="lang-text" data-en="Device" data-es="Dispositivo" data-jp="デバイス">Device</th>
+                                    <th class="lang-text" data-en="Counter" data-es="Contador" data-jp="カウンター">Counter</th>
+                                    <th class="lang-text" data-en="Last PM" data-es="Último MP" data-jp="最終PM">Last PM</th>
+                                    <th class="lang-text" data-en="Next PM" data-es="Próximo MP" data-jp="次回PM">Next PM</th>
+                                    <th class="lang-text" data-en="Errors" data-es="Errores" data-jp="エラー">Errors</th>
+                                    <th class="lang-text" data-en="Details" data-es="Detalles" data-jp="詳細">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in devices_data %}
+                                {% set device = item.device %}
+                                {% set pm = item.pm %}
+                                {% set device_type = item.device_type %}
+                                {% set status = item.status %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <span class="status-indicator status-{{ status }}"></span>
+                                            <div>
+                                                <div class="fw-bold" style="font-size: 13px;">{{ device.name }}</div>
+                                                <small class="text-muted" style="font-size: 11px;">{{ device_type.name }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <span class="me-2" style="font-size: 12px;">{{ pm.counter if pm else '0' }}/{{ pm.lifetime if pm else 'N/A' }}</span>
+                                            {% if pm and pm.lifetime %}
+                                            <div class="progress-bar-container" style="width: 60px;">
+                                                {% set percentage = (pm.counter / pm.lifetime * 100) if pm.lifetime > 0 else 0 %}
+                                                {% if percentage >= 90 %}
+                                                    {% set progress_class = 'progress-critical' %}
+                                                {% elif percentage >= 75 %}
+                                                    {% set progress_class = 'progress-warning' %}
+                                                {% else %}
+                                                    {% set progress_class = 'progress-good' %}
+                                                {% endif %}
+                                                <div class="progress-bar {{ progress_class }}" style="width: {{ percentage }}%"></div>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td style="font-size: 12px;">{{ pm.last_pm.strftime('%m/%d') if pm and pm.last_pm else 'N/A' }}</td>
+                                    <td style="font-size: 12px;">
+                                        {% if pm and pm.next_pm %}
+                                            {% if status == 'overdue' %}
+                                                <span class="text-danger fw-bold">{{ pm.next_pm.strftime('%m/%d') }}</span>
+                                            {% else %}
+                                                {{ pm.next_pm.strftime('%m/%d') }}
+                                            {% endif %}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                    <td style="font-size: 12px;">
+                                        {% if pm and pm.error_count > 0 %}
+                                            <span class="badge bg-danger">{{ pm.error_count }}</span>
+                                        {% else %}
+                                            <span class="text-muted">0</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if pm %}
+                                            <button class="btn btn-perform-maintenance" onclick="performMaintenance({{ device.id }})" title="Perform Maintenance" style="padding: 2px 6px; font-size: 10px;">
+                                                <i class="bi bi-wrench"></i>
+                                            </button>
+                                        {% endif %}
+                                        <button class="btn btn-details" onclick="openMaintenanceModal({{ device.id }}, '{{ device.name }}')" title="Maintenance Details" style="padding: 2px 6px; font-size: 10px;">
+                                            <i class="bi bi-clipboard-check"></i>
+                                        </button>
+                                        <a href="{{ url_for('device_details', device_id=device.id) }}" class="btn btn-info" title="View Device Details" style="padding: 2px 6px; font-size: 10px;">
+                                            <i class="bi bi-info-circle"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-3">
+                                        <i class="bi bi-inbox" style="font-size: 1.5rem;"></i>
+                                        <div class="mt-2 lang-text" data-en="No devices found" data-es="No se encontraron dispositivos" data-jp="デバイスが見つかりません">No devices found</div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Pagination Controls -->
+                    {% if pagination.pages > 1 %}
+                    <nav aria-label="Page navigation" class="mt-3">
+                        <ul class="pagination pagination-sm justify-content-center">
+                            {% if pagination.has_prev %}
+                             <li class="page-item">
+                                 <a class="page-link" href="{{ url_for('preventive_maintenance', page=pagination.prev_num, per_page=per_page, selected_date=selected_date) }}">
+                                     <i class="bi bi-chevron-left"></i>
+                                 </a>
+                             </li>
+                            {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link"><i class="bi bi-chevron-left"></i></span>
+                            </li>
+                            {% endif %}
+                            
+                            {% for page_num in pagination.iter_pages() %}
+                                {% if page_num %}
+                                    {% if page_num != pagination.page %}
+                                    <li class="page-item">
+                                         <a class="page-link" href="{{ url_for('preventive_maintenance', page=page_num, per_page=per_page, selected_date=selected_date) }}">{{ page_num }}</a>
+                                     </li>
+                                    {% else %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ page_num }}</span>
+                                    </li>
+                                    {% endif %}
+                                {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">…</span>
+                                </li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if pagination.has_next %}
+                             <li class="page-item">
+                                 <a class="page-link" href="{{ url_for('preventive_maintenance', page=pagination.next_num, per_page=per_page, selected_date=selected_date) }}">
+                                     <i class="bi bi-chevron-right"></i>
+                                 </a>
+                             </li>
+                            {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link"><i class="bi bi-chevron-right"></i></span>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    
+                    <!-- Page Info -->
+                    <div class="text-center mt-2">
+                        <small class="text-muted lang-text" 
+                               data-en="Page {{ pagination.page }} of {{ pagination.pages }} ({{ pagination.total }} total devices)" 
+                               data-es="Página {{ pagination.page }} de {{ pagination.pages }} ({{ pagination.total }} dispositivos en total)" 
+                               data-jp="ページ {{ pagination.page }} / {{ pagination.pages }} (合計 {{ pagination.total }} デバイス)">Page {{ pagination.page }} of {{ pagination.pages }} ({{ pagination.total }} total devices)</small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
         </main>
     </div>
 
@@ -408,7 +468,12 @@
                 'Sign Out': 'Sign Out',
                 'Confirm Sign Out': 'Confirm Sign Out',
                 'Are you sure you want to sign out?': 'Are you sure you want to sign out?',
-                'No devices found': 'No devices found'
+                'No devices found': 'No devices found',
+                'Per page:': 'Per page:',
+                'Showing devices for:': 'Showing devices for:',
+                'Page': 'Page',
+                'of': 'of',
+                'total devices': 'total devices'
             },
             es: {
                 'Main Menu': 'Menú Principal',
@@ -425,7 +490,12 @@
                 'Sign Out': 'Cerrar Sesión',
                 'Confirm Sign Out': 'Confirmar Cierre de Sesión',
                 'Are you sure you want to sign out?': '¿Está seguro de que desea cerrar la sesión?',
-                'No devices found': 'No se encontraron dispositivos'
+                'No devices found': 'No se encontraron dispositivos',
+                'Per page:': 'Por página:',
+                'Showing devices for:': 'Mostrando dispositivos para:',
+                'Page': 'Página',
+                'of': 'de',
+                'total devices': 'dispositivos en total'
             },
             jp: {
                 'Main Menu': 'メインメニュー',
@@ -442,7 +512,12 @@
                 'Sign Out': 'サインアウト',
                 'Confirm Sign Out': 'サインアウトの確認',
                 'Are you sure you want to sign out?': 'サインアウトしてもよろしいですか？',
-                'No devices found': 'デバイスが見つかりません'
+                'No devices found': 'デバイスが見つかりません',
+                'Per page:': 'ページあたり:',
+                'Showing devices for:': '表示中のデバイス:',
+                'Page': 'ページ',
+                'of': '/',
+                'total devices': 'デバイス'
             }
         };
 
@@ -464,23 +539,98 @@
             });
         }
 
+        // Calendar date selection
+        function selectCalendarDate(dateStr) {
+            const currentUrl = new URL(window.location);
+            if (currentUrl.searchParams.get('selected_date') === dateStr) {
+                // If same date is clicked, clear the filter
+                currentUrl.searchParams.delete('selected_date');
+            } else {
+                // Set new selected date
+                currentUrl.searchParams.set('selected_date', dateStr);
+            }
+            currentUrl.searchParams.set('page', '1'); // Reset to first page
+            
+            // Preserve current language setting
+            if (currentLanguage && currentLanguage !== 'en') {
+                currentUrl.searchParams.set('lang', currentLanguage);
+            }
+            
+            window.location.href = currentUrl.toString();
+        }
+        
+        // Clear date filter
+        function clearDateFilter() {
+            const currentUrl = new URL(window.location);
+            currentUrl.searchParams.delete('selected_date');
+            currentUrl.searchParams.set('page', '1'); // Reset to first page
+            
+            // Preserve current language setting
+            if (currentLanguage && currentLanguage !== 'en') {
+                currentUrl.searchParams.set('lang', currentLanguage);
+            }
+            
+            window.location.href = currentUrl.toString();
+        }
+        
+        // Change devices per page
+        function changePerPage() {
+            const perPage = document.getElementById('perPageSelect').value;
+            const currentUrl = new URL(window.location);
+            currentUrl.searchParams.set('per_page', perPage);
+            currentUrl.searchParams.set('page', '1'); // Reset to first page
+            
+            // Preserve current language setting
+            if (currentLanguage && currentLanguage !== 'en') {
+                currentUrl.searchParams.set('lang', currentLanguage);
+            }
+            
+            window.location.href = currentUrl.toString();
+        }
+        
+        // Highlight devices for selected date
+        function highlightDevicesForDate() {
+            const selectedDate = '{{ selected_date }}';
+            if (!selectedDate) return;
+            
+            // Get all device rows
+            const deviceRows = document.querySelectorAll('tbody tr');
+            deviceRows.forEach(row => {
+                const nextPmCell = row.querySelector('td:nth-child(4)');
+                if (nextPmCell) {
+                    const nextPmText = nextPmCell.textContent.trim();
+                    // Convert selected date to MM/DD format for comparison
+                    const selectedDateObj = new Date(selectedDate);
+                    const selectedDateFormatted = String(selectedDateObj.getMonth() + 1).padStart(2, '0') + '/' + String(selectedDateObj.getDate()).padStart(2, '0');
+                    
+                    if (nextPmText.includes(selectedDateFormatted)) {
+                        row.classList.add('table-warning');
+                        row.style.backgroundColor = '#fff3cd';
+                    }
+                }
+            });
+        }
+
+        // Global variable to track current language
+        let currentLanguage = '{{ language }}' || 'en';
+
         // Wait for DOM to be fully loaded
         document.addEventListener('DOMContentLoaded', function() {
             // Set initial language
-            const currentLang = '{{ language }}' || 'en';
-            switchLanguage(currentLang);
+            switchLanguage(currentLanguage);
             
             // Update active language link
             document.querySelectorAll('.language-selector a').forEach(link => {
                 link.classList.remove('active');
             });
-            const activeLink = document.querySelector('.language-selector a[onclick*="' + currentLang + '"]');
+            const activeLink = document.querySelector('.language-selector a[onclick*="' + currentLanguage + '"]');
             if (activeLink) {
                 activeLink.classList.add('active');
             }
             
             // Initialize calendar
             loadCalendarData();
+            highlightDevicesForDate();
         });
 
         // Calendar functionality
@@ -504,9 +654,13 @@
             try {
                 const response = await fetch('/get_pm_calendar_data');
                 const result = await response.json();
+                console.log('Calendar data response:', result);
                 if (result.success) {
                     calendarData = result.data;
+                    console.log('Calendar data loaded:', calendarData);
                     generateCalendar();
+                } else {
+                    console.error('Failed to load calendar data:', result.message);
                 }
             } catch (error) {
                 console.error('Error loading calendar data:', error);
@@ -514,9 +668,11 @@
         }
 
         function generateCalendar() {
+            console.log('generateCalendar called, calendarData:', calendarData);
             const year = currentDate.getFullYear();
             const month = currentDate.getMonth();
             const lang = '{{ language }}';
+            console.log(`Generating calendar for ${year}-${month + 1}`);
             
             // Update title
             const calendarTitle = document.getElementById('calendarTitle');
@@ -545,9 +701,15 @@
             for (let day = 1; day <= daysInMonth; day++) {
                 const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                 const isPMScheduled = calendarData[dateStr] && calendarData[dateStr].length > 0;
-                const className = isPMScheduled ? 'calendar-day pm-scheduled' : 'calendar-day';
+                const isSelected = '{{ selected_date }}' === dateStr;
+                let className = 'calendar-day';
+                if (isPMScheduled) {
+                    className += ' pm-scheduled';
+                    console.log(`PM scheduled on ${dateStr}:`, calendarData[dateStr]);
+                }
+                if (isSelected) className += ' selected-date';
                 const title = isPMScheduled ? `PM scheduled for: ${calendarData[dateStr].map(d => d.device_name).join(', ')}` : '';
-                calendarHTML += `<div class="${className}" title="${title}">${day}</div>`;
+                calendarHTML += `<div class="${className}" title="${title}" onclick="selectCalendarDate('${dateStr}')" style="cursor: pointer;">${day}</div>`;
             }
             
             // Add next month's leading days
@@ -614,6 +776,9 @@
 
         // Language switching function
         function changeLanguage(lang) {
+            // Update global language variable
+            currentLanguage = lang;
+            
             const elements = document.querySelectorAll('.lang-text');
             elements.forEach(element => {
                 const text = element.getAttribute('data-' + lang);
@@ -627,7 +792,237 @@
                 link.classList.remove('active');
             });
             event.target.classList.add('active');
+            
+            // Save language preference to database
+            fetch('/set_language', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({language: lang})
+            });
+        }
+
+        // Maintenance Modal Functions
+        async function openMaintenanceModal(deviceId, deviceName) {
+            // Set device information
+            document.getElementById('deviceId').value = deviceId;
+            document.getElementById('deviceNameDisplay').textContent = `- ${deviceName}`;
+            
+            // Clear form
+            document.getElementById('maintenanceForm').reset();
+            document.getElementById('deviceId').value = deviceId; // Reset clears this, so set it again
+            
+            // Load previous maintenance data
+            await loadPreviousMaintenanceData(deviceId);
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('maintenanceModal'));
+            modal.show();
+        }
+
+        async function loadPreviousMaintenanceData(deviceId) {
+            const previousMaintenanceDiv = document.getElementById('previousMaintenanceInfo');
+            
+            try {
+                const response = await fetch(`/get_maintenance_comments/${deviceId}`);
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    const data = result.data;
+                    previousMaintenanceDiv.innerHTML = `
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong class="lang-text" data-en="Performed by:" data-es="Realizado por:" data-jp="実行者:">Performed by:</strong> ${data.performed_by}<br>
+                                <strong class="lang-text" data-en="Date:" data-es="Fecha:" data-jp="日付:">Date:</strong> ${data.performed_at}<br>
+                                <strong class="lang-text" data-en="Completed:" data-es="Completado:" data-jp="完了:">Completed:</strong> 
+                                <span class="badge ${data.maintenance_completed ? 'bg-success' : 'bg-warning'}">
+                                    ${data.maintenance_completed ? 
+                                        '<span class="lang-text" data-en="Yes" data-es="Sí" data-jp="はい">Yes</span>' : 
+                                        '<span class="lang-text" data-en="No" data-es="No" data-jp="いいえ">No</span>'}
+                                </span>
+                            </div>
+                            <div class="col-md-6">
+                                ${data.next_maintenance_date ? 
+                                    `<strong class="lang-text" data-en="Next Scheduled:" data-es="Próximo Programado:" data-jp="次回予定:">Next Scheduled:</strong> ${data.next_maintenance_date}<br>` : ''}
+                                ${data.comments ? 
+                                    `<strong class="lang-text" data-en="Comments:" data-es="Comentarios:" data-jp="コメント:">Comments:</strong><br><small>${data.comments}</small><br>` : ''}
+                                ${data.errors ? 
+                                    `<strong class="text-danger lang-text" data-en="Issues:" data-es="Problemas:" data-jp="問題:">Issues:</strong><br><small class="text-danger">${data.errors}</small>` : ''}
+                            </div>
+                        </div>
+                    `;
+                    // Update language after adding content
+                    updateLanguage(currentLanguage);
+                } else {
+                    previousMaintenanceDiv.innerHTML = `
+                        <div class="text-muted text-center">
+                            <i class="bi bi-info-circle me-1"></i>
+                            <span class="lang-text" data-en="No previous maintenance records found" data-es="No se encontraron registros de mantenimiento anteriores" data-jp="以前のメンテナンス記録が見つかりません">No previous maintenance records found</span>
+                        </div>
+                    `;
+                    updateLanguage(currentLanguage);
+                }
+            } catch (error) {
+                console.error('Error loading previous maintenance data:', error);
+                previousMaintenanceDiv.innerHTML = `
+                    <div class="text-danger text-center">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        <span class="lang-text" data-en="Error loading maintenance data" data-es="Error al cargar datos de mantenimiento" data-jp="メンテナンスデータの読み込みエラー">Error loading maintenance data</span>
+                    </div>
+                `;
+                updateLanguage(currentLanguage);
+            }
+        }
+
+        async function saveMaintenanceComments() {
+            const form = document.getElementById('maintenanceForm');
+            const formData = new FormData(form);
+            
+            const data = {
+                device_id: parseInt(formData.get('device_id')),
+                comments: formData.get('comments') || '',
+                maintenance_completed: formData.get('maintenance_completed') === 'on',
+                next_maintenance_date: formData.get('next_maintenance_date') || '',
+                errors: formData.get('errors') || ''
+            };
+            
+            try {
+                const response = await fetch('/save_maintenance_comments', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Show success message
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = 'alert alert-success alert-dismissible fade show';
+                    alertDiv.innerHTML = `
+                        <i class="bi bi-check-circle me-1"></i>
+                        <span class="lang-text" data-en="Maintenance details saved successfully!" data-es="¡Detalles de mantenimiento guardados exitosamente!" data-jp="メンテナンス詳細が正常に保存されました！">Maintenance details saved successfully!</span>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    `;
+                    
+                    // Insert alert at the top of the page
+                    const container = document.querySelector('.container-fluid');
+                    container.insertBefore(alertDiv, container.firstChild);
+                    
+                    // Update language for the alert
+                    updateLanguage(currentLanguage);
+                    
+                    // Close modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('maintenanceModal'));
+                    modal.hide();
+                    
+                    // Refresh page if maintenance was completed to update the display
+                    if (data.maintenance_completed) {
+                        setTimeout(() => {
+                            location.reload();
+                        }, 1500);
+                    }
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error saving maintenance comments:', error);
+                alert('An error occurred while saving maintenance details.');
+            }
         }
     </script>
+
+    <!-- Maintenance Details Modal -->
+    <div class="modal fade" id="maintenanceModal" tabindex="-1" aria-labelledby="maintenanceModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="maintenanceModalLabel">
+                        <i class="bi bi-wrench me-2"></i>
+                        <span class="lang-text" data-en="Preventive Maintenance Details" data-es="Detalles de Mantenimiento Preventivo" data-jp="予防保全詳細">Preventive Maintenance Details</span>
+                        <span id="deviceNameDisplay" class="text-muted ms-2"></span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="maintenanceForm">
+                        <input type="hidden" id="deviceId" name="device_id">
+                        
+                        <!-- Comments Section -->
+                        <div class="mb-3">
+                            <label for="maintenanceComments" class="form-label">
+                                <i class="bi bi-chat-text me-1"></i>
+                                <span class="lang-text" data-en="Comments" data-es="Comentarios" data-jp="コメント">Comments</span>
+                            </label>
+                            <textarea class="form-control" id="maintenanceComments" name="comments" rows="4" 
+                                placeholder="Enter maintenance observations and notes..."
+                                data-en-placeholder="Enter maintenance observations and notes..."
+                                data-es-placeholder="Ingrese observaciones y notas de mantenimiento..."
+                                data-jp-placeholder="メンテナンスの観察とメモを入力してください..."></textarea>
+                        </div>
+                        
+                        <!-- Maintenance Confirmation -->
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="maintenanceCompleted" name="maintenance_completed">
+                                <label class="form-check-label" for="maintenanceCompleted">
+                                    <i class="bi bi-check-circle me-1"></i>
+                                    <span class="lang-text" data-en="Maintenance Completed" data-es="Mantenimiento Completado" data-jp="メンテナンス完了">Maintenance Completed</span>
+                                </label>
+                            </div>
+                            <small class="form-text text-muted lang-text" 
+                                data-en="Check this box to confirm that preventive maintenance has been performed"
+                                data-es="Marque esta casilla para confirmar que se ha realizado el mantenimiento preventivo"
+                                data-jp="予防保全が実行されたことを確認するには、このボックスをチェックしてください">Check this box to confirm that preventive maintenance has been performed</small>
+                        </div>
+                        
+                        <!-- Next Maintenance Date -->
+                        <div class="mb-3">
+                            <label for="nextMaintenanceDate" class="form-label">
+                                <i class="bi bi-calendar-event me-1"></i>
+                                <span class="lang-text" data-en="Next Maintenance Date" data-es="Fecha del Próximo Mantenimiento" data-jp="次回メンテナンス日">Next Maintenance Date</span>
+                            </label>
+                            <input type="date" class="form-control" id="nextMaintenanceDate" name="next_maintenance_date">
+                            <small class="form-text text-muted lang-text" 
+                                data-en="Schedule the next preventive maintenance date"
+                                data-es="Programe la fecha del próximo mantenimiento preventivo"
+                                data-jp="次回の予防保全日をスケジュールしてください">Schedule the next preventive maintenance date</small>
+                        </div>
+                        
+                        <!-- Errors Section -->
+                        <div class="mb-3">
+                            <label for="maintenanceErrors" class="form-label">
+                                <i class="bi bi-exclamation-triangle me-1"></i>
+                                <span class="lang-text" data-en="Issues/Errors" data-es="Problemas/Errores" data-jp="問題/エラー">Issues/Errors</span>
+                            </label>
+                            <textarea class="form-control" id="maintenanceErrors" name="errors" rows="3" 
+                                placeholder="Log any issues encountered during maintenance..."
+                                data-en-placeholder="Log any issues encountered during maintenance..."
+                                data-es-placeholder="Registre cualquier problema encontrado durante el mantenimiento..."
+                                data-jp-placeholder="メンテナンス中に発生した問題を記録してください..."></textarea>
+                        </div>
+                        
+                        <!-- Previous Maintenance History -->
+                        <div class="mb-3">
+                            <h6 class="lang-text" data-en="Previous Maintenance" data-es="Mantenimiento Anterior" data-jp="前回のメンテナンス">Previous Maintenance</h6>
+                            <div id="previousMaintenanceInfo" class="p-3 bg-light rounded">
+                                <div class="text-muted lang-text" data-en="Loading previous maintenance data..." data-es="Cargando datos de mantenimiento anterior..." data-jp="前回のメンテナンスデータを読み込み中...">Loading previous maintenance data...</div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-success" onclick="saveMaintenanceComments()">
+                        <i class="bi bi-save me-1"></i>
+                        <span class="lang-text" data-en="Save" data-es="Guardar" data-jp="保存">Save</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>

@@ -3,7 +3,7 @@ from datetime import datetime, date, timedelta
 import os
 
 # Import database models
-from models import db, User, UserPreference, ProdHis, initialize_database,PartNumber,Tape,Stamp,Insertion,Nozzle,Joint,Tool,Device,DeviceType,DeviceFunction,WorkOrder,PreventiveMaintenance
+from models import db, User, UserPreference, ProdHis, initialize_database,PartNumber,Tape,Stamp,Insertion,Nozzle,Joint,Tool,Device,DeviceType,DeviceFunction,WorkOrder,PreventiveMaintenance,PreventiveMaintenanceComments
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'gswrnd2025'
@@ -1641,19 +1641,81 @@ def preventive_maintenance():
     user_pref = UserPreference.query.filter_by(username=username).first()
     language = 'en'  # Default language
     
-    if user_pref:
+    # Check if language is provided in URL parameters
+    url_lang = request.args.get('lang')
+    if url_lang and url_lang in ['en', 'es', 'jp']:
+        language = url_lang
+        # Update user preference if it exists
+        if user_pref:
+            user_pref.language = language
+            db.session.commit()
+    elif user_pref:
         language = user_pref.language
     
+    # Get pagination parameters
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+    selected_date = request.args.get('selected_date', '')
+    
+    # Ensure per_page is within reasonable limits
+    per_page = max(5, min(per_page, 100))
+    
     # Get all devices with their preventive maintenance data and device types
-    devices_with_pm = db.session.query(Device, PreventiveMaintenance, DeviceType).outerjoin(
+    devices_query = db.session.query(Device, PreventiveMaintenance, DeviceType).outerjoin(
+        PreventiveMaintenance, Device.id == PreventiveMaintenance.device_id
+    ).join(DeviceType, Device.device_type_id == DeviceType.id).filter(
+        Device.active == True
+    )
+    
+    # Filter by selected date if provided
+    if selected_date:
+        try:
+            selected_date_obj = datetime.strptime(selected_date, '%Y-%m-%d').date()
+            devices_query = devices_query.filter(
+                PreventiveMaintenance.next_pm == selected_date_obj
+            )
+        except ValueError:
+            selected_date = ''
+    
+    # Get paginated results
+    devices_with_pm = devices_query.paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    
+    # Calculate status for each device
+    devices_data = []
+    all_devices_data = []  # For calendar highlighting
+    
+    # Get all devices for calendar (not paginated)
+    all_devices_with_pm = db.session.query(Device, PreventiveMaintenance, DeviceType).outerjoin(
         PreventiveMaintenance, Device.id == PreventiveMaintenance.device_id
     ).join(DeviceType, Device.device_type_id == DeviceType.id).filter(
         Device.active == True
     ).all()
     
-    # Calculate status for each device
-    devices_data = []
-    for device, pm, device_type in devices_with_pm:
+    for device, pm, device_type in all_devices_with_pm:
+        status = 'good'
+        if pm:
+            # Calculate percentage of lifetime used
+            percentage = (pm.counter / pm.lifetime) * 100 if pm.lifetime > 0 else 0
+            if percentage >= 90:
+                status = 'critical'
+            elif percentage >= 75:
+                status = 'warning'
+            
+            # Check if next PM is overdue
+            if pm.next_pm and pm.next_pm < date.today():
+                status = 'overdue'
+        
+        all_devices_data.append({
+            'device': device,
+            'pm': pm,
+            'device_type': device_type,
+            'status': status
+        })
+    
+    # Process paginated devices
+    for device, pm, device_type in devices_with_pm.items:
         status = 'good'
         if pm:
             # Calculate percentage of lifetime used
@@ -1677,7 +1739,12 @@ def preventive_maintenance():
     return render_template('preventive_maintenance.html', 
                          username=username, 
                          language=language,
-                         devices_data=devices_data)
+                         devices_data=devices_data,
+                         all_devices_data=all_devices_data,
+                         pagination=devices_with_pm,
+                         current_page=page,
+                         per_page=per_page,
+                         selected_date=selected_date)
 
 @app.route('/create_preventive_maintenance', methods=['POST'])
 def create_preventive_maintenance():
@@ -1841,6 +1908,155 @@ def populate_sample_pm_data():
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/get_maintenance_comments/<int:device_id>', methods=['GET'])
+def get_maintenance_comments(device_id):
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'message': 'Not logged in'}), 401
+    
+    try:
+        # Get the latest maintenance comment for the device
+        comment = PreventiveMaintenanceComments.query.filter_by(
+            device_id=device_id
+        ).order_by(PreventiveMaintenanceComments.performed_at.desc()).first()
+        
+        if comment:
+            return jsonify({
+                'success': True,
+                'data': {
+                    'id': comment.id,
+                    'comments': comment.comments,
+                    'maintenance_completed': comment.maintenance_completed,
+                    'next_maintenance_date': comment.next_maintenance_date.strftime('%Y-%m-%d') if comment.next_maintenance_date else '',
+                    'errors': comment.errors,
+                    'performed_by': comment.performed_by,
+                    'performed_at': comment.performed_at.strftime('%Y-%m-%d %H:%M:%S')
+                }
+            })
+        else:
+            return jsonify({'success': True, 'data': None})
+            
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/save_maintenance_comments', methods=['POST'])
+def save_maintenance_comments():
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'message': 'Not logged in'}), 401
+    
+    try:
+        data = request.get_json()
+        device_id = data.get('device_id')
+        comments = data.get('comments', '')
+        maintenance_completed = data.get('maintenance_completed', False)
+        next_maintenance_date_str = data.get('next_maintenance_date')
+        errors = data.get('errors', '')
+        
+        if not device_id:
+            return jsonify({'success': False, 'message': 'Device ID is required'}), 400
+        
+        # Parse next maintenance date if provided
+        next_maintenance_date = None
+        if next_maintenance_date_str:
+            try:
+                next_maintenance_date = datetime.strptime(next_maintenance_date_str, '%Y-%m-%d').date()
+            except ValueError:
+                return jsonify({'success': False, 'message': 'Invalid date format'}), 400
+        
+        # Create new maintenance comment record
+        maintenance_comment = PreventiveMaintenanceComments(
+            device_id=device_id,
+            comments=comments,
+            maintenance_completed=maintenance_completed,
+            next_maintenance_date=next_maintenance_date,
+            errors=errors,
+            performed_by=session.get('username')
+        )
+        
+        db.session.add(maintenance_comment)
+        
+        # Get the PreventiveMaintenance record to update error count if needed
+        pm_record = PreventiveMaintenance.query.filter_by(
+            device_id=device_id, active=True
+        ).first()
+        
+        # If errors are reported, increment the error count
+        if errors and errors.strip() and pm_record:
+            pm_record.error_count += 1
+        
+        # If maintenance is completed, update the PreventiveMaintenance record
+        if maintenance_completed and pm_record:
+            pm_record.counter = 0  # Reset counter
+            pm_record.last_pm = date.today()
+            if next_maintenance_date:
+                pm_record.next_pm = next_maintenance_date
+            else:
+                # Default to 30 days from now if no date specified
+                pm_record.next_pm = date.today() + timedelta(days=30)
+            pm_record.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True, 
+            'message': 'Maintenance comments saved successfully'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/device_details/<int:device_id>')
+def device_details(device_id):
+    if 'username' not in session:
+        return redirect(url_for('welcome'))
+    
+    # Check for language parameter in URL
+    lang_param = request.args.get('lang')
+    if lang_param and lang_param in ['en', 'es', 'jp']:
+        # Update user language preference if valid language provided
+        user_pref = UserPreference.query.filter_by(username=session['username']).first()
+        if user_pref:
+            user_pref.language = lang_param
+            db.session.commit()
+        language = lang_param
+    else:
+        # Get user language preference
+        user_pref = UserPreference.query.filter_by(username=session['username']).first()
+        language = user_pref.language if user_pref else 'en'
+    
+    # Get device with its type and preventive maintenance info
+    device = db.session.query(Device, DeviceType, PreventiveMaintenance).outerjoin(
+        DeviceType, Device.device_type_id == DeviceType.id
+    ).outerjoin(
+        PreventiveMaintenance, Device.id == PreventiveMaintenance.device_id
+    ).filter(
+        Device.id == device_id,
+        Device.active == True
+    ).first()
+    
+    if not device:
+        return redirect(url_for('preventive_maintenance'))
+    
+    device_obj, device_type, pm = device
+    
+    # Get maintenance comments with errors for this device
+    maintenance_comments = PreventiveMaintenanceComments.query.filter_by(
+        device_id=device_id
+    ).order_by(PreventiveMaintenanceComments.created_at.desc()).all()
+    
+    # Filter comments that have errors
+    error_comments = [comment for comment in maintenance_comments if comment.errors and comment.errors.strip()]
+    
+    return render_template('device_details.html',
+                         username=session['username'],
+                         language=language,
+                         device=device_obj,
+                         device_type=device_type,
+                         pm=pm,
+                         maintenance_comments=maintenance_comments,
+                         error_comments=error_comments,
+                         today=date.today())
 
 @app.route('/get_production_history', methods=['GET'])
 def get_production_history():
