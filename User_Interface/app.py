@@ -3,7 +3,7 @@ from datetime import datetime, date, timedelta
 import os
 
 # Import database models
-from models import db, User, UserPreference, ProdHis, initialize_database,PartNumber,Tape,Stamp,Insertion,Nozzle,Joint,Device,DeviceType,DeviceFunction,WorkOrder
+from models import db, User, UserPreference, ProdHis, initialize_database,PartNumber,Tape,Stamp,Insertion,Nozzle,Joint,Tool,Device,DeviceType,DeviceFunction,WorkOrder,PreventiveMaintenance
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'gswrnd2025'
@@ -714,7 +714,111 @@ def get_part_number(part_id):
     except Exception as e:
         return jsonify(success=False, message=str(e)), 500
 
-@app.route('/details_management')
+@app.route('/get_part_numbers', methods=['GET'])
+def get_part_numbers():
+    # Check if user is logged in
+    if not session.get('logged_in'):
+        return jsonify(success=False, message='Not logged in'), 401
+    
+    try:
+        # Get all part numbers
+        part_numbers = PartNumber.query.filter_by(active=True).all()
+        
+        return jsonify(
+            success=True,
+            part_numbers=[{
+                'id': p.id,
+                'part_number': p.part_number,
+                'name': p.name
+            } for p in part_numbers]
+        )
+        
+    except Exception as e:
+        return jsonify(success=False, message=str(e)), 500
+
+@app.route('/get_bom_data/<int:part_number_id>', methods=['GET'])
+def get_bom_data(part_number_id):
+    # Check if user is logged in
+    if not session.get('logged_in'):
+        return jsonify(success=False, message='Not logged in'), 401
+    
+    try:
+        # Get the part number
+        part_number = PartNumber.query.get(part_number_id)
+        if not part_number:
+            return jsonify(success=False, message='Part number not found'), 404
+        
+        # Get associated components
+        tapes = Tape.query.filter_by(part_number_id=part_number_id, active=True).all()
+        stamps = Stamp.query.filter_by(part_number_id=part_number_id, active=True).all()
+        insertions = Insertion.query.filter_by(part_number_id=part_number_id, active=True).all()
+        
+        # Get nozzles and joints (assuming they're linked through insertions or other means)
+        # For now, we'll get all inactive nozzles and joints (active=0) as they might be used with any part
+        nozzles = Nozzle.query.filter_by(active=True).all()
+        joints = Joint.query.filter_by(active=True).all()
+        
+        bom_data = []
+        
+        # Add tapes to BOM
+        for tape in tapes:
+            bom_data.append({
+                'type': 'tape',
+                'part_tool': f'Tape - {tape.color}',
+                'description': f'Width: {tape.width}mm, Position: {tape.position}',
+                'quantity': 1
+            })
+        
+        # Add stamps to BOM
+        for stamp in stamps:
+            bom_data.append({
+                'type': 'stamp',
+                'part_tool': f'Stamp - {stamp.color}',
+                'description': f'Position: {stamp.position}',
+                'quantity': 1
+            })
+        
+        # Add insertions to BOM
+        for insertion in insertions:
+            bom_data.append({
+                'type': 'insertion',
+                'part_tool': f'Insertion - {insertion.component}',
+                'description': f'Side: {insertion.side}',
+                'quantity': 1
+            })
+        
+        # Add nozzles to BOM (if applicable to this part)
+        for nozzle in nozzles:
+            bom_data.append({
+                'type': 'nozzle',
+                'part_tool': f'Nozzle - {nozzle.model}',
+                'description': nozzle.description or 'Standard nozzle',
+                'quantity': 1
+            })
+        
+        # Add joints to BOM (if applicable to this part)
+        for joint in joints:
+            bom_data.append({
+                'type': 'joint',
+                'part_tool': f'Joint - {joint.model}',
+                'description': joint.description or 'Standard joint',
+                'quantity': 1
+            })
+        
+        return jsonify(
+            success=True,
+            part_number={
+                'id': part_number.id,
+                'part_number': part_number.part_number,
+                'name': part_number.name
+            },
+            bom_data=bom_data
+        )
+        
+    except Exception as e:
+        return jsonify(success=False, message=str(e)), 500
+
+@app.route('/device_management')
 def details_management():
     # Check if user is logged in
     if not session.get('logged_in'):
@@ -1204,6 +1308,159 @@ def get_device_functions(device_type_id):
         return jsonify(success=False, message=str(e)), 500
 
 
+# Tooling Management Routes
+@app.route('/tooling_management')
+def tooling_management():
+    if 'username' not in session:
+        return redirect(url_for('welcome'))
+    
+    # Get user language preference
+    user_pref = UserPreference.query.filter_by(username=session['username']).first()
+    language = user_pref.language if user_pref else 'en'
+    
+    return render_template('tooling_management.html', 
+                         username=session['username'], 
+                         language=language)
+
+@app.route('/create_tool', methods=['POST'])
+def create_tool():
+    try:
+        data = request.get_json()
+        
+        new_tool = Tool(
+            part_number_id=data['part_number_id'],
+            tool_number=data['tool_number'],
+            description=data.get('description', ''),
+            tool_type=data.get('tool_type', ''),
+            quantity=data.get('quantity', 1),
+            active=True,
+            created_by=session.get('username', 'system')
+        )
+        
+        db.session.add(new_tool)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Tool created successfully',
+            'tool': {
+                'id': new_tool.id,
+                'part_number_id': new_tool.part_number_id,
+                'tool_number': new_tool.tool_number,
+                'description': new_tool.description,
+                'tool_type': new_tool.tool_type,
+                'quantity': new_tool.quantity,
+                'active': new_tool.active
+            }
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify(success=False, message=str(e)), 500
+
+@app.route('/update_tool/<int:tool_id>', methods=['POST'])
+def update_tool(tool_id):
+    try:
+        tool = Tool.query.get_or_404(tool_id)
+        data = request.get_json()
+        
+        tool.part_number_id = data['part_number_id']
+        tool.tool_number = data['tool_number']
+        tool.description = data.get('description', '')
+        tool.tool_type = data.get('tool_type', '')
+        tool.quantity = data.get('quantity', 1)
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Tool updated successfully',
+            'tool': {
+                'id': tool.id,
+                'part_number_id': tool.part_number_id,
+                'tool_number': tool.tool_number,
+                'description': tool.description,
+                'tool_type': tool.tool_type,
+                'quantity': tool.quantity,
+                'active': tool.active
+            }
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify(success=False, message=str(e)), 500
+
+@app.route('/delete_tool/<int:tool_id>', methods=['DELETE'])
+def delete_tool(tool_id):
+    try:
+        tool = Tool.query.get_or_404(tool_id)
+        tool.active = False
+        
+        db.session.commit()
+        
+        return jsonify(success=True, message='Tool deactivated successfully')
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify(success=False, message=str(e)), 500
+
+@app.route('/toggle_tool_status/<int:tool_id>', methods=['POST'])
+def toggle_tool_status(tool_id):
+    try:
+        tool = Tool.query.get_or_404(tool_id)
+        tool.active = not tool.active
+        
+        db.session.commit()
+        
+        status_text = 'activated' if tool.active else 'deactivated'
+        return jsonify(success=True, message=f'Tool {status_text} successfully')
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify(success=False, message=str(e)), 500
+
+@app.route('/get_tools', methods=['GET'])
+def get_tools():
+    try:
+        tools = Tool.query.filter_by(active=True).all()
+        
+        return jsonify(
+            success=True,
+            tools=[{
+                'id': tool.id,
+                'part_number_id': tool.part_number_id,
+                'part_number': tool.part_number.part_number if tool.part_number else '',
+                'tool_number': tool.tool_number,
+                'description': tool.description,
+                'tool_type': tool.tool_type,
+                'quantity': tool.quantity,
+                'active': tool.active
+            } for tool in tools]
+        )
+        
+    except Exception as e:
+        return jsonify(success=False, message=str(e)), 500
+
+@app.route('/get_tools_by_part/<int:part_number_id>', methods=['GET'])
+def get_tools_by_part(part_number_id):
+    try:
+        tools = Tool.query.filter_by(part_number_id=part_number_id, active=True).all()
+        
+        return jsonify(
+            success=True,
+            tools=[{
+                'id': tool.id,
+                'tool_number': tool.tool_number,
+                'description': tool.description,
+                'tool_type': tool.tool_type,
+                'quantity': tool.quantity
+            } for tool in tools]
+        )
+        
+    except Exception as e:
+        return jsonify(success=False, message=str(e)), 500
+
+
 @app.route('/work_orders')
 def work_orders():
     # Check if user is logged in
@@ -1372,6 +1629,218 @@ def capacity_and_rate():
                          username=username, 
                          language=language,
                          part_numbers=part_numbers)
+
+@app.route('/preventive_maintenance')
+def preventive_maintenance():
+    # Check if user is logged in
+    if not session.get('logged_in'):
+        return redirect(url_for('welcome'))
+    
+    # Get user's language preference
+    username = session.get('username')
+    user_pref = UserPreference.query.filter_by(username=username).first()
+    language = 'en'  # Default language
+    
+    if user_pref:
+        language = user_pref.language
+    
+    # Get all devices with their preventive maintenance data and device types
+    devices_with_pm = db.session.query(Device, PreventiveMaintenance, DeviceType).outerjoin(
+        PreventiveMaintenance, Device.id == PreventiveMaintenance.device_id
+    ).join(DeviceType, Device.device_type_id == DeviceType.id).filter(
+        Device.active == True
+    ).all()
+    
+    # Calculate status for each device
+    devices_data = []
+    for device, pm, device_type in devices_with_pm:
+        status = 'good'
+        if pm:
+            # Calculate percentage of lifetime used
+            percentage = (pm.counter / pm.lifetime) * 100 if pm.lifetime > 0 else 0
+            if percentage >= 90:
+                status = 'critical'
+            elif percentage >= 75:
+                status = 'warning'
+            
+            # Check if next PM is overdue
+            if pm.next_pm and pm.next_pm < date.today():
+                status = 'overdue'
+        
+        devices_data.append({
+            'device': device,
+            'pm': pm,
+            'device_type': device_type,
+            'status': status
+        })
+    
+    return render_template('preventive_maintenance.html', 
+                         username=username, 
+                         language=language,
+                         devices_data=devices_data)
+
+@app.route('/create_preventive_maintenance', methods=['POST'])
+def create_preventive_maintenance():
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'message': 'Not logged in'}), 401
+    
+    try:
+        data = request.get_json()
+        device_id = data.get('device_id')
+        lifetime = data.get('lifetime')
+        next_pm_str = data.get('next_pm')
+        
+        if not all([device_id, lifetime]):
+            return jsonify({'success': False, 'message': 'Missing required fields'}), 400
+        
+        # Check if PM record already exists
+        existing_pm = PreventiveMaintenance.query.filter_by(device_id=device_id, active=True).first()
+        if existing_pm:
+            return jsonify({'success': False, 'message': 'Preventive maintenance record already exists'}), 400
+        
+        # Parse next PM date if provided
+        next_pm = None
+        if next_pm_str:
+            next_pm = datetime.strptime(next_pm_str, '%Y-%m-%d').date()
+        
+        # Create new PM record
+        pm = PreventiveMaintenance(
+            device_id=device_id,
+            counter=0,
+            lifetime=int(lifetime),
+            next_pm=next_pm,
+            created_by=session.get('username')
+        )
+        
+        db.session.add(pm)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Preventive maintenance record created successfully'})
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/update_preventive_maintenance/<int:pm_id>', methods=['POST'])
+def update_preventive_maintenance(pm_id):
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'message': 'Not logged in'}), 401
+    
+    try:
+        data = request.get_json()
+        pm = PreventiveMaintenance.query.get_or_404(pm_id)
+        
+        # Update fields if provided
+        if 'counter' in data:
+            pm.counter = int(data['counter'])
+        if 'lifetime' in data:
+            pm.lifetime = int(data['lifetime'])
+        if 'last_pm' in data and data['last_pm']:
+            pm.last_pm = datetime.strptime(data['last_pm'], '%Y-%m-%d').date()
+        if 'next_pm' in data and data['next_pm']:
+            pm.next_pm = datetime.strptime(data['next_pm'], '%Y-%m-%d').date()
+        
+        pm.updated_at = datetime.utcnow()
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Preventive maintenance record updated successfully'})
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/perform_maintenance/<int:device_id>', methods=['POST'])
+def perform_maintenance(device_id):
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'message': 'Not logged in'}), 401
+    
+    try:
+        pm = PreventiveMaintenance.query.filter_by(device_id=device_id, active=True).first()
+        if not pm:
+            return jsonify({'success': False, 'message': 'Preventive maintenance record not found'}), 404
+        
+        # Reset counter and update dates
+        pm.counter = 0
+        pm.last_pm = date.today()
+        
+        # Calculate next PM date (assuming monthly maintenance)
+        pm.next_pm = date.today() + timedelta(days=30)
+        pm.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Maintenance performed successfully'})
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/get_pm_calendar_data', methods=['GET'])
+def get_pm_calendar_data():
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'message': 'Not logged in'}), 401
+    
+    try:
+        # Get all PM records with next_pm dates
+        pm_records = PreventiveMaintenance.query.filter(
+            PreventiveMaintenance.active == True,
+            PreventiveMaintenance.next_pm.isnot(None)
+        ).all()
+        
+        calendar_data = {}
+        for pm in pm_records:
+            date_str = pm.next_pm.strftime('%Y-%m-%d')
+            if date_str not in calendar_data:
+                calendar_data[date_str] = []
+            
+            device = Device.query.get(pm.device_id)
+            calendar_data[date_str].append({
+                'device_name': device.name if device else 'Unknown Device',
+                'device_id': pm.device_id
+            })
+        
+        return jsonify({'success': True, 'data': calendar_data})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/populate_sample_pm_data')
+def populate_sample_pm_data():
+    if not session.get('logged_in') or not session.get('is_admin'):
+        return jsonify({'success': False, 'message': 'Admin access required'}), 403
+    
+    try:
+        # Get all devices
+        devices = Device.query.filter(Device.active == True).all()
+        
+        for device in devices:
+            # Check if PM record already exists
+            existing_pm = PreventiveMaintenance.query.filter_by(device_id=device.id, active=True).first()
+            if not existing_pm:
+                # Create sample PM data
+                import random
+                counter = random.randint(50, 140)
+                lifetime = 150
+                last_pm = date.today() - timedelta(days=random.randint(1, 30))
+                next_pm = date.today() + timedelta(days=random.randint(1, 60))
+                
+                pm = PreventiveMaintenance(
+                    device_id=device.id,
+                    counter=counter,
+                    lifetime=lifetime,
+                    last_pm=last_pm,
+                    next_pm=next_pm,
+                    created_by=session.get('username')
+                )
+                
+                db.session.add(pm)
+        
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Sample PM data populated successfully'})
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/get_production_history', methods=['GET'])
 def get_production_history():

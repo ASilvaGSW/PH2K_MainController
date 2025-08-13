@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POWER HOSE 2K - Preventive Maintenance</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <style>
+        .preventive-maintenance-container {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .breadcrumb-nav {
+            color: #6c757d;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .breadcrumb-nav a {
+            color: #6c757d;
+            text-decoration: none;
+        }
+        .breadcrumb-nav a:hover {
+            color: #12B7F5;
+        }
+        .page-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+        }
+        .page-title::before {
+            content: '';
+            width: 8px;
+            height: 30px;
+            background-color: #12B7F5;
+            margin-right: 15px;
+        }
+        .device-table {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .status-good {
+            background-color: #28a745;
+        }
+        .status-warning {
+            background-color: #ffc107;
+        }
+        .status-critical {
+            background-color: #dc3545;
+        }
+        .status-overdue {
+            background-color: #6f42c1;
+        }
+        .progress-bar-container {
+            width: 100px;
+            height: 8px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+        .progress-good {
+            background-color: #28a745;
+        }
+        .progress-warning {
+            background-color: #ffc107;
+        }
+        .progress-critical {
+            background-color: #dc3545;
+        }
+        .btn-perform-maintenance {
+            background-color: #12B7F5;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-right: 5px;
+        }
+        .btn-perform-maintenance:hover {
+            background-color: #0ea5e9;
+            color: white;
+        }
+        .device-table table {
+            margin-bottom: 0;
+        }
+        .device-table th {
+            background-color: #f8f9fa;
+            color: #495057;
+            font-weight: 600;
+            border: none;
+            padding: 15px;
+        }
+        .device-table td {
+            padding: 15px;
+            border-color: #e9ecef;
+            vertical-align: middle;
+        }
+        .device-table tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+        .btn-details {
+            background-color: #12B7F5;
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        .btn-details:hover {
+            background-color: #0ea5e9;
+            color: white;
+        }
+        .calendar-container {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .calendar-nav {
+            background: none;
+            border: none;
+            font-size: 18px;
+            color: #6c757d;
+            cursor: pointer;
+        }
+        .calendar-nav:hover {
+            color: #12B7F5;
+        }
+        .calendar-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 1px;
+            background-color: #e9ecef;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .calendar-day {
+            background: white;
+            padding: 12px 8px;
+            text-align: center;
+            font-size: 14px;
+            min-height: 50px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .calendar-day.header {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+            min-height: 40px;
+        }
+        .calendar-day.pm-scheduled {
+            background-color: #12B7F5;
+            color: white;
+            font-weight: 600;
+        }
+        .calendar-day.other-month {
+            color: #adb5bd;
+        }
+        .calendar-container {
+            margin-top: 30px;
+        }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+            background-color: #e9ecef;
+            border-radius: 12px;
+            overflow: hidden;
+            max-width: 100%;
+        }
+        .calendar-day {
+            background: white;
+            padding: 20px 12px;
+            text-align: center;
+            font-size: 16px;
+            min-height: 70px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .calendar-day.header {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+            min-height: 50px;
+            font-size: 14px;
+        }
+        .calendar-day.pm-scheduled {
+            background-color: #12B7F5;
+            color: white;
+            font-weight: 600;
+        }
+        .calendar-day.other-month {
+            color: #adb5bd;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid min-vh-100 g-0">
+        <!-- Sign Out Confirmation Modal -->
+        <div class="modal fade" id="signOutModal" tabindex="-1" aria-labelledby="signOutModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title lang-text" id="signOutModalLabel" data-en="Confirm Sign Out" data-es="Confirmar Cierre de Sesión" data-jp="サインアウトの確認">Confirm Sign Out</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="lang-text" data-en="Are you sure you want to sign out?" data-es="¿Está seguro de que desea cerrar la sesión?" data-jp="サインアウトしてもよろしいですか？">Are you sure you want to sign out?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <a href="{{ url_for('logout') }}" class="btn btn-primary btn-sm lang-text" data-en="Sign Out" data-es="Cerrar Sesión" data-jp="サインアウト">Sign Out</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <header class="header py-2 px-4 d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center">
+                <a href="{{ url_for('main') }}" class="back-button me-3">
+                    <i class="bi bi-arrow-left"></i>
+                    <span class="ms-2 lang-text" data-en="Back to Main Menu" data-es="Volver al Menú Principal" data-jp="メインメニューに戻る">Back to Main Menu</span>
+                </a>
+            </div>
+            <div class="d-flex align-items-center">
+                <div class="language-selector me-4">
+                    <a href="#" class="active" onclick="changeLanguage('en'); return false;">English</a>
+                    <a href="#" class="ms-3" onclick="changeLanguage('es'); return false;">Español</a>
+                    <a href="#" class="ms-3" onclick="changeLanguage('jp'); return false;">日本語</a>
+                </div>
+                <div class="user-info d-flex align-items-center">
+                    <div class="user-avatar me-2">
+                        <div class="avatar-circle">
+                            <i class="bi bi-person-fill"></i>
+                        </div>
+                    </div>
+                    <div class="user-details">
+                        <div class="operator-name">{{ username }}</div>
+                        <a href="#" onclick="showSignOutModal(); return false;" class="sign-out lang-text" data-en="Sign Out" data-es="Cerrar Sesión" data-jp="サインアウト">Sign Out</a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="main-content p-4">
+            <div class="d-flex align-items-center mb-4">
+                <div class="me-3">
+                    <div class="d-inline-block" style="background-color: #12B7F5; width: 8px; height: 30px; margin-right: 10px;"></div>
+                </div>
+                <h1 class="engineering-title lang-text" data-en="Preventive Maintenance" data-es="Mantenimiento Preventivo" data-jp="予防保守">Preventive Maintenance</h1>
+            </div>
+
+                    <!-- Device List Section -->
+                    <div class="mb-4">
+                        <h5 class="mb-3 lang-text" data-en="Device List" data-es="Lista de Dispositivos" data-jp="デバイスリスト">Device List</h5>
+                        
+                        <div class="device-table">
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th class="lang-text" data-en="Device" data-es="Dispositivo" data-jp="デバイス">Device</th>
+                                        <th class="lang-text" data-en="Counter" data-es="Contador" data-jp="カウンター">Counter</th>
+                                        <th class="lang-text" data-en="Lifetime" data-es="Ciclo de Vida" data-jp="ライフタイム">Lifetime</th>
+                                        <th class="lang-text" data-en="Last PM" data-es="Último MP" data-jp="最終PM">Last PM</th>
+                                        <th class="lang-text" data-en="Next PM" data-es="Próximo MP" data-jp="次回PM">Next PM</th>
+                                        <th class="lang-text" data-en="Details" data-es="Detalles" data-jp="詳細">Details</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in devices_data %}
+                                    {% set device = item.device %}
+                                    {% set pm = item.pm %}
+                                    {% set device_type = item.device_type %}
+                                    {% set status = item.status %}
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <span class="status-indicator status-{{ status }}"></span>
+                                                <div>
+                                                    <div class="fw-bold">{{ device.name }}</div>
+                                                    <small class="text-muted">{{ device_type.name }}</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <span class="me-2">{{ pm.counter if pm else '0' }}/{{ pm.lifetime if pm else 'N/A' }}</span>
+                                                {% if pm and pm.lifetime %}
+                                                <div class="progress-bar-container">
+                                                    {% set percentage = (pm.counter / pm.lifetime * 100) if pm.lifetime > 0 else 0 %}
+                                                    {% if percentage >= 90 %}
+                                                        {% set progress_class = 'progress-critical' %}
+                                                    {% elif percentage >= 75 %}
+                                                        {% set progress_class = 'progress-warning' %}
+                                                    {% else %}
+                                                        {% set progress_class = 'progress-good' %}
+                                                    {% endif %}
+                                                    <div class="progress-bar {{ progress_class }}" style="width: {{ percentage }}%"></div>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        <td>{{ pm.lifetime if pm else 'N/A' }}</td>
+                                        <td>{{ pm.last_pm.strftime('%Y-%m-%d') if pm and pm.last_pm else 'N/A' }}</td>
+                                        <td>
+                                            {% if pm and pm.next_pm %}
+                                                {% if status == 'overdue' %}
+                                                    <span class="text-danger fw-bold">{{ pm.next_pm.strftime('%Y-%m-%d') }} (Overdue)</span>
+                                                {% else %}
+                                                    {{ pm.next_pm.strftime('%Y-%m-%d') }}
+                                                {% endif %}
+                                            {% else %}
+                                                N/A
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if pm %}
+                                                <button class="btn btn-perform-maintenance" onclick="performMaintenance({{ device.id }})" title="Perform Maintenance">
+                                                    <i class="bi bi-wrench"></i>
+                                                </button>
+                                            {% endif %}
+                                            <button class="btn btn-details" onclick="viewDetails({{ device.id }})" title="View Details">
+                                                <i class="bi bi-search"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="6" class="text-center text-muted py-4">
+                                            <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                                            <div class="mt-2 lang-text" data-en="No devices found" data-es="No se encontraron dispositivos" data-jp="デバイスが見つかりません">No devices found</div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Calendar Section -->
+                    <div class="calendar-container">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <i class="bi bi-chevron-left calendar-nav" onclick="previousMonth()" style="font-size: 24px;"></i>
+                            <h3 class="calendar-title" id="calendarTitle" style="font-size: 24px; font-weight: 700;">February</h3>
+                            <i class="bi bi-chevron-right calendar-nav" onclick="nextMonth()" style="font-size: 24px;"></i>
+                        </div>
+                        <div class="calendar-grid" id="calendarGrid">
+                            <!-- Calendar will be generated by JavaScript -->
+                        </div>
+                    </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Language switching functionality
+        const translations = {
+            en: {
+                'Main Menu': 'Main Menu',
+                'Back to Main Menu': 'Back to Main Menu',
+                'Preventive Maintenance': 'Preventive Maintenance',
+                'Device List': 'Device List',
+                'Page 1 of 2': 'Page 1 of 2',
+                'Device': 'Device',
+                'Counter': 'Counter',
+                'Lifetime': 'Lifetime',
+                'Last PM': 'Last PM',
+                'Next PM': 'Next PM',
+                'Details': 'Details',
+                'Sign Out': 'Sign Out',
+                'Confirm Sign Out': 'Confirm Sign Out',
+                'Are you sure you want to sign out?': 'Are you sure you want to sign out?',
+                'No devices found': 'No devices found'
+            },
+            es: {
+                'Main Menu': 'Menú Principal',
+                'Back to Main Menu': 'Volver al Menú Principal',
+                'Preventive Maintenance': 'Mantenimiento Preventivo',
+                'Device List': 'Lista de Dispositivos',
+                'Page 1 of 2': 'Página 1 de 2',
+                'Device': 'Dispositivo',
+                'Counter': 'Contador',
+                'Lifetime': 'Ciclo de Vida',
+                'Last PM': 'Último MP',
+                'Next PM': 'Próximo MP',
+                'Details': 'Detalles',
+                'Sign Out': 'Cerrar Sesión',
+                'Confirm Sign Out': 'Confirmar Cierre de Sesión',
+                'Are you sure you want to sign out?': '¿Está seguro de que desea cerrar la sesión?',
+                'No devices found': 'No se encontraron dispositivos'
+            },
+            jp: {
+                'Main Menu': 'メインメニュー',
+                'Back to Main Menu': 'メインメニューに戻る',
+                'Preventive Maintenance': '予防保守',
+                'Device List': 'デバイスリスト',
+                'Page 1 of 2': 'ページ 1 / 2',
+                'Device': 'デバイス',
+                'Counter': 'カウンター',
+                'Lifetime': 'ライフタイム',
+                'Last PM': '最終PM',
+                'Next PM': '次回PM',
+                'Details': '詳細',
+                'Sign Out': 'サインアウト',
+                'Confirm Sign Out': 'サインアウトの確認',
+                'Are you sure you want to sign out?': 'サインアウトしてもよろしいですか？',
+                'No devices found': 'デバイスが見つかりません'
+            }
+        };
+
+        function switchLanguage(lang) {
+            document.querySelectorAll('.lang-text').forEach(element => {
+                const key = element.getAttribute('data-en');
+                if (translations[lang] && translations[lang][key]) {
+                    element.textContent = translations[lang][key];
+                }
+            });
+            
+            // Update language preference
+            fetch('/set_language', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({language: lang})
+            });
+        }
+
+        // Wait for DOM to be fully loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set initial language
+            const currentLang = '{{ language }}' || 'en';
+            switchLanguage(currentLang);
+            
+            // Update active language link
+            document.querySelectorAll('.language-selector a').forEach(link => {
+                link.classList.remove('active');
+            });
+            const activeLink = document.querySelector('.language-selector a[onclick*="' + currentLang + '"]');
+            if (activeLink) {
+                activeLink.classList.add('active');
+            }
+            
+            // Initialize calendar
+            loadCalendarData();
+        });
+
+        // Calendar functionality
+        let currentDate = new Date();
+        let calendarData = {};
+        
+        const monthNames = {
+            en: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+            es: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
+            jp: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
+        };
+        
+        const dayNames = {
+            en: ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'],
+            es: ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'],
+            jp: ['日', '月', '火', '水', '木', '金', '土']
+        };
+
+        // Load calendar data from backend
+        async function loadCalendarData() {
+            try {
+                const response = await fetch('/get_pm_calendar_data');
+                const result = await response.json();
+                if (result.success) {
+                    calendarData = result.data;
+                    generateCalendar();
+                }
+            } catch (error) {
+                console.error('Error loading calendar data:', error);
+            }
+        }
+
+        function generateCalendar() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            const lang = '{{ language }}';
+            
+            // Update title
+            const calendarTitle = document.getElementById('calendarTitle');
+            if (calendarTitle) {
+                calendarTitle.textContent = monthNames[lang][month] + ' ' + year;
+            }
+            
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const daysInPrevMonth = new Date(year, month, 0).getDate();
+            
+            let calendarHTML = '';
+            
+            // Add day headers
+            dayNames[lang].forEach(day => {
+                calendarHTML += `<div class="calendar-day header">${day}</div>`;
+            });
+            
+            // Add previous month's trailing days
+            for (let i = firstDay - 1; i >= 0; i--) {
+                const day = daysInPrevMonth - i;
+                calendarHTML += `<div class="calendar-day other-month">${day}</div>`;
+            }
+            
+            // Add current month's days
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const isPMScheduled = calendarData[dateStr] && calendarData[dateStr].length > 0;
+                const className = isPMScheduled ? 'calendar-day pm-scheduled' : 'calendar-day';
+                const title = isPMScheduled ? `PM scheduled for: ${calendarData[dateStr].map(d => d.device_name).join(', ')}` : '';
+                calendarHTML += `<div class="${className}" title="${title}">${day}</div>`;
+            }
+            
+            // Add next month's leading days
+            const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7;
+            const remainingCells = totalCells - (firstDay + daysInMonth);
+            for (let day = 1; day <= remainingCells; day++) {
+                calendarHTML += `<div class="calendar-day other-month">${day}</div>`;
+            }
+            
+            const calendarGrid = document.getElementById('calendarGrid');
+            if (calendarGrid) {
+                calendarGrid.innerHTML = calendarHTML;
+            }
+        }
+
+        function previousMonth() {
+            currentDate.setMonth(currentDate.getMonth() - 1);
+            generateCalendar();
+        }
+
+        function nextMonth() {
+            currentDate.setMonth(currentDate.getMonth() + 1);
+            generateCalendar();
+        }
+
+        // Preventive Maintenance functionality
+        async function performMaintenance(deviceId) {
+            if (!confirm('Are you sure you want to perform maintenance on this device? This will reset the counter and update the maintenance dates.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/perform_maintenance/${deviceId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    alert('Maintenance performed successfully!');
+                    location.reload(); // Refresh the page to show updated data
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error performing maintenance:', error);
+                alert('An error occurred while performing maintenance.');
+            }
+        }
+
+        function viewDetails(deviceId) {
+            // For now, just show an alert. This could be expanded to show a modal with detailed information
+            alert(`Viewing details for device ID: ${deviceId}`);
+            // TODO: Implement detailed view modal
+        }
+
+        // Sign out modal function
+        function showSignOutModal() {
+            const signOutModal = new bootstrap.Modal(document.getElementById('signOutModal'));
+            signOutModal.show();
+        }
+
+        // Language switching function
+        function changeLanguage(lang) {
+            const elements = document.querySelectorAll('.lang-text');
+            elements.forEach(element => {
+                const text = element.getAttribute('data-' + lang);
+                if (text) {
+                    element.textContent = text;
+                }
+            });
+            
+            // Update active language selector
+            document.querySelectorAll('.language-selector a').forEach(link => {
+                link.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>

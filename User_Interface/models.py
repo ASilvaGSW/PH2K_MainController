@@ -95,6 +95,24 @@ class Joint(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     active = db.Column(db.Boolean, default=True)
 
+# Define Tool model for tooling management with one-to-many relationship to part numbers
+class Tool(db.Model):
+    __tablename__ = 'tools'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    part_number_id = db.Column(db.Integer, db.ForeignKey('part_numbers.id'), nullable=False)
+    tool_number = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    tool_type = db.Column(db.String(50), nullable=False)  # e.g., 'cutting', 'forming', 'assembly'
+    quantity = db.Column(db.Integer, default=1)
+    created_by = db.Column(db.String(80), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    active = db.Column(db.Boolean, default=True)
+    
+    # Relationship to PartNumber
+    part_number = db.relationship('PartNumber', backref='tools')
+
 class DeviceType(db.Model):
     __tablename__ = 'device_types'
     
@@ -153,6 +171,23 @@ class WorkOrder(db.Model):
     deleted = db.Column(db.Boolean, default=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
     deleted_user = db.Column(db.String(80), nullable=True)
+
+class PreventiveMaintenance(db.Model):
+    __tablename__ = 'preventive_maintenance'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    device_id = db.Column(db.Integer, db.ForeignKey('devices.id'), nullable=False)
+    counter = db.Column(db.Integer, default=0)  # Current counter
+    lifetime = db.Column(db.Integer, nullable=False)  # Total lifetime cycles
+    last_pm = db.Column(db.Date, nullable=True)  # Last preventive maintenance date
+    next_pm = db.Column(db.Date, nullable=True)  # Next preventive maintenance date
+    created_by = db.Column(db.String(80), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    active = db.Column(db.Boolean, default=True)
+    
+    # Relationship
+    device = db.relationship('Device', backref='preventive_maintenance')
 
 def initialize_database(app):
     """Initialize database with sample data"""
@@ -281,8 +316,51 @@ def initialize_database(app):
         # Commit part numbers first to get their IDs
         db.session.commit()
         
+        # Create sample preventive maintenance data
+        from datetime import date, timedelta
+        
+        pm1 = PreventiveMaintenance(
+            device_id=device1.id,
+            counter=100,
+            lifetime=150,
+            last_pm=date(2025, 1, 21),
+            next_pm=date(2025, 1, 21),
+            created_by='admin'
+        )
+        
+        pm2 = PreventiveMaintenance(
+            device_id=device2.id,
+            counter=100,
+            lifetime=150,
+            last_pm=date(2025, 1, 21),
+            next_pm=date(2025, 1, 21),
+            created_by='admin'
+        )
+        
+        pm3 = PreventiveMaintenance(
+            device_id=device3.id,
+            counter=100,
+            lifetime=160,
+            last_pm=date(2025, 1, 21),
+            next_pm=date(2025, 1, 21),
+            created_by='admin'
+        )
+        
+        pm4 = PreventiveMaintenance(
+            device_id=device4.id,
+            counter=75,
+            lifetime=120,
+            last_pm=date(2025, 1, 15),
+            next_pm=date(2025, 2, 20),
+            created_by='admin'
+        )
+        
+        db.session.add(pm1)
+        db.session.add(pm2)
+        db.session.add(pm3)
+        db.session.add(pm4)
+        
         # Create sample work orders
-        from datetime import timedelta
         
         work_order1 = WorkOrder(
             part_number='PH2K-001',

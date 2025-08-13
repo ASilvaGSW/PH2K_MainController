@@ -262,42 +262,30 @@
                 </div>
                 <div class="col-md-4">
                     <div class="chart-container">
+                        <!-- Part Number Selection -->
+                        <div class="mb-3">
+                            <label class="form-label lang-text" data-en="Select Part Number" data-es="Seleccionar Número de Parte" data-jp="部品番号を選択">Select Part Number</label>
+                            <select class="form-select" id="partNumberSelect" onchange="loadBOMData()">
+                                <option value="" class="lang-text" data-en="-- Select Part Number --" data-es="-- Seleccionar Número de Parte --" data-jp="-- 部品番号を選択 --">-- Select Part Number --</option>
+                            </select>
+                        </div>
                         <div class="report-tabs mb-3">
-                            <button class="btn btn-light me-2 lang-text" data-en="BOM" data-es="BOM" data-jp="部品表">BOM</button>
-                            <button class="btn btn-light lang-text" data-en="TOOLING" data-es="HERRAMIENTAS" data-jp="工具">TOOLING</button>
+                            <button class="btn btn-light me-2 active lang-text" id="bomBtn" onclick="showBOMTab()" data-en="BOM" data-es="BOM" data-jp="部品表">BOM</button>
+                            <button class="btn btn-light lang-text" id="toolingBtn" onclick="showToolingTab()" data-en="TOOLING" data-es="HERRAMIENTAS" data-jp="工具">TOOLING</button>
                         </div>
                         <div class="table-responsive">
-                            <table class="table table-bordered">
+                            <table class="table table-bordered" id="bomTable">
                                 <thead>
                                     <tr>
                                         <th class="lang-text" data-en="Part Number/Tool" data-es="Número de Parte/Herramienta" data-jp="部品番号/工具">Part Number/Tool</th>
-                                        <th class="lang-text" data-en="Desc" data-es="Desc" data-jp="説明">Desc</th>
+                                        <th class="lang-text" data-en="Description" data-es="Descripción" data-jp="説明">Description</th>
                                         <th class="lang-text" data-en="Qty" data-es="Cant" data-jp="数量">Qty</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    {% set unique_parts = {} %}
-                                    {% for item in production_data %}
-                                        {% if item.part_number not in unique_parts %}
-                                            {% set _ = unique_parts.update({item.part_number: {'qty': item.qty, 'machine': item.machine}}) %}
-                                        {% else %}
-                                            {% set _ = unique_parts.update({item.part_number: {'qty': unique_parts[item.part_number]['qty'] + item.qty, 'machine': unique_parts[item.part_number]['machine']}}) %}
-                                        {% endif %}
-                                    {% endfor %}
-                                    
-                                    {% for part_number, data in unique_parts.items() %}
+                                <tbody id="bomTableBody">
                                     <tr>
-                                        <td>{{ part_number }}</td>
-                                        <td>{{ data.machine }}</td>
-                                        <td>{{ data.qty }}</td>
+                                        <td colspan="3" class="text-center lang-text" data-en="Please select a part number to view BOM" data-es="Seleccione un número de parte para ver BOM" data-jp="BOMを表示するには部品番号を選択してください">Please select a part number to view BOM</td>
                                     </tr>
-                                    {% endfor %}
-                                    
-                                    {% if unique_parts|length == 0 %}
-                                    <tr>
-                                        <td colspan="3" class="text-center">No production data available for this period</td>
-                                    </tr>
-                                    {% endif %}
                                 </tbody>
                             </table>
                         </div>
@@ -612,6 +600,177 @@
                 link.href = mainChart.toBase64Image();
                 link.click();
             }
+        }
+        
+        // Global variables for BOM data, tool data and current tab
+        let currentBOMData = [];
+        let currentToolData = [];
+        let currentTab = 'bom';        
+        // Load part numbers on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadPartNumbers();
+        });
+        
+        // Load all part numbers for dropdown
+        function loadPartNumbers() {
+            fetch('/get_part_numbers')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const select = document.getElementById('partNumberSelect');
+                        // Clear existing options except the first one
+                        while (select.children.length > 1) {
+                            select.removeChild(select.lastChild);
+                        }
+                        
+                        // Add part numbers to dropdown
+                        data.part_numbers.forEach(part => {
+                            const option = document.createElement('option');
+                            option.value = part.id;
+                            option.textContent = `${part.part_number} - ${part.name}`;
+                            select.appendChild(option);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading part numbers:', error);
+                });
+        }
+        
+        // Load BOM data for selected part number
+        function loadBOMData() {
+            const partNumberId = document.getElementById('partNumberSelect').value;
+            const tbody = document.getElementById('bomTableBody');
+            
+            if (!partNumberId) {
+                tbody.innerHTML = '<tr><td colspan="3" class="text-center lang-text" data-en="Please select a part number to view BOM" data-es="Seleccione un número de parte para ver BOM" data-jp="BOMを表示するには部品番号を選択してください">Please select a part number to view BOM</td></tr>';
+                currentBOMData = [];
+                currentToolData = [];
+                updateLanguage();
+                return;
+            }
+            
+            // Load both BOM data and tool data
+            Promise.all([
+                fetch(`/get_bom_data/${partNumberId}`),
+                fetch(`/get_tools_by_part/${partNumberId}`)
+            ])
+            .then(responses => Promise.all(responses.map(r => r.json())))
+            .then(([bomData, toolData]) => {
+                if (bomData.success) {
+                    currentBOMData = bomData.bom_data;
+                } else {
+                    currentBOMData = [];
+                }
+                
+                if (toolData.success) {
+                    currentToolData = toolData.tools;
+                } else {
+                    currentToolData = [];
+                }
+                
+                displayBOMData();
+            })
+            .catch(error => {
+                console.error('Error loading data:', error);
+                tbody.innerHTML = '<tr><td colspan="3" class="text-center text-danger">Error loading data</td></tr>';
+            });
+        }
+        
+        // Display BOM data based on current tab
+        function displayBOMData() {
+            const tbody = document.getElementById('bomTableBody');
+            let filteredData = [];
+            
+            // Filter data based on current tab
+            if (currentTab === 'bom') {
+                if (currentBOMData.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" class="text-center lang-text" data-en="No BOM data available for this part" data-es="No hay datos BOM disponibles para esta parte" data-jp="この部品のBOMデータはありません">No BOM data available for this part</td></tr>';
+                    updateLanguage();
+                    return;
+                }
+                
+                filteredData = currentBOMData.filter(item => 
+                    item.type === 'tape' || item.type === 'stamp' || item.type === 'insertion'
+                );
+                
+                if (filteredData.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" class="text-center">No BOM components available</td></tr>';
+                    return;
+                }
+                
+                // Generate table rows for BOM data
+                let html = '';
+                filteredData.forEach(item => {
+                    html += `
+                        <tr>
+                            <td>${item.part_tool}</td>
+                            <td>${item.description}</td>
+                            <td>${item.quantity}</td>
+                        </tr>
+                    `;
+                });
+                
+                tbody.innerHTML = html;
+                
+            } else if (currentTab === 'tooling') {
+                // Show tools and nozzles/joints
+                let toolsData = [];
+                
+                // Add tools from currentToolData
+                if (currentToolData && currentToolData.length > 0) {
+                    currentToolData.forEach(tool => {
+                        toolsData.push({
+                            part_tool: tool.tool_number,
+                            description: tool.description || tool.tool_type,
+                            quantity: tool.quantity
+                        });
+                    });
+                }
+                
+                // Add nozzles and joints from currentBOMData
+                if (currentBOMData && currentBOMData.length > 0) {
+                    const nozzlesJoints = currentBOMData.filter(item => 
+                        item.type === 'nozzle' || item.type === 'joint'
+                    );
+                    toolsData = toolsData.concat(nozzlesJoints);
+                }
+                
+                if (toolsData.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" class="text-center">No tooling components available</td></tr>';
+                    return;
+                }
+                
+                // Generate table rows for tooling data
+                let html = '';
+                toolsData.forEach(item => {
+                    html += `
+                        <tr>
+                            <td>${item.part_tool}</td>
+                            <td>${item.description}</td>
+                            <td>${item.quantity}</td>
+                        </tr>
+                    `;
+                });
+                
+                tbody.innerHTML = html;
+            }
+        }
+        
+        // Show BOM tab
+        function showBOMTab() {
+            currentTab = 'bom';
+            document.getElementById('bomBtn').classList.add('active');
+            document.getElementById('toolingBtn').classList.remove('active');
+            displayBOMData();
+        }
+        
+        // Show Tooling tab
+        function showToolingTab() {
+            currentTab = 'tooling';
+            document.getElementById('toolingBtn').classList.add('active');
+            document.getElementById('bomBtn').classList.remove('active');
+            displayBOMData();
         }
     </script>
 </body>
