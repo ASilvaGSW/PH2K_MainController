@@ -9,6 +9,124 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/production_report.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .controls-section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+        }
+        
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+        
+        .control-label {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 8px;
+            display: block;
+        }
+        
+        .form-select, .form-control {
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+            padding: 10px 12px;
+            font-size: 14px;
+        }
+        
+        .form-select:focus, .form-control:focus {
+            border-color: #3498db;
+            box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+        }
+        
+        .chart-container {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }
+        
+        .chart-wrapper {
+            position: relative;
+            height: 300px;
+        }
+        
+        .chart-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            color: white;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-3px);
+        }
+        
+        .metric-card:nth-child(2) {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        
+        .metric-card:nth-child(3) {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        
+        .metric-card:nth-child(4) {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
+        
+        .metric-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .metric-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        .download-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 12px 25px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .download-btn:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+    </style>
 </head>
 <body>
     <div class="container-fluid min-vh-100 g-0">
@@ -31,8 +149,8 @@
             </div>
         </div>
         
-        <header class="header py-2 px-4 d-flex justify-content-between align-items-center">
-            <div class="d-flex align-items-center">
+        <header class="header py-2 d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center" style="padding-left: 10px;">
                 <a href="{{ url_for('main') }}" class="back-button me-3">
                     <i class="bi bi-arrow-left"></i>
                     <span class="ms-2 lang-text" data-en="Back to Main Menu" data-es="Volver al Menú Principal" data-jp="メインメニューに戻る">Back to Main Menu</span>
@@ -46,7 +164,7 @@
                     <a href="#" class="ms-3" onclick="changeLanguage('es'); return false;">Español</a>
                     <a href="#" class="ms-3" onclick="changeLanguage('jp'); return false;">日本語</a>
                 </div>
-                <div class="user-info d-flex align-items-center">
+                <div class="user-info d-flex align-items-center" style="padding-right: 10px;">
                     <div class="user-avatar me-2">
                         <div class="avatar-circle">
                             <i class="bi bi-person-fill"></i>
@@ -68,142 +186,138 @@
                 <h1 class="report-title lang-text" data-en="Production Report" data-es="Informe de Producción" data-jp="生産レポート">Production Report</h1>
             </div>
             
-            <div class="row mb-4">
-                <div class="col-md-6">
-                    <div class="dropdown">
-                        <button class="btn btn-light dropdown-toggle w-100 text-start" type="button" id="reportTypeDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                            <span class="lang-text" data-en="Reporting Type" data-es="Tipo de Informe" data-jp="レポートタイプ">Reporting Type</span>
-                        </button>
-                        <ul class="dropdown-menu w-100" aria-labelledby="reportTypeDropdown">
-                            <li><a class="dropdown-item" href="#">Type 1</a></li>
-                            <li><a class="dropdown-item" href="#">Type 2</a></li>
-                            <li><a class="dropdown-item" href="#">Type 3</a></li>
-                        </ul>
+            <!-- Chart Controls Section -->
+            <div class="controls-section">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="control-group">
+                            <label class="control-label lang-text" data-en="Chart Type" data-es="Tipo de Gráfico" data-jp="チャートタイプ">Chart Type</label>
+                            <select class="form-select" id="chartTypeSelect">
+                                <option value="daily-production" class="lang-text" data-en="Daily Production" data-es="Producción Diaria" data-jp="日次生産">Daily Production</option>
+                                <option value="parts-breakdown" class="lang-text" data-en="Parts Breakdown" data-es="Desglose de Partes" data-jp="部品内訳">Parts Breakdown</option>
+                                <option value="efficiency-trend" class="lang-text" data-en="Efficiency Trend" data-es="Tendencia de Eficiencia" data-jp="効率トレンド">Efficiency Trend</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="control-group">
+                            <label class="control-label lang-text" data-en="View Type" data-es="Tipo de Vista" data-jp="表示タイプ">View Type</label>
+                            <select class="form-select" id="viewTypeSelect">
+                                <option value="bar" class="lang-text" data-en="Bar Chart" data-es="Gráfico de Barras" data-jp="棒グラフ">Bar Chart</option>
+                                <option value="line" class="lang-text" data-en="Line Chart" data-es="Gráfico de Líneas" data-jp="線グラフ">Line Chart</option>
+                                <option value="pie" class="lang-text" data-en="Pie Chart" data-es="Gráfico Circular" data-jp="円グラフ">Pie Chart</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="control-group">
+                            <label class="control-label">&nbsp;</label>
+                            <button class="btn download-btn w-100" onclick="downloadChart()">
+                                <i class="bi bi-download"></i>
+                                <span class="lang-text" data-en="Download" data-es="Descargar" data-jp="ダウンロード">Download</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <div class="dropdown">
-                        <button class="btn btn-light dropdown-toggle w-100 text-start" type="button" id="partNumberDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                            <span class="lang-text" data-en="Part Number List" data-es="Lista de Números de Parte" data-jp="部品番号リスト">Part Number List</span>
-                        </button>
-                        <ul class="dropdown-menu w-100" aria-labelledby="partNumberDropdown">
-                            <li><a class="dropdown-item" href="#">All Parts</a></li>
-                            {% for part_number in part_numbers %}
-                            <li><a class="dropdown-item" href="#">{{ part_number }}</a></li>
-                            {% endfor %}
-                        </ul>
+                
+                <!-- Date Selection Row -->
+                <div class="row mt-3">
+                    <div class="col-md-4">
+                        <div class="control-group">
+                            <label class="control-label lang-text" data-en="From Date" data-es="Fecha Desde" data-jp="開始日">From Date</label>
+                            <input type="date" class="form-control" id="fromDate">
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="control-group">
+                            <label class="control-label lang-text" data-en="To Date" data-es="Fecha Hasta" data-jp="終了日">To Date</label>
+                            <input type="date" class="form-control" id="toDate">
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="control-group">
+                            <label class="control-label">&nbsp;</label>
+                            <button class="btn btn-primary w-100" onclick="applyDateFilter()">
+                                <i class="bi bi-funnel"></i>
+                                <span class="lang-text" data-en="Apply Filter" data-es="Aplicar Filtro" data-jp="フィルター適用">Apply Filter</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
 
+            <!-- Charts Section -->
             <div class="row mb-4">
-                <div class="col-md-6">
-                    <div class="d-flex align-items-center">
-                        <h2 class="today-label lang-text" data-en="Today" data-es="Hoy" data-jp="今日">Today</h2>
-                        <div class="date-navigation ms-4">
-                            <button class="btn btn-light btn-sm rounded-circle me-2"><i class="bi bi-chevron-left"></i></button>
-                            <button class="btn btn-light btn-sm rounded-circle"><i class="bi bi-chevron-right"></i></button>
+                <div class="col-md-8">
+                    <div class="chart-container">
+                        <h4 class="chart-title lang-text" data-en="Production Analysis" data-es="Análisis de Producción" data-jp="生産分析" id="mainChartTitle">Production Analysis</h4>
+                        <div class="chart-wrapper">
+                            <canvas id="mainChart"></canvas>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <div class="dropdown">
-                        <button class="btn btn-light dropdown-toggle w-100 text-start" type="button" id="dateRangeDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                            <span>{{ start_date.strftime('%B %d') }}-{{ end_date.strftime('%d, %Y') }}</span>
-                        </button>
-                        <ul class="dropdown-menu w-100" aria-labelledby="dateRangeDropdown">
-                            <li><a class="dropdown-item" href="#">{{ start_date.strftime('%B %d') }}-{{ end_date.strftime('%d, %Y') }}</a></li>
-                            <li><a class="dropdown-item" href="#">{{ (start_date - timedelta(days=7)).strftime('%B %d') }}-{{ (end_date - timedelta(days=7)).strftime('%d, %Y') }}</a></li>
-                            <li><a class="dropdown-item" href="#">{{ (start_date + timedelta(days=7)).strftime('%B %d') }}-{{ (end_date + timedelta(days=7)).strftime('%d, %Y') }}</a></li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-7">
-                    <div class="schedule-container">
-                        <div class="schedule-header">
-                            {% for i in range(7) %}
-                            {% set day = start_date + timedelta(days=i) %}
-                            <div class="day-header">{{ day.strftime('%a').upper() }}<br>{{ day.strftime('%d') }}</div>
-                            {% endfor %}
+                <div class="col-md-4">
+                    <div class="chart-container">
+                        <div class="report-tabs mb-3">
+                            <button class="btn btn-light me-2 lang-text" data-en="BOM" data-es="BOM" data-jp="部品表">BOM</button>
+                            <button class="btn btn-light lang-text" data-en="TOOLING" data-es="HERRAMIENTAS" data-jp="工具">TOOLING</button>
                         </div>
-                        <div class="schedule-body">
-                            <div class="time-column">
-                                <div class="time-slot">9 AM</div>
-                                <div class="time-slot">10 AM</div>
-                                <div class="time-slot">11 AM</div>
-                                <div class="time-slot">12 PM</div>
-                                <div class="time-slot">1 PM</div>
-                                <div class="time-slot">2 PM</div>
-                                <div class="time-slot">3 PM</div>
-                                <div class="time-slot">4 PM</div>
-                                <div class="time-slot">5 PM</div>
-                            </div>
-                            <div class="schedule-grid">
-                                <!-- Dynamic scheduled items from database -->
-                                {% for item in production_data %}
-                                    {% set day_index = ((item.date - start_date).days + 1) %}
-                                    {% set hour = item.timestamp.hour %}
-                                    {% set row_index = hour - 8 if hour >= 9 else 1 %}
-                                    <div class="schedule-item" style="grid-row: {{ row_index }} / {{ row_index + 1 }}; grid-column: {{ day_index }};" 
-                                         title="{{ item.part_number }} - {{ item.qty }} units - {{ item.user }}">
-                                        {{ item.part_number }}
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-5">
-                    <div class="report-tabs mb-3">
-                        <button class="btn btn-primary me-2 lang-text" data-en="BOM" data-es="BOM" data-jp="部品表">BOM</button>
-                        <button class="btn btn-light lang-text" data-en="TOOLING" data-es="HERRAMIENTAS" data-jp="工具">TOOLING</button>
-                    </div>
-                    <div class="table-responsive">
-                        <table class="table table-bordered">
-                            <thead>
-                                <tr>
-                                    <th class="lang-text" data-en="Part Number/Tool" data-es="Número de Parte/Herramienta" data-jp="部品番号/工具">Part Number/Tool</th>
-                                    <th class="lang-text" data-en="Desc" data-es="Desc" data-jp="説明">Desc</th>
-                                    <th class="lang-text" data-en="Qty" data-es="Cant" data-jp="数量">Qty</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% set unique_parts = {} %}
-                                {% for item in production_data %}
-                                    {% if item.part_number not in unique_parts %}
-                                        {% set _ = unique_parts.update({item.part_number: {'qty': item.qty, 'machine': item.machine}}) %}
-                                    {% else %}
-                                        {% set _ = unique_parts.update({item.part_number: {'qty': unique_parts[item.part_number]['qty'] + item.qty, 'machine': unique_parts[item.part_number]['machine']}}) %}
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th class="lang-text" data-en="Part Number/Tool" data-es="Número de Parte/Herramienta" data-jp="部品番号/工具">Part Number/Tool</th>
+                                        <th class="lang-text" data-en="Desc" data-es="Desc" data-jp="説明">Desc</th>
+                                        <th class="lang-text" data-en="Qty" data-es="Cant" data-jp="数量">Qty</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% set unique_parts = {} %}
+                                    {% for item in production_data %}
+                                        {% if item.part_number not in unique_parts %}
+                                            {% set _ = unique_parts.update({item.part_number: {'qty': item.qty, 'machine': item.machine}}) %}
+                                        {% else %}
+                                            {% set _ = unique_parts.update({item.part_number: {'qty': unique_parts[item.part_number]['qty'] + item.qty, 'machine': unique_parts[item.part_number]['machine']}}) %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    
+                                    {% for part_number, data in unique_parts.items() %}
+                                    <tr>
+                                        <td>{{ part_number }}</td>
+                                        <td>{{ data.machine }}</td>
+                                        <td>{{ data.qty }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                    
+                                    {% if unique_parts|length == 0 %}
+                                    <tr>
+                                        <td colspan="3" class="text-center">No production data available for this period</td>
+                                    </tr>
                                     {% endif %}
-                                {% endfor %}
-                                
-                                {% for part_number, data in unique_parts.items() %}
-                                <tr>
-                                    <td>{{ part_number }}</td>
-                                    <td>{{ data.machine }}</td>
-                                    <td>{{ data.qty }}</td>
-                                </tr>
-                                {% endfor %}
-                                
-                                {% if unique_parts|length == 0 %}
-                                <tr>
-                                    <td colspan="3" class="text-center">No production data available for this period</td>
-                                </tr>
-                                {% endif %}
-                            </tbody>
-                        </table>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
+            </div>
+
+
             </div>
         </main>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        let mainChart;
+        let productionData = null;
+        let currentLanguage = 'en'; // Default language
+        
         function changeLanguage(lang) {
+            currentLanguage = lang; // Update current language
             // Update active class on language selector
             document.querySelectorAll('.language-selector a').forEach(el => {
                 el.classList.remove('active');
@@ -245,7 +359,260 @@
             // Use the language passed from the server
             const initialLanguage = '{{ language }}';
             changeLanguage(initialLanguage);
+            
+            // Set default date range (last 30 days)
+            const today = new Date();
+            const thirtyDaysAgo = new Date(today.getTime() - (30 * 24 * 60 * 60 * 1000));
+            
+            document.getElementById('toDate').value = today.toISOString().split('T')[0];
+            document.getElementById('fromDate').value = thirtyDaysAgo.toISOString().split('T')[0];
+            
+            loadProductionData();
+
+            // Add event listeners for chart controls
+            document.getElementById('chartTypeSelect').addEventListener('change', updateChartDisplay);
+            document.getElementById('viewTypeSelect').addEventListener('change', updateChartDisplay);
         });
+        
+        // Load production data from prod_his table
+        function loadProductionData(fromDate = null, toDate = null) {
+            let url = '/get_production_history';
+            
+            // Add date parameters if provided
+            if (fromDate && toDate) {
+                url += `?from_date=${fromDate}&to_date=${toDate}`;
+            }
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        productionData = data.data;
+                        console.log('Production data loaded:', productionData);
+                        updateChartDisplay();
+                    } else {
+                        console.error('Error loading data:', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        }
+        
+        // Apply date filter
+        function applyDateFilter() {
+            const fromDate = document.getElementById('fromDate').value;
+            const toDate = document.getElementById('toDate').value;
+            
+            if (!fromDate || !toDate) {
+                const messages = {
+                    'en': 'Please select both from and to dates.',
+                    'es': 'Por favor seleccione ambas fechas, desde y hasta.',
+                    'jp': '開始日と終了日の両方を選択してください。'
+                };
+                alert(messages[currentLanguage] || messages['en']);
+                return;
+            }
+            
+            if (new Date(fromDate) > new Date(toDate)) {
+                const messages = {
+                    'en': 'From date cannot be later than to date.',
+                    'es': 'La fecha desde no puede ser posterior a la fecha hasta.',
+                    'jp': '開始日は終了日より後にできません。'
+                };
+                alert(messages[currentLanguage] || messages['en']);
+                return;
+            }
+            
+            loadProductionData(fromDate, toDate);
+        }
+        
+
+        
+        // Update chart display
+        function updateChartDisplay() {
+            if (!productionData || !productionData.length) return;
+            
+            const chartType = document.getElementById('chartTypeSelect').value;
+            const viewType = document.getElementById('viewTypeSelect').value;
+            
+            // Destroy existing chart
+            if (mainChart) {
+                mainChart.destroy();
+            }
+            
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            
+            switch (chartType) {
+                case 'daily-production':
+                    createDailyProductionChart(ctx, viewType);
+                    break;
+                case 'parts-breakdown':
+                    createPartsBreakdownChart(ctx, viewType);
+                    break;
+                case 'efficiency-trend':
+                    createEfficiencyTrendChart(ctx, viewType);
+                    break;
+            }
+        }
+        
+        // Create daily production chart
+        function createDailyProductionChart(ctx, viewType) {
+            const dailyData = {};
+            productionData.forEach(item => {
+                const date = item.date;
+                if (!dailyData[date]) dailyData[date] = 0;
+                dailyData[date] += Number(item.qty) || 0;
+            });
+            
+            const labels = Object.keys(dailyData).sort();
+            const data = labels.map(date => dailyData[date]);
+            
+            const chartConfig = {
+                type: viewType === 'pie' ? 'bar' : viewType, // Pie doesn't make sense for daily data
+                data: {
+                    labels: labels.map(date => new Date(date).toLocaleDateString()),
+                    datasets: [{
+                        label: 'Daily Production',
+                        data: data,
+                        backgroundColor: viewType === 'line' ? 'rgba(52, 152, 219, 0.2)' : 'rgba(52, 152, 219, 0.8)',
+                        borderColor: 'rgba(52, 152, 219, 1)',
+                        borderWidth: 2,
+                        fill: viewType === 'line' ? false : true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Daily Production'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            };
+            
+            mainChart = new Chart(ctx, chartConfig);
+        }
+        
+        // Create parts breakdown chart
+        function createPartsBreakdownChart(ctx, viewType) {
+            const partsData = {};
+            productionData.forEach(item => {
+                const part = item.part_number;
+                if (!partsData[part]) partsData[part] = 0;
+                partsData[part] += Number(item.qty) || 0;
+            });
+            
+            const labels = Object.keys(partsData);
+            const data = Object.values(partsData);
+            const colors = [
+                'rgba(255, 99, 132, 0.8)',
+                'rgba(54, 162, 235, 0.8)',
+                'rgba(255, 205, 86, 0.8)',
+                'rgba(75, 192, 192, 0.8)',
+                'rgba(153, 102, 255, 0.8)',
+                'rgba(255, 159, 64, 0.8)'
+            ];
+            
+            const chartConfig = {
+                type: viewType,
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Parts Production',
+                        data: data,
+                        backgroundColor: viewType === 'pie' ? colors : 'rgba(52, 152, 219, 0.8)',
+                        borderColor: viewType === 'pie' ? colors.map(c => c.replace('0.8', '1')) : 'rgba(52, 152, 219, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Parts Breakdown'
+                        }
+                    },
+                    scales: viewType === 'pie' ? {} : {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            };
+            
+            mainChart = new Chart(ctx, chartConfig);
+        }
+        
+        // Create efficiency trend chart
+        function createEfficiencyTrendChart(ctx, viewType) {
+            const dailyData = {};
+            productionData.forEach(item => {
+                const date = item.date;
+                if (!dailyData[date]) dailyData[date] = 0;
+                dailyData[date] += Number(item.qty) || 0;
+            });
+            
+            const labels = Object.keys(dailyData).sort();
+            const data = labels.map(date => Math.min((dailyData[date] / 100) * 100, 100)); // Assuming 100 as target
+            
+            const chartConfig = {
+                type: viewType === 'pie' ? 'line' : viewType, // Pie doesn't make sense for trend
+                data: {
+                    labels: labels.map(date => new Date(date).toLocaleDateString()),
+                    datasets: [{
+                        label: 'Efficiency %',
+                        data: data,
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 2,
+                        fill: viewType === 'line' ? false : true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Efficiency Trend'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+            
+            mainChart = new Chart(ctx, chartConfig);
+        }
+        
+        // Download chart function
+        function downloadChart() {
+            if (mainChart) {
+                const link = document.createElement('a');
+                link.download = 'production-chart.png';
+                link.href = mainChart.toBase64Image();
+                link.click();
+            }
+        }
     </script>
 </body>
 </html>

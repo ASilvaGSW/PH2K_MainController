@@ -29,7 +29,7 @@ class ProdHis(db.Model):
     qty = db.Column(db.Integer, nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     user = db.Column(db.String(100), nullable=False)
-    deleted = db.Column(db.Integer, default=datetime.utcnow)
+    deleted = db.Column(db.Boolean, default=False)
 
 class PartNumber(db.Model):
     __tablename__ = 'part_numbers'
@@ -346,6 +346,75 @@ def initialize_database(app):
         db.session.add(work_order4)
         db.session.add(work_order5)
         db.session.add(work_order6)
+        
+        # Create sample production history data
+        from datetime import timedelta
+        
+        # Generate production data for the last 30 days
+        base_date = datetime.now().date() - timedelta(days=30)
+        
+        for i in range(30):
+            current_date = base_date + timedelta(days=i)
+            
+            # Create PNA (Pass No Action) records
+            pna_record1 = ProdHis(
+                machine='PH2K-LINE-01',
+                date=current_date,
+                part_number='PH2K-001',
+                qty=45 + (i % 15),  # Varying quantities
+                timestamp=datetime.combine(current_date, datetime.min.time()) + timedelta(hours=9, minutes=30),
+                user='operator',
+                deleted=False
+            )
+            
+            pna_record2 = ProdHis(
+                machine='PH2K-LINE-01',
+                date=current_date,
+                part_number='PH2K-002',
+                qty=35 + (i % 20),
+                timestamp=datetime.combine(current_date, datetime.min.time()) + timedelta(hours=11, minutes=15),
+                user='operator',
+                deleted=False
+            )
+            
+            # Create PMA (Pass Manual Action) records
+            pma_record1 = ProdHis(
+                machine='PH2K-LINE-02',
+                date=current_date,
+                part_number='PH2K-003',
+                qty=25 + (i % 10),
+                timestamp=datetime.combine(current_date, datetime.min.time()) + timedelta(hours=13, minutes=45),
+                user='engineer',
+                deleted=False
+            )
+            
+            pma_record2 = ProdHis(
+                machine='PH2K-LINE-02',
+                date=current_date,
+                part_number='PH2K-004',
+                qty=30 + (i % 12),
+                timestamp=datetime.combine(current_date, datetime.min.time()) + timedelta(hours=15, minutes=20),
+                user='engineer',
+                deleted=False
+            )
+            
+            # Add additional records for variety
+            if i % 3 == 0:  # Every third day
+                extra_record = ProdHis(
+                    machine='PH2K-LINE-01',
+                    date=current_date,
+                    part_number='PH2K-005',
+                    qty=20 + (i % 8),
+                    timestamp=datetime.combine(current_date, datetime.min.time()) + timedelta(hours=16, minutes=30),
+                    user='operator',
+                    deleted=False
+                )
+                db.session.add(extra_record)
+            
+            db.session.add(pna_record1)
+            db.session.add(pna_record2)
+            db.session.add(pma_record1)
+            db.session.add(pma_record2)
         
         db.session.commit()
         print("Database initialized with sample data")

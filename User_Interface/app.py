@@ -200,7 +200,7 @@ def production_report():
     ).order_by(ProdHis.date, ProdHis.timestamp).all()
     
     # Get unique part numbers for dropdown
-    part_numbers = ProdHis.query.with_entities(ProdHis.part_number).distinct().all()
+    part_numbers = ProdHis.query.with_entities(ProdHis.part_number).distinct().filter_by(deleted=False).all()
     part_numbers = [p[0] for p in part_numbers]
     
     return render_template('production_report.html', 
@@ -1348,6 +1348,228 @@ def delete_work_order(work_order_id):
     
     except Exception as e:
         db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)})
+
+@app.route('/capacity_and_rate')
+def capacity_and_rate():
+    # Check if user is logged in
+    if not session.get('logged_in'):
+        return redirect(url_for('welcome'))
+    
+    # Get user's language preference
+    username = session.get('username')
+    user_pref = UserPreference.query.filter_by(username=username).first()
+    language = 'en'  # Default language
+    
+    if user_pref:
+        language = user_pref.language
+    
+    # Get unique part numbers for dropdown
+    part_numbers = PartNumber.query.filter_by(active=True).all()
+
+    
+    return render_template('capacity_and_rate.html', 
+                         username=username, 
+                         language=language,
+                         part_numbers=part_numbers)
+
+@app.route('/get_production_history', methods=['GET'])
+def get_production_history():
+    # Check if user is logged in
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'message': 'Not logged in'})
+    
+    try:
+        from datetime import datetime, timedelta
+        
+        # Get date parameters from request
+        from_date_str = request.args.get('from_date')
+        to_date_str = request.args.get('to_date')
+        
+        # Use provided dates or default to last 30 days
+        if from_date_str and to_date_str:
+            try:
+                start_date = datetime.strptime(from_date_str, '%Y-%m-%d').date()
+                end_date = datetime.strptime(to_date_str, '%Y-%m-%d').date()
+            except ValueError:
+                return jsonify({'success': False, 'message': 'Invalid date format. Use YYYY-MM-DD'})
+        else:
+            today = datetime.now().date()
+            start_date = today - timedelta(days=29)  # Last 30 days
+            end_date = today
+        
+        # Query production history data from ProdHis table
+        production_history = ProdHis.query.filter(
+            ProdHis.date >= start_date,
+            ProdHis.date <= end_date,
+            ProdHis.deleted.is_(None)
+        ).order_by(ProdHis.date, ProdHis.timestamp).all()
+        
+        # Convert to list of dictionaries for JSON response
+        data = []
+        for record in production_history:
+            data.append({
+                'id': record.id,
+                'machine': record.machine,
+                'date': record.date.strftime('%Y-%m-%d'),
+                'part_number': record.part_number,
+                'qty': int(record.qty) if record.qty is not None else 0,
+                'timestamp': record.timestamp.strftime('%Y-%m-%d %H:%M:%S') if record.timestamp else '',
+                'user': record.user
+            })
+        
+        return jsonify({'success': True, 'data': data})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)})
+
+@app.route('/get_production_data', methods=['GET'])
+def get_production_data():
+    # Check if user is logged in
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'message': 'Not logged in'})
+    
+    try:
+        from datetime import datetime, timedelta
+        from sqlalchemy import func
+        
+        # Get date parameters from request
+        from_date_str = request.args.get('from_date')
+        to_date_str = request.args.get('to_date')
+        
+        # Use provided dates or default to last 30 days
+        if from_date_str and to_date_str:
+            try:
+                start_date = datetime.strptime(from_date_str, '%Y-%m-%d').date()
+                end_date = datetime.strptime(to_date_str, '%Y-%m-%d').date()
+            except ValueError:
+                return jsonify({'success': False, 'message': 'Invalid date format. Use YYYY-MM-DD'})
+        else:
+            today = datetime.now().date()
+            start_date = today - timedelta(days=29)  # Last 30 days
+            end_date = today
+        
+        # Query daily production data from ProdHis table
+        daily_production_query = db.session.query(
+            ProdHis.date,
+            func.sum(ProdHis.qty).label('total_qty')
+        ).filter(
+            ProdHis.date >= start_date,
+            ProdHis.date <= end_date,
+            ProdHis.deleted.is_(None)
+        ).group_by(ProdHis.date).order_by(ProdHis.date).all()
+        
+        # Create daily data structure
+        daily_data = {}
+        for record in daily_production_query:
+            # Ensure the quantity is stored as integer
+            daily_data[record.date] = int(record.total_qty) if record.total_qty is not None else 0
+        
+        # Fill in missing dates with 0 production
+        labels = []
+        production_data = []
+        capacity_data = []
+        efficiency_data = []
+        
+        # Calculate number of days in the selected range
+        date_range = (end_date - start_date).days + 1
+        
+        for i in range(date_range):
+            date = start_date + timedelta(days=i)
+            labels.append(date.strftime('%Y-%m-%d'))
+            
+            # Get actual production data or 0 if no data
+            production_qty = daily_data.get(date, 0)
+            # Ensure the value is an integer to prevent string concatenation issues
+            production_qty = int(production_qty) if production_qty is not None else 0
+            production_data.append(production_qty)
+            
+            # Set capacity based on typical production line capacity
+            # This could be made configurable or stored in database
+            capacity_qty = 200  # Standard daily capacity
+            capacity_data.append(capacity_qty)
+            
+            # Calculate efficiency
+            efficiency = (production_qty / capacity_qty) * 100 if capacity_qty > 0 else 0
+            efficiency_data.append(round(min(efficiency, 100), 1))  # Cap at 100%
+        
+        # Query weekly production data based on selected date range
+        weekly_labels = []
+        weekly_production = []
+        weekly_capacity = []
+        weekly_efficiency = []
+        
+        # Calculate number of weeks in the selected range
+        total_days = (end_date - start_date).days + 1
+        num_weeks = min(max(1, total_days // 7), 8)  # At least 1 week, max 8 weeks
+        
+        for i in range(num_weeks):
+            week_start = start_date + timedelta(days=i*7)
+            week_end = min(week_start + timedelta(days=6), end_date)
+            
+            # Query production for this week
+            week_production_query = db.session.query(
+                func.sum(ProdHis.qty).label('total_qty')
+            ).filter(
+                ProdHis.date >= week_start,
+                ProdHis.date <= week_end,
+                ProdHis.deleted.is_(None)
+            ).scalar()
+            
+            week_prod = week_production_query or 0
+            days_in_week = (week_end - week_start).days + 1
+            week_cap = 200 * days_in_week  # Daily capacity * days in week
+            week_eff = (week_prod / week_cap) * 100 if week_cap > 0 else 0
+            
+            weekly_labels.append(f"{week_start.strftime('%m/%d')} - {week_end.strftime('%m/%d')}")
+            weekly_production.append(week_prod)
+            weekly_capacity.append(week_cap)
+            weekly_efficiency.append(round(min(week_eff, 100), 1))
+        
+        # Query part number breakdown for the selected date range
+        parts_production_query = db.session.query(
+            ProdHis.part_number,
+            func.sum(ProdHis.qty).label('total_qty')
+        ).filter(
+            ProdHis.date >= start_date,
+            ProdHis.date <= end_date,
+            ProdHis.deleted.is_(None)
+        ).group_by(ProdHis.part_number).order_by(func.sum(ProdHis.qty).desc()).all()
+        
+        part_numbers = []
+        part_production = []
+        
+        for record in parts_production_query:
+            part_numbers.append(record.part_number)
+            part_production.append(record.total_qty)
+        
+        # If no parts data, provide empty arrays
+        if not part_numbers:
+            part_numbers = ['No Data']
+            part_production = [0]
+        
+        chart_data = {
+            'daily': {
+                'labels': labels,
+                'production': production_data,
+                'capacity': capacity_data,
+                'efficiency': efficiency_data
+            },
+            'weekly': {
+                'labels': weekly_labels,
+                'production': weekly_production,
+                'capacity': weekly_capacity,
+                'efficiency': weekly_efficiency
+            },
+            'parts': {
+                'labels': part_numbers,
+                'production': part_production
+            }
+        }
+        
+        return jsonify({'success': True, 'data': chart_data})
+        
+    except Exception as e:
         return jsonify({'success': False, 'message': str(e)})
 
 if __name__ == '__main__':
