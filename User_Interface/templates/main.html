@@ -58,7 +58,8 @@
             <h1 class="main-title mb-5 lang-text" data-en="Main Menu" data-es="Menú Principal" data-jp="メインメニュー">Main Menu</h1>
             
             <div class="row g-4">
-                <!-- Operator Screen -->
+                {% if is_operator %}
+                <!-- Operator Screen (Operator only) -->
                 <div class="col-4">
                     <a href="{{ url_for('operator_screen') }}" class="text-decoration-none">
                         <div class="menu-card">
@@ -70,7 +71,31 @@
                     </a>
                 </div>
                 
-                <!-- Production Report -->
+                <!-- Production Report (Operator only) -->
+                <div class="col-4">
+                    <a href="{{ url_for('production_report') }}" class="text-decoration-none">
+                        <div class="menu-card">
+                            <div class="icon-container mb-3">
+                                <i class="bi bi-pie-chart"></i>
+                            </div>
+                            <div class="card-title lang-text" data-en="Production Report" data-es="Informe de Producción" data-jp="生産レポート">Production Report</div>
+                        </div>
+                    </a>
+                </div>
+                {% else %}
+                <!-- Operator Screen (Normal users and Admin) -->
+                <div class="col-4">
+                    <a href="{{ url_for('operator_screen') }}" class="text-decoration-none">
+                        <div class="menu-card">
+                            <div class="icon-container mb-3">
+                                <i class="bi bi-person-workspace"></i>
+                            </div>
+                            <div class="card-title lang-text" data-en="Operator Screen" data-es="Pantalla del Operador" data-jp="オペレーター画面">Operator Screen</div>
+                        </div>
+                    </a>
+                </div>
+                
+                <!-- Production Report (Normal users and Admin) -->
                 <div class="col-4">
                     <a href="{{ url_for('production_report') }}" class="text-decoration-none">
                         <div class="menu-card">
@@ -82,7 +107,7 @@
                     </a>
                 </div>
                 
-                <!-- Engineering -->
+                <!-- Engineering (Normal users and Admin only) -->
                 <div class="col-4">
                     <a href="{{ url_for('engineering') }}" class="text-decoration-none">
                         <div class="menu-card">
@@ -94,7 +119,7 @@
                     </a>
                 </div>
                 
-                <!-- Preventive Maintenance -->
+                <!-- Preventive Maintenance (Normal users and Admin only) -->
                 <div class="col-4">
                     <a href="{{ url_for('preventive_maintenance') }}" class="text-decoration-none">
                         <div class="menu-card">
@@ -106,7 +131,7 @@
                     </a>
                 </div>
                 
-                <!-- System Setup -->
+                <!-- System Setup (Normal users and Admin only) -->
                 <div class="col-4">
                     <a href="{{ url_for('system_setup') }}" class="text-decoration-none">
                         <div class="menu-card">
@@ -117,6 +142,7 @@
                         </div>
                     </a>
                 </div>
+                {% endif %}
                 
                 <!-- Test Button (Only for asilva) -->
                 {% if username == 'asilva' %}

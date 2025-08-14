@@ -94,6 +94,7 @@
                                     <th class="lang-text" data-en="Username" data-es="Nombre de Usuario" data-jp="ユーザー名">Username</th>
                                     <th class="lang-text" data-en="Badge ID" data-es="ID de Insignia" data-jp="バッジID">Badge ID</th>
                                     <th class="lang-text" data-en="Admin" data-es="Administrador" data-jp="管理者">Admin</th>
+                                    <th class="lang-text" data-en="Operator" data-es="Operador" data-jp="オペレーター">Operator</th>
                                     <th class="lang-text" data-en="Actions" data-es="Acciones" data-jp="アクション">Actions</th>
                                 </tr>
                             </thead>
@@ -110,8 +111,15 @@
                                         <i class="bi bi-x-circle text-danger"></i>
                                         {% endif %}
                                     </td>
+                                    <td>
+                                        {% if user.is_operator %}
+                                        <i class="bi bi-check-circle-fill text-success"></i>
+                                        {% else %}
+                                        <i class="bi bi-x-circle text-danger"></i>
+                                        {% endif %}
+                                    </td>
                                     <td class="action-buttons">
-                                        <button class="btn btn-sm btn-success edit-user" data-id="{{ user.id }}" data-username="{{ user.username }}" data-badge="{{ user.badge_id }}" data-admin="{{ user.is_admin }}" data-bs-toggle="modal" data-bs-target="#editUserModal">
+                                        <button class="btn btn-sm btn-success edit-user" data-id="{{ user.id }}" data-username="{{ user.username }}" data-badge="{{ user.badge_id }}" data-admin="{{ user.is_admin }}" data-operator="{{ user.is_operator }}" data-bs-toggle="modal" data-bs-target="#editUserModal">
                                             <i class="bi bi-pencil-fill"></i>
                                         </button>
                                         <button class="btn btn-sm btn-danger delete-user" data-id="{{ user.id }}" data-username="{{ user.username }}" data-bs-toggle="modal" data-bs-target="#deleteUserModal">
@@ -219,6 +227,10 @@
                             <input class="form-check-input" type="checkbox" id="newIsAdmin" name="is_admin">
                             <label class="form-check-label lang-text" data-en="Administrator" data-es="Administrador" data-jp="管理者" for="newIsAdmin">Administrator</label>
                         </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="newIsOperator" name="is_operator">
+                            <label class="form-check-label lang-text" data-en="Operator" data-es="Operador" data-jp="オペレーター" for="newIsOperator">Operator</label>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <!-- <button type="button" class="btn btn-sm btn-secondary lang-text" data-en="Cancel" data-es="Cancelar" data-jp="キャンセル" data-bs-dismiss="modal">Cancel</button> -->
@@ -252,9 +264,13 @@
                             <input class="form-check-input" type="checkbox" id="editIsAdmin" name="is_admin">
                             <label class="form-check-label lang-text" data-en="Administrator" data-es="Administrador" data-jp="管理者" for="editIsAdmin">Administrator</label>
                         </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="editIsOperator" name="is_operator">
+                            <label class="form-check-label lang-text" data-en="Operator" data-es="Operador" data-jp="オペレーター" for="editIsOperator">Operator</label>
+                        </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-sm btn-secondary lang-text" data-en="Cancel" data-es="Cancelar" data-jp="キャンセル" data-bs-dismiss="modal">Cancel</button>
+                        {# <button type="button" class="btn btn-sm btn-secondary lang-text" data-en="Cancel" data-es="Cancelar" data-jp="キャンセル" data-bs-dismiss="modal">Cancel</button> #}
                         <button type="submit" class="btn btn-sm btn-primary lang-text" data-en="Save Changes" data-es="Guardar Cambios" data-jp="変更を保存">Save Changes</button>
                     </div>
                 </form>
@@ -277,7 +293,7 @@
                         <p class="text-danger lang-text" data-en="This action cannot be undone." data-es="Esta acción no se puede deshacer." data-jp="この操作は元に戻せません。">This action cannot be undone.</p>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-sm btn-secondary lang-text" data-en="Cancel" data-es="Cancelar" data-jp="キャンセル" data-bs-dismiss="modal">Cancel</button>
+                        {# <button type="button" class="btn btn-sm btn-secondary lang-text" data-en="Cancel" data-es="Cancelar" data-jp="キャンセル" data-bs-dismiss="modal">Cancel</button> #}
                         <button type="submit" class="btn btn-sm btn-danger lang-text" data-en="Delete" data-es="Eliminar" data-jp="削除">Delete</button>
                     </div>
                 </form>
@@ -328,7 +344,7 @@
                     <p class="lang-text" data-en="Are you sure you want to sign out?" data-es="¿Está seguro de que desea cerrar la sesión?" data-jp="サインアウトしてもよろしいですか？">Are you sure you want to sign out?</p>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-sm btn-secondary lang-text" data-en="Cancel" data-es="Cancelar" data-jp="キャンセル" data-bs-dismiss="modal">Cancel</button>
+                    {# <button type="button" class="btn btn-sm btn-secondary lang-text" data-en="Cancel" data-es="Cancelar" data-jp="キャンセル" data-bs-dismiss="modal">Cancel</button> #}
                     <a href="{{ url_for('logout') }}" class="btn btn-sm btn-primary lang-text" data-en="Sign Out" data-es="Cerrar Sesión" data-jp="サインアウト">Sign Out</a>
                 </div>
             </div>
@@ -467,11 +483,13 @@
                     const username = this.getAttribute('data-username');
                     const badgeId = this.getAttribute('data-badge');
                     const isAdmin = this.getAttribute('data-admin') === 'True';
+                    const isOperator = this.getAttribute('data-operator') === 'True';
                     
                     document.getElementById('editUserId').value = userId;
                     document.getElementById('editUsername').value = username;
                     document.getElementById('editBadgeId').value = badgeId;
                     document.getElementById('editIsAdmin').checked = isAdmin;
+                    document.getElementById('editIsOperator').checked = isOperator;
                 });
             });
             

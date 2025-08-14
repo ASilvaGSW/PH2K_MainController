@@ -11,6 +11,7 @@ class User(db.Model):
     password = db.Column(db.String(120), nullable=False)
     badge_id = db.Column(db.String(50), nullable=False)
     is_admin = db.Column(db.Integer)
+    is_operator = db.Column(db.Integer)
     
 class UserPreference(db.Model):
     __tablename__ = 'user_preferences'

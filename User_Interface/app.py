@@ -23,6 +23,26 @@ with app.app_context():
 # Register blueprints
 app.register_blueprint(testing_bp)
 
+def process_badge_id(raw_badge_id):
+    """
+    Process badge ID from scanner format (A000010395A) to database format (10395)
+    Removes 'A' characters and leading zeros
+    """
+    if not raw_badge_id:
+        return raw_badge_id
+    
+    # Remove 'A' characters from beginning and end
+    processed = raw_badge_id.strip('A')
+    
+    # Remove leading zeros
+    processed = processed.lstrip('0')
+    
+    # If all digits were zeros, return '0'
+    if not processed:
+        processed = '0'
+    
+    return processed
+
 @app.route('/', methods=['GET', 'POST'])
 def welcome():
     if request.method == 'POST':
@@ -33,7 +53,9 @@ def welcome():
         # Check if user exists based on username/password or badge ID
         user = None
         if badge_id:
-            user = User.query.filter_by(badge_id=badge_id).first()
+            # Process badge ID to match database format
+            processed_badge_id = process_badge_id(badge_id)
+            user = User.query.filter_by(badge_id=processed_badge_id).first()
         else:
             user = User.query.filter_by(username=username, password=password).first()
         
@@ -42,6 +64,7 @@ def welcome():
             session['logged_in'] = True
             session['username'] = user.username
             session['is_admin'] = user.is_admin
+            session['is_operator'] = user.is_operator
             
             return redirect(url_for('main'))
         else:
@@ -58,13 +81,14 @@ def main():
     
     # Get user's language preference
     username = session.get('username')
+    is_operator = session.get('is_operator', False)
     user_pref = UserPreference.query.filter_by(username=username).first()
     language = 'en'  # Default language
     
     if user_pref:
         language = user_pref.language
     
-    return render_template('main.html', username=username, language=language)
+    return render_template('main.html', username=username, language=language, is_operator=is_operator)
 
 @app.route('/set_language', methods=['POST'])
 def set_language():
@@ -246,6 +270,7 @@ def add_user():
     password = request.form.get('password')
     badge_id = request.form.get('badge_id')
     is_admin = 'is_admin' in request.form
+    is_operator = 'is_operator' in request.form
     
     # Validate data
     if not username or not password or not badge_id:
@@ -259,7 +284,7 @@ def add_user():
         return redirect(url_for('system_setup'))
     
     # Create new user
-    new_user = User(username=username, password=password, badge_id=badge_id, is_admin=is_admin)
+    new_user = User(username=username, password=password, badge_id=badge_id, is_admin=is_admin, is_operator=is_operator)
     db.session.add(new_user)
     db.session.commit()
     
@@ -277,6 +302,7 @@ def edit_user():
     username = request.form.get('username')
     badge_id = request.form.get('badge_id')
     is_admin = 'is_admin' in request.form
+    is_operator = 'is_operator' in request.form
     
     # Validate data
     if not user_id or not username or not badge_id:
@@ -302,6 +328,7 @@ def edit_user():
     user.username = username
     user.badge_id = badge_id
     user.is_admin = is_admin
+    user.is_operator = is_operator
     db.session.commit()
     
     # Update user preferences if username changed
