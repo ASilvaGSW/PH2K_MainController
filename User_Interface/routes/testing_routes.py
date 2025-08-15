@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, session
 from datetime import datetime
 import sys
 import os
+import time
 
 # Add the main_controller directory to Python path
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'main_controller'))
@@ -16,7 +17,15 @@ from classes.insertion_servos import InsertionServos
 
 # Now we can import the Canbus class
 try:
-    from classes.canbus import Canbus
+    if sys.platform.startswith('win32'):
+        from classes.canbus import Canbus
+        print("Windows detected. Importing Canbus from classes.canbus")
+    elif sys.platform.startswith('linux'):
+        from classes.canbus_jetson import Canbus
+        print("Linux detected. Importing Canbus from classes.canbus_jetson")
+    else:
+        raise ImportError("Unsupported operating system for CAN bus")
+
     print("Canbus class found. CAN bus functionality will be enabled.")
 
     canbus = Canbus()
@@ -177,8 +186,7 @@ def test_action_4():
     
     try:
         # TODO: Add your CAN bus and Python actions here
-        if movePickandPlace != "success" : 
-            return jsonify(success=False, message=f'Error in Pick and Place: {str(e)}'), 500
+        if movePickandPlace() != "success" : return jsonify(success=False, message=f'Error in Pick and Place'), 500
         
         result = {
             'success': True,
@@ -193,7 +201,7 @@ def test_action_4():
         return jsonify(result)
         
     except Exception as e:
-        return jsonify(success=False, message=f'Error in Test Action 4: {str(e)}'), 500
+        return jsonify(success=False, message=f'Error in Test Action 4'), 500
 
 #Insertion
 @testing_bp.route('/test_action_5', methods=['POST'])
@@ -278,21 +286,22 @@ def test_action_7():
 
 @testing_bp.route('/test_action_8', methods=['POST'])
 def test_action_8():
-    """Test Action 8 - Database/Storage function"""
+    """Test Action 8 - One Cycle function"""
     if not session.get('logged_in'):
         return jsonify(success=False, message='Not authenticated'), 401
     
     try:
         # TODO: Add your CAN bus and Python actions here
+        if oneCycle() != "success" : return jsonify(success=False, message=f'Error in One Cycle'), 500
         
         result = {
             'success': True,
-            'message': 'Test Action 8 executed successfully',
-            'action': 'database_storage',
+            'message': 'One Cycle executed successfully',
+            'action': 'one_cycle',
             'timestamp': datetime.now().isoformat(),
             'data': {
                 'status': 'completed',
-                'details': 'Database/Storage function executed'
+                'details': 'One Cycle function executed'
             }
         }
         return jsonify(result)
@@ -511,7 +520,7 @@ def insertionRoutine():
 
     #****************************** Insertion Jig ******************************
 
-    offset_x = -480
+    offset_x = -310
     offset_z = -20
 
     home_position_z = 3000 + offset_z
@@ -519,12 +528,12 @@ def insertionRoutine():
 
     lubrication_position_z = -2310 + offset_z
     insertion_position_z = -2360 + offset_z
-    insertion_position_joint_z = -2240 + offset_z
+    insertion_position_joint_z = -2230 + offset_z
     librication_position_joint_z = -2250 + offset_z
 
     lubricate_nozzle = -5530 + offset_x
     insert_nozzle = -6790 + offset_x  
-    insert_joint = -9110 + offset_x
+    insert_joint = -9190 + offset_x
     lubricate_joint = -11200 + offset_x
 
     #****************************** Routine ******************************
@@ -622,3 +631,124 @@ def moveHosepuller():
     return "success"
 
     
+def oneCycle():
+
+    global insertion_jig, insertion_servos, hose_puller, hose_jig, puller_extension,pick_and_place
+
+    #****************************** Insertion Jig ******************************
+
+    offset_x = -310
+    offset_z = -20
+
+    home_position_z = 3000 + offset_z
+    home_position_x = 0 + offset_x
+
+    lubrication_position_z = -2310 + offset_z
+    insertion_position_z = -2360 + offset_z
+    insertion_position_joint_z = -2230 + offset_z
+    librication_position_joint_z = -2250 + offset_z
+
+    lubricate_nozzle = -5530 + offset_x
+    insert_nozzle = -6790 + offset_x  
+    insert_joint = -9190 + offset_x
+    lubricate_joint = -11200 + offset_x
+
+    safe_position = 200
+    home_y = 4200
+    wait_y = 6000
+    pickup_y = 9060
+    z_home = 50
+
+
+    if insertion_servos.clamp_nozzle_close() != "success" : return "error08"
+    if insertion_servos.clamp_joint_close() != "success" : return "error19"
+
+
+    #****************************** Routine ******************************
+
+    #Nozzle Position
+
+    if insertion_jig.move_z_axis(home_position_z) != "success" : return "error01"
+    if insertion_jig.move_x_axis(home_position_x) != "success" : return "error02"
+
+    if insertion_jig.move_z_axis(lubrication_position_z) != "success" : return "error03"
+    if insertion_jig.move_x_axis(lubricate_nozzle) != "success" : return "error04"
+
+    if insertion_jig.move_z_axis(insertion_position_z) != "success" : return "error05"
+    if insertion_jig.move_x_axis(insert_nozzle) != "success" : return "error06"
+  
+    
+    # Nozzle Insertion
+
+
+    if insertion_servos.holder_hose_nozzle_close() != "success" : return "error07"
+    if insertion_servos.clamp_nozzle_close() != "success" : return "error08"
+    time.sleep(.5)
+    if insertion_servos.slider_nozzle_insertion() != "success" : return "error09"
+    time.sleep(1)
+    if insertion_servos.holder_hose_nozzle_open() != "success" : return "error10"
+    if insertion_servos.clamp_nozzle_open() != "success" : return "error11"
+    time.sleep(.5)
+    if insertion_servos.slider_nozzle_home() != "success" : return "error12"
+
+
+    #Go to Down Position for Hose Puller
+
+    if insertion_jig.move_z_axis(1000) != "success" : return "error13"
+
+    #Hose Puller Action
+
+    if hose_puller.move_y_actuator(home_y) != "success" : return "error03"
+    if hose_puller.move_z_actuator(safe_position) != "success" : return "error04"
+    if hose_jig.insertion_position() != "success" : return "error05"
+    if hose_puller.move_y_actuator(pickup_y) != "success" : return "error06"
+    if hose_puller.move_z_actuator(z_home) != "success" : return "error07"
+    if puller_extension.close_gripper() != "success" : return "error08"
+    if hose_puller.move_y_actuator(pickup_y-500) != "success" : return "error09"
+    if hose_puller.move_z_actuator(safe_position) != "success" : return "error10"
+    if hose_puller.move_y_actuator(wait_y) != "success" : return "error11"
+    time.sleep(.5)
+    if insertion_servos.activate_cutter() != "success" : return "error12"
+    if hose_puller.move_y_actuator(home_y+720) != "success" : return "error13"
+    
+    #Moving to Joint
+
+    if insertion_servos.holder_hose_joint_close() != "success" : return "error18"
+
+    if insertion_jig.move_x_axis(lubricate_joint) != "success" : return "error15"
+    if insertion_jig.move_z_axis(librication_position_joint_z) != "success" : return "error14"
+
+    if insertion_jig.move_x_axis(insert_joint) != "success" : return "error17"
+    if insertion_jig.move_z_axis(insertion_position_joint_z) != "success" : return "error16"
+   
+
+    #Clamp Insertion
+
+   
+    if insertion_servos.clamp_joint_close() != "success" : return "error19"
+    time.sleep(0.5)
+    if insertion_servos.slider_joint_insertion() != "success" : return "error20"
+    time.sleep(1)
+    if insertion_servos.holder_hose_joint_open() != "success" : return "error21"
+    if insertion_servos.clamp_joint_open() != "success" : return "error22"
+    time.sleep(0.5)
+    if insertion_servos.slider_joint_home() != "success" : return "error23"
+
+
+    #Finish Pulling Action
+
+    if hose_puller.move_y_actuator(home_y) != "success" : return "error13"
+
+    if insertion_jig.move_z_axis(0) != "success" : return "error24"
+    if insertion_jig.move_x_axis(0) != "success" : return "error25"
+
+
+    if hose_puller.move_z_actuator(z_home) != "success" : return "error14"
+    if hose_jig.gripper_close() != "success" : return "error15"
+    if puller_extension.open_gripper() != "success" : return "error16"
+    if hose_puller.move_z_actuator(safe_position) != "success" : return "error17"
+    if hose_jig.deliver_position() != "success" : return "error18"
+    if hose_jig.gripper_open() != "success" : return "error19"
+    if hose_puller.move_z_actuator(0) != "success" : return "error20"
+
+    return "success"

@@ -1,5 +1,9 @@
 # PH2K MainController
 
+## Summary
+
+The PH2K MainController is a comprehensive system for controlling and monitoring the PH2K production line. This project includes firmware for various components, a user interface for operation and management, and a main controller for coordinating all subsystems.
+
 ## English
 
 The PH2K MainController is a comprehensive system for controlling and monitoring the PH2K production line. This project includes firmware for various components, a user interface for operation and management, and a main controller for coordinating all subsystems.

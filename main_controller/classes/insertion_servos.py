@@ -23,10 +23,10 @@ class InsertionServos:
 
         #works for both sides joint and nozzle
         self.holder_hose_open_pos = 0
-        self.holder_hose_close_pos = 122
+        self.holder_hose_close_pos = 128
 
         self.slider_nozzle_home_pos = 125
-        self.slider_nozzle_insertion_pos = 1
+        self.slider_nozzle_insertion_pos = 4
 
         self.clamp_nozzle_open_pos = 140
         self.clamp_nozzle_close_pos = 49

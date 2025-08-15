@@ -867,7 +867,7 @@ def get_bom_data(part_number_id):
     except Exception as e:
         return jsonify(success=False, message=str(e)), 500
 
-@app.route('/device_management')
+@app.route('/details_management')
 def details_management():
     # Check if user is logged in
     if not session.get('logged_in'):
