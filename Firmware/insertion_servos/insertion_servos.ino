@@ -83,8 +83,8 @@ unsigned long cutterCounter = 0;
 
 // Defined Angles
 
-#define SLIDER_JOINT_MIN 0
-#define SLIDER_JOINT_MAX 160
+#define SLIDER_JOINT_MIN 160
+#define SLIDER_JOINT_MAX 0
 
 #define CLAMP_JOINT_MIN 20
 #define CLAMP_JOINT_MAX 110

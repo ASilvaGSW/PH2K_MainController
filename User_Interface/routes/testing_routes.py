@@ -637,7 +637,7 @@ def oneCycle():
 
     #****************************** Insertion Jig ******************************
 
-    offset_x = -310
+    offset_x = -330
     offset_z = -20
 
     home_position_z = 3000 + offset_z
@@ -663,7 +663,7 @@ def oneCycle():
     if insertion_servos.clamp_nozzle_close() != "success" : return "error08"
     if insertion_servos.clamp_joint_close() != "success" : return "error19"
 
-
+    if insertion_servos.slider_joint_home() != "success" : return "error23"
     #****************************** Routine ******************************
 
     #Nozzle Position

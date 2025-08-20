@@ -67,7 +67,7 @@ def my_main():
     #     hose_puller.send_heartbeat()
     #     puller_extension.send_heartbeat()
     #     pick_and_place.send_heartbeat()
-    #     insertion_jig.send_heartbeat()
+        # insertion_jig.send_heartbeat()
     #     elevator_in.send_heartbeat()
     #     insertion_servos.send_heartbeat()
 
@@ -185,7 +185,7 @@ def insertionRoutine():
 
     #****************************** Insertion Jig ******************************
 
-    offset_x = -310
+    offset_x = -330
     offset_z = -20
 
     home_position_z = 3000 + offset_z
@@ -213,16 +213,16 @@ def insertionRoutine():
     # insertion_jig.move_x_axis(lubricate_nozzle)
 
     # insertion_jig.move_z_axis(insertion_position_z)
-    # insertion_jig.move_x_axis(insert_nozzle)
+    insertion_jig.move_x_axis(insert_nozzle)
   
     
     #Nozzle Insertion
 
 
-    # insertion_servos.holder_hose_nozzle_close()
-    # insertion_servos.clamp_nozzle_close()
-    # time.sleep(.5)
-    # insertion_servos.slider_nozzle_insertion()
+    insertion_servos.holder_hose_nozzle_close()
+    insertion_servos.clamp_nozzle_close()
+    time.sleep(.5)
+    insertion_servos.slider_nozzle_insertion()
     # time.sleep(1)
     # insertion_servos.holder_hose_nozzle_open()
     # insertion_servos.clamp_nozzle_open()
@@ -495,9 +495,21 @@ def oneCycle():
 
     return "success"
 
+def insertionAccuracy():
+    global insertion_jig,insertion_servos
+
+    # insertion_servos.holder_hose_nozzle_close()
+    # if insertion_servos.slider_joint_home() != "success" : return "error22"
+    # if insertion_jig.move_x_axis(-5370) != "success" : return "error23"
+    # if insertion_jig.move_z_axis(-2420) != "success" : return "error24"
+    if insertion_jig.move_z_axis(0) != "success" : return "error24"
+
+
 if __name__ == "__main__":
    
     my_main()
+
+    insertionAccuracy()
 
     # moveElevatorIn()
 
@@ -507,7 +519,7 @@ if __name__ == "__main__":
 
     # moveHosepuller()
 
-    print(oneCycle())
+    # print(oneCycle())
 
     canbus.close_canbus()
 
