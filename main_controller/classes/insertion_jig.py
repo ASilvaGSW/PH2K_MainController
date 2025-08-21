@@ -192,6 +192,28 @@ class InsertionJig:
         )
         return status
     
+    # Case 0x0D: Home X Axis using go_home function
+    def home_x_axis_go_home(self):
+        """
+        Move the X-axis actuator to its home position using the go_home function.
+        
+        Returns:
+            tuple: (status, reply_data) from the CAN bus.
+        """
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x0D, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+        return status
+    
+    # Case 0x0E: Home Z Axis using go_home function
+    def home_z_axis_go_home(self):
+        """
+        Move all Z-axis actuators to their home positions using the go_home function.
+        
+        Returns:
+            tuple: (status, reply_data) from the CAN bus.
+        """
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x0E, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+        return status
+    
     def x_lubricate_nozzle(self):
 
         return self.move_to_predefined_position(1)

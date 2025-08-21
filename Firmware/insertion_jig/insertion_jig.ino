@@ -53,6 +53,14 @@
  *   - Data: [0x0C, position_id, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
  *   - Response: [0x0C, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
  *
+ * 0x0D - Home X Axis (Go Home Function)
+ *   - Moves the X-axis actuator to its home position using go_home function.
+ *   - Response: [0x0D, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+ *
+ * 0x0E - Home Z Axis (Go Home Function)
+ *   - Moves all Z-axis actuators to their home positions using go_home function.
+ *   - Response: [0x0E, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+ *
  * 0xFF - Power Off
  *   - Moves all axes to home position and prepares for power off.
  *   - Response: [0xFF, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
@@ -585,6 +593,86 @@ void process_instruction(CanFrame instruction)
     break;
     
     
+    // ***************************** CASE 0x0D ***************************** //
+    // Home X Axis using go_home function
+    case 0x0D:
+    {
+      Serial.println("Case 0x0D: Homing X axis using go_home function");
+
+      uint8_t payload[2] = {0};  // Initialize buffer for CAN message
+      x_axis.go_home(payload);  // Generate the go home CAN message
+
+      if (CAN1.sendMsgBuf(x_axis.motor_id, 0, 2, payload) != CAN_OK) {
+        Serial.println("Error sending actuator command");
+        byte errorResponse[] = {0x0D, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK
+        send_twai_response(errorResponse);
+        break;
+      }
+
+      // Wait for reply and get status
+      uint8_t status = waitForCanReply(x_axis.motor_id);
+
+      if (status == 0x01) {
+        incrementActuatorCounterX();
+      }
+
+      // Send response with status
+      byte statusResponse[] = {0x0D, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(statusResponse);
+    }
+    break;
+
+    // ***************************** CASE 0x0E ***************************** //
+    // Home Z Axis using go_home function
+    case 0x0E:
+    {
+      Serial.println("Case 0x0E: Homing Z axis using go_home function");
+
+      uint8_t payload1[2] = {0};  // Initialize buffer for CAN message
+      uint8_t payload2[2] = {0};  // Initialize buffer for CAN message
+      uint8_t payload3[2] = {0};  // Initialize buffer for CAN message
+
+      z1_axis.go_home(payload1);  // Generate the go home CAN message
+      z2_axis.go_home(payload2);  // Generate the go home CAN message
+      z3_axis.go_home(payload3);  // Generate the go home CAN message
+      
+      if (CAN1.sendMsgBuf(z1_axis.motor_id, 0, 2, payload1) != CAN_OK)
+      {
+        Serial.println("Error sending actuator command");
+        byte errorResponse[] = {0x0E, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK
+        send_twai_response(errorResponse);
+        break;
+      }
+
+      if (CAN1.sendMsgBuf(z2_axis.motor_id, 0, 2, payload2) != CAN_OK)
+      {
+        Serial.println("Error sending actuator command");
+        byte errorResponse[] = {0x0E, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK
+        send_twai_response(errorResponse);
+        break;
+      }
+
+      if (CAN1.sendMsgBuf(z3_axis.motor_id, 0, 2, payload3) != CAN_OK)
+      {
+        Serial.println("Error sending actuator command");
+        byte errorResponse[] = {0x0E, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK
+        send_twai_response(errorResponse);
+        break;
+      }
+
+      // Wait for reply and get status
+      uint8_t status = waitForCanReplyMultiple(z1_axis.motor_id, z2_axis.motor_id, z3_axis.motor_id);
+
+      if (status == 0x01) {
+        incrementActuatorCounterZ();
+      }
+
+      // Send response with status
+      byte statusResponse[] = {0x0E, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(statusResponse);
+    }
+    break;
+
     // ***************************** CASE 0xFF ***************************** //
     // Power off - Move all to home position
     case 0xFF:
@@ -637,7 +725,8 @@ uint8_t waitForCanReply(uint16_t expectedId) {
       byte len = 0;
       CAN1.readMsgBuf(&canId, &len, replyData);
       
-      if (canId == expectedId and (replyData[1] == 0x02 || replyData[1] == 0x03)) {
+      if (canId == expectedId and (replyData[1] == 0x02 || replyData[1] == 0x03))
+      {
         return 0x01;  // Success
       }
     }

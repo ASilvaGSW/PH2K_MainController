@@ -67,7 +67,7 @@ def my_main():
     #     hose_puller.send_heartbeat()
     #     puller_extension.send_heartbeat()
     #     pick_and_place.send_heartbeat()
-        # insertion_jig.send_heartbeat()
+    #     insertion_jig.send_heartbeat()
     #     elevator_in.send_heartbeat()
     #     insertion_servos.send_heartbeat()
 
@@ -496,14 +496,26 @@ def oneCycle():
     return "success"
 
 def insertionAccuracy():
-    global insertion_jig,insertion_servos
+    global insertion_jig,insertion_servos,pick_and_place
 
     # insertion_servos.holder_hose_nozzle_close()
     # if insertion_servos.slider_joint_home() != "success" : return "error22"
-    # if insertion_jig.move_x_axis(-5370) != "success" : return "error23"
-    # if insertion_jig.move_z_axis(-2420) != "success" : return "error24"
-    if insertion_jig.move_z_axis(0) != "success" : return "error24"
+    # if insertion_jig.move_x_axis(-1370) != "success" : return "error23"
+    # if insertion_jig.home_x_axis_go_home() != "success" : return "error24"
+    # for i in range(10):
 
+    # pick_and_place.start_left_conveyor()
+    # pick_and_place.start_right_conveyor()
+    # for i in range(10):
+    #     if insertion_jig.move_z_axis(0) != "success" : return "error24"
+    #     if insertion_jig.move_z_axis(9000) != "success" : return "error24"
+        
+    if insertion_jig.home_z_axis_go_home() != "success" : return "error24"
+
+    # if insertion_jig.move_z_axis(8000) != "success" : return "error24"
+        
+    # pick_and_place.stop_left_conveyor()
+    # pick_and_place.stop_right_conveyor()
 
 if __name__ == "__main__":
    
