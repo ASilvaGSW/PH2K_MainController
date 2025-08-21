@@ -63,7 +63,7 @@ class InsertionJig:
         return status
     
     # Case 0x04: Move X Axis to Absolute Position
-    def move_x_axis(self, position):
+    def move_x_axis(self, position,flag = True):
         """
         Move the X-axis to an absolute position.
         
@@ -84,7 +84,7 @@ class InsertionJig:
         
         status, reply_data = self.canbus.send_message(
             self.canbus_id, 
-            [0x04, position_high, position_low, orientation, 0x00, 0x00, 0x00, 0x00]
+            [0x04, position_high, position_low, orientation, 0x00, 0x00, 0x00, 0x00],flag
         )
         return status
     
@@ -100,7 +100,7 @@ class InsertionJig:
         return status
     
     # Case 0x06: Move Z Axis to Absolute Position
-    def move_z_axis(self, position):
+    def move_z_axis(self, position,flag = True):
         """
         Move all Z-axis actuators to an absolute position.
         
@@ -121,7 +121,7 @@ class InsertionJig:
         
         status, reply_data = self.canbus.send_message(
             self.canbus_id, 
-            [0x06, position_high, position_low, orientation, 0x00, 0x00, 0x00, 0x00]
+            [0x06, position_high, position_low, orientation, 0x00, 0x00, 0x00, 0x00],flag
         )
         return status
     

@@ -434,7 +434,7 @@ def oneCycle():
 
     #Nozzle Position
 
-  
+    if hose_jig.insertion_position(False) != "success" : return "error05"
 
     if insertion_jig.move_z_axis(home_position_z) != "success" : return "error01"
     if insertion_jig.move_x_axis(home_position_x) != "success" : return "error02"
@@ -468,16 +468,18 @@ def oneCycle():
 
     if hose_puller.move_y_actuator(home_y) != "success" : return "error03"
     if hose_puller.move_z_actuator(safe_position) != "success" : return "error04"
-    if hose_jig.insertion_position() != "success" : return "error05"
+    # if hose_jig.insertion_position() != "success" : return "error05"
     if hose_puller.move_y_actuator(pickup_y) != "success" : return "error06"
     if hose_puller.move_z_actuator(z_home) != "success" : return "error07"
     if puller_extension.close_gripper() != "success" : return "error08"
     if hose_puller.move_y_actuator(pickup_y-500) != "success" : return "error09"
     if hose_puller.move_z_actuator(safe_position) != "success" : return "error10"
+    if hose_puller.move_y_actuator(wait_y+1900) != "success" : return "error11"
+    if hose_puller.move_z_actuator(safe_position+50) != "success" : return "error10"
     if hose_puller.move_y_actuator(wait_y) != "success" : return "error11"
     time.sleep(.5)
     if insertion_servos.activate_cutter() != "success" : return "error12"
-    if hose_puller.move_y_actuator(home_y+720) != "success" : return "error13"
+    if hose_puller.move_y_actuator(home_y+650) != "success" : return "error13"
     
     #Moving to Joint
 
@@ -507,8 +509,8 @@ def oneCycle():
 
     if hose_puller.move_y_actuator(home_y) != "success" : return "error13"
 
-    if insertion_jig.move_z_axis(3000) != "success" : return "error24"
-    if insertion_jig.move_x_axis(0) != "success" : return "error25"
+    if insertion_jig.move_z_axis(3000,False) != "success" : return "error24"
+    if insertion_jig.move_x_axis(0,False) != "success" : return "error25"
 
 
     if hose_puller.move_z_actuator(z_home) != "success" : return "error14"
@@ -556,8 +558,8 @@ if __name__ == "__main__":
     # insertionRoutine()
 
     # moveHosepuller()
-
-    print(oneCycle())
+    for i in range(1):
+        if oneCycle() != "success" : break
 
     canbus.close_canbus()
 

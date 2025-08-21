@@ -91,8 +91,8 @@ class HoseJig:
         return status
 
     #Case 0x0B: Move actuator to insertion position
-    def insertion_position(self):
-        status, reply_data = self.canbus.send_message(self.canbus_id, [0x0B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+    def insertion_position(self,flag = True):
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x0B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],flag)
         return status
 
     #Case 0x0C: Move actuator to deliver position
