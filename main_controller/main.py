@@ -185,34 +185,50 @@ def insertionRoutine():
 
     #****************************** Insertion Jig ******************************
 
-    offset_x = -330
-    offset_z = -20
+    offset_x = 0
+    offset_z = 0
 
-    home_position_z = 3000 + offset_z
+    home_position_z = 4000 + offset_z
     home_position_x = 0 + offset_x
 
-    lubrication_position_z = -2310 + offset_z
-    insertion_position_z = -2360 + offset_z
-    insertion_position_joint_z = -2230 + offset_z
-    librication_position_joint_z = -2250 + offset_z
+    lubrication_position_z = 500 + offset_z
+    lubricate_nozzle = -5380 + offset_x
 
-    lubricate_nozzle = -5530 + offset_x
-    insert_nozzle = -6790 + offset_x  
-    insert_joint = -9190 + offset_x
-    lubricate_joint = -11200 + offset_x
+    insertion_position_z = 490 + offset_z
+    insert_nozzle = -6570 + offset_x  
+
+    librication_position_joint_z = 580 + offset_z
+    lubricate_joint = -11000 + offset_x
+
+    insertion_position_joint_z = 600 + offset_z
+    insert_joint = -8950 + offset_x
 
     #****************************** Routine ******************************
+
+    #Home
+
+    insertion_servos.slider_joint_home()
+    insertion_servos.slider_nozzle_home()
+
+    insertion_jig.home_x_axis_go_home()
+    insertion_jig.home_z_axis_go_home()
+
+    insertion_servos.clamp_nozzle_open()
+    insertion_servos.clamp_joint_open()
+    insertion_servos.cutter_open()
+    insertion_servos.holder_hose_joint_open()
+    insertion_servos.holder_hose_nozzle_open()
 
     #Nozzle Position
 
     
-    # insertion_jig.move_z_axis(home_position_z)
-    # insertion_jig.move_x_axis(home_position_x)
+    insertion_jig.move_z_axis(home_position_z)
+    insertion_jig.move_x_axis(home_position_x)
 
-    # insertion_jig.move_z_axis(lubrication_position_z)
-    # insertion_jig.move_x_axis(lubricate_nozzle)
+    insertion_jig.move_x_axis(lubricate_nozzle)
+    insertion_jig.move_z_axis(lubrication_position_z)
 
-    # insertion_jig.move_z_axis(insertion_position_z)
+    insertion_jig.move_z_axis(insertion_position_z)
     insertion_jig.move_x_axis(insert_nozzle)
   
     
@@ -223,34 +239,36 @@ def insertionRoutine():
     insertion_servos.clamp_nozzle_close()
     time.sleep(.5)
     insertion_servos.slider_nozzle_insertion()
-    # time.sleep(1)
-    # insertion_servos.holder_hose_nozzle_open()
-    # insertion_servos.clamp_nozzle_open()
-    # time.sleep(.5)
-    # insertion_servos.slider_nozzle_home()
+    time.sleep(1)
+    insertion_servos.holder_hose_nozzle_open()
+    insertion_servos.clamp_nozzle_open()
+    time.sleep(.5)
+    insertion_servos.slider_nozzle_home()
 
-    # insertion_servos.activate_cutter()
+    insertion_servos.activate_cutter()
+
+    input("Continue?")
 
     # #Moving to Joint
 
-    # insertion_jig.move_z_axis(librication_position_joint_z)
-    # insertion_jig.move_x_axis(lubricate_joint)
+    insertion_jig.move_z_axis(librication_position_joint_z)
+    insertion_jig.move_x_axis(lubricate_joint)
 
-    # insertion_jig.move_z_axis(insertion_position_joint_z)
-    # insertion_jig.move_x_axis(insert_joint)
+    insertion_jig.move_z_axis(insertion_position_joint_z)
+    insertion_jig.move_x_axis(insert_joint)
    
 
     # #Clamp Insertion
 
-    # insertion_servos.holder_hose_joint_close()
-    # insertion_servos.clamp_joint_close()
-    # time.sleep(0.5)
-    # insertion_servos.slider_joint_insertion()
-    # time.sleep(1)
-    # insertion_servos.holder_hose_joint_open()
-    # insertion_servos.clamp_joint_open()
-    # time.sleep(0.5)
-    # insertion_servos.slider_joint_home()
+    insertion_servos.holder_hose_joint_close()
+    insertion_servos.clamp_joint_close()
+    time.sleep(0.5)
+    insertion_servos.slider_joint_insertion()
+    time.sleep(1)
+    insertion_servos.holder_hose_joint_open()
+    insertion_servos.clamp_joint_open()
+    time.sleep(0.5)
+    insertion_servos.slider_joint_home()
 
 
     # insertion_jig.move_z_axis(0)
@@ -379,21 +397,23 @@ def oneCycle():
 
     #****************************** Insertion Jig ******************************
 
-    offset_x = -310
-    offset_z = -20
+    offset_x = 0
+    offset_z = 0
 
-    home_position_z = 3000 + offset_z
+    home_position_z = 4000 + offset_z
     home_position_x = 0 + offset_x
 
-    lubrication_position_z = -2310 + offset_z
-    insertion_position_z = -2360 + offset_z
-    insertion_position_joint_z = -2230 + offset_z
-    librication_position_joint_z = -2250 + offset_z
+    lubrication_position_z = 500 + offset_z
+    lubricate_nozzle = -5380 + offset_x
 
-    lubricate_nozzle = -5530 + offset_x
-    insert_nozzle = -6790 + offset_x  
-    insert_joint = -9190 + offset_x
-    lubricate_joint = -11200 + offset_x
+    insertion_position_z = 490 + offset_z
+    insert_nozzle = -6570 + offset_x  
+
+    librication_position_joint_z = 580 + offset_z
+    lubricate_joint = -11000 + offset_x
+
+    insertion_position_joint_z = 600 + offset_z
+    insert_joint = -8950 + offset_x
 
     safe_position = 200
     home_y = 4200
@@ -401,14 +421,20 @@ def oneCycle():
     pickup_y = 9060
     z_home = 50
 
-
-    if insertion_servos.clamp_nozzle_close() != "success" : return "error08"
-    if insertion_servos.clamp_joint_close() != "success" : return "error19"
-
-
     #****************************** Routine ******************************
 
+    # if insertion_servos.clamp_nozzle_close() != "success" : return "error08"
+    # if insertion_servos.clamp_joint_close() != "success" : return "error19"
+
+    # if insertion_servos.slider_joint_home() != "success" : return "error08"
+    # if insertion_servos.slider_nozzle_home() != "success" : return "error08"
+
+    # if insertion_jig.home_x_axis_go_home() != "success" : return "error08"
+    # if insertion_jig.home_z_axis_go_home() != "success" : return "error08"
+
     #Nozzle Position
+
+  
 
     if insertion_jig.move_z_axis(home_position_z) != "success" : return "error01"
     if insertion_jig.move_x_axis(home_position_x) != "success" : return "error02"
@@ -436,7 +462,7 @@ def oneCycle():
 
     #Go to Down Position for Hose Puller
 
-    if insertion_jig.move_z_axis(1000) != "success" : return "error13"
+    if insertion_jig.move_z_axis(4000) != "success" : return "error13"
 
     #Hose Puller Action
 
@@ -464,7 +490,7 @@ def oneCycle():
     if insertion_jig.move_z_axis(insertion_position_joint_z) != "success" : return "error16"
    
 
-    #Clamp Insertion
+    #Joint Insertion
 
    
     if insertion_servos.clamp_joint_close() != "success" : return "error19"
@@ -481,7 +507,7 @@ def oneCycle():
 
     if hose_puller.move_y_actuator(home_y) != "success" : return "error13"
 
-    if insertion_jig.move_z_axis(0) != "success" : return "error24"
+    if insertion_jig.move_z_axis(3000) != "success" : return "error24"
     if insertion_jig.move_x_axis(0) != "success" : return "error25"
 
 
@@ -510,9 +536,9 @@ def insertionAccuracy():
     #     if insertion_jig.move_z_axis(0) != "success" : return "error24"
     #     if insertion_jig.move_z_axis(9000) != "success" : return "error24"
         
-    if insertion_jig.home_z_axis_go_home() != "success" : return "error24"
+    # if C != "success" : return "error24"
 
-    # if insertion_jig.move_z_axis(8000) != "success" : return "error24"
+    # if insertion_jig.move_z_axis(5000) != "success" : return "error24"
         
     # pick_and_place.stop_left_conveyor()
     # pick_and_place.stop_right_conveyor()
@@ -521,7 +547,7 @@ if __name__ == "__main__":
    
     my_main()
 
-    insertionAccuracy()
+    # insertionAccuracy()
 
     # moveElevatorIn()
 
@@ -531,7 +557,7 @@ if __name__ == "__main__":
 
     # moveHosepuller()
 
-    # print(oneCycle())
+    print(oneCycle())
 
     canbus.close_canbus()
 
