@@ -349,8 +349,11 @@ void loop()
 
 void process_instruction(CanFrame instruction)
 {
+
   Serial.print("Processing command: 0x");
   Serial.println(instruction.data[0], HEX);
+
+  flushCanBuffer();
 
   byte response_data[8] = {0};
   bool success = false;
@@ -893,12 +896,25 @@ void process_instruction(CanFrame instruction)
 }
 
 
+// Helper function to flush CAN buffer
+void flushCanBuffer() {
+  byte tempData[8];
+  unsigned long tempId;
+  byte tempLen;
+  
+  // Read and discard all pending messages
+  while (CAN1.checkReceive() == CAN_MSGAVAIL) {
+    CAN1.readMsgBuf(&tempId, &tempLen, tempData);
+    Serial.println("Flushed old CAN message from buffer");
+  }
+}
+
 // Helper function to wait for CAN reply
 uint8_t waitForCanReply(uint16_t expectedId)
 {
   memset(replyData, 0, sizeof(replyData)); // Clear the buffer before waiting
   unsigned long startTime = millis();
-  const unsigned long timeout = 6000;  // 1 second timeout
+  const unsigned long timeout = 10000;  // 1 second timeout
   
   while (millis() - startTime < timeout) {
     if (CAN1.checkReceive() == CAN_MSGAVAIL) {

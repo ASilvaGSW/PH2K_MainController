@@ -112,8 +112,6 @@ def moveHosepuller():
     hose_jig.deliver_position()
     hose_jig.gripper_open()
     hose_puller.move_z_actuator(0)
-
-
     
 def moveInsertionJig():
     global insertion_jig, insertion_servos
@@ -303,99 +301,106 @@ def moveElevatorIn():
     # elevator_in.move_elevator_z(-4200)
     
     # return ""
+    
+    # elevator_in.home_gantry_z()
+    # elevator_in.home_gantry_x()
+    # elevator_in.home_gantry_y()
 
     #Left Side
     
-    elevator_in.move_gantry_array(pick_left)
+    # elevator_in.move_gantry_array(pick_left)
 
-    elevator_in.close_gripper()
+    # elevator_in.close_gripper()
 
-    elevator_in.move_gantry_z(transportation_high)
+    # elevator_in.move_gantry_z(transportation_high)
 
-    elevator_in.move_gantry_array(deliver_left)
+    # elevator_in.move_gantry_array(deliver_left)
 
-    elevator_in.move_gantry_z(cassette_deliver_high)
+    # elevator_in.move_gantry_z(cassette_deliver_high)
 
-    elevator_in.open_gripper()
+    # elevator_in.open_gripper()
 
-    elevator_in.move_gantry_z(safety_high)
+    # elevator_in.move_gantry_z(safety_high)
 
-    elevator_in.move_gantry_array(home)
+    # elevator_in.move_gantry_array(home)
 
-    # #Right Side
+    # # #Right Side
 
-    elevator_in.move_gantry_array(pick_right)
+    # elevator_in.move_gantry_array(pick_right)
 
-    elevator_in.close_gripper()
+    # elevator_in.close_gripper()
 
-    elevator_in.move_gantry_z(transportation_high)
+    # elevator_in.move_gantry_z(transportation_high)
 
-    elevator_in.move_gantry_array(deliver_right)
+    # elevator_in.move_gantry_array(deliver_right)
 
-    elevator_in.move_gantry_z(cassette_deliver_high)
+    # elevator_in.move_gantry_z(cassette_deliver_high)
 
-    elevator_in.open_gripper()
+    # elevator_in.open_gripper()
 
-    elevator_in.move_gantry_z(safety_high)
+    # elevator_in.move_gantry_z(safety_high)
 
-    elevator_in.move_gantry_array(home)
+    # elevator_in.move_gantry_array(home)
 
-    # #conveyors
+    # # #conveyors
 
-    pick_and_place.start_left_conveyor()
-    pick_and_place.start_right_conveyor()
+    # pick_and_place.start_left_conveyor()
+    # pick_and_place.start_right_conveyor()
 
-    time.sleep(5)
+    # time.sleep(5)
 
-    pick_and_place.stop_left_conveyor()
-    pick_and_place.stop_right_conveyor()
+    # pick_and_place.stop_left_conveyor()
+    # pick_and_place.stop_right_conveyor()
 
 def movePickandPlace():
     global pick_and_place, insertion_servos, insertion_jig
 
+    pick_and_place.home_x_axis()
+    pick_and_place.home_z_axis()
+
     # Homing Insertion Jig
-    insertion_servos.slider_joint_home()
-    insertion_jig.move_z_axis(5000)
-    insertion_jig.move_x_axis(-8500)
+    # insertion_servos.slider_joint_home()
+    # insertion_jig.move_z_axis(5000)
+    # insertion_jig.move_x_axis(-8500)
 
 
-    #Home Pick and Place
-    pick_and_place.move_actuator_z(0)
-    pick_and_place.move_actuator_x(0)
-    pick_and_place.open_gripper()
+    # #Home Pick and Place
+    # pick_and_place.move_actuator_z(-500)
+    # pick_and_place.move_actuator_x(-500)
+    # pick_and_place.open_gripper()
 
-    # #Pick Nozzle
-    pick_and_place.move_actuator_x(-1800)
-    pick_and_place.move_actuator_z(-1250)
-    pick_and_place.close_gripper()
+    # # #Pick Nozzle
+    # pick_and_place.move_actuator_x(-1800)
+    # pick_and_place.move_actuator_z(-1250)
+    # pick_and_place.close_gripper()
 
-    # #Safe Position 1
-    pick_and_place.move_actuator_z(-1000)
+    # # #Safe Position 1
+    # pick_and_place.move_actuator_z(-1000)
 
-    # #Place Nozzle
-    pick_and_place.move_actuator_x(-4090)
-    pick_and_place.move_actuator_z(-1380)
-    pick_and_place.open_gripper()
+    # # #Place Nozzle
+    # pick_and_place.move_actuator_x(-4090)
+    # pick_and_place.move_actuator_z(-1380)
+    # pick_and_place.open_gripper()
 
-    #Safe Position 2
-    pick_and_place.move_actuator_z(-1000)
+    # #Safe Position 2
+    # pick_and_place.move_actuator_z(-1000)
 
-    # #Pick Joint
-    pick_and_place.move_actuator_x(-850)
-    pick_and_place.move_actuator_z(-1250)
-    pick_and_place.close_gripper()
+    # # #Pick Joint
+    # pick_and_place.move_actuator_x(-850)
+    # pick_and_place.move_actuator_z(-1250)
+    # pick_and_place.close_gripper()
 
-    #Safe Position 3
-    pick_and_place.move_actuator_z(-1000)
+    # #Safe Position 3
+    # pick_and_place.move_actuator_z(-1000)
 
-    # Place Joint
-    pick_and_place.move_actuator_x(-4390)
-    pick_and_place.move_actuator_z(-1320)
-    pick_and_place.open_gripper()
+    # # Place Joint
+    # pick_and_place.move_actuator_x(-4390)
+    # pick_and_place.move_actuator_z(-1320)
+    # pick_and_place.open_gripper()
 
-    pick_and_place.move_actuator_z(0)
-    pick_and_place.move_actuator_x(0)
-    pick_and_place.open_gripper()
+    # pick_and_place.move_actuator_z(0)
+    # pick_and_place.move_actuator_x(0)
+    # pick_and_place.open_gripper()
 
 def oneCycle():
 
@@ -625,7 +630,7 @@ if __name__ == "__main__":
 
     # moveElevatorIn()
 
-    # movePickandPlace()
+    movePickandPlace()
 
     # insertionRoutine()
 
