@@ -796,18 +796,8 @@ void process_instruction(CanFrame instruction)
 // Helper function to wait for CAN reply
 uint8_t waitForCanReply(uint16_t expectedId) {
   memset(replyData, 0, sizeof(replyData)); // Clear the buffer before waiting
-  
-  // Clear any pending messages in the CAN buffer to avoid reading old replies
-  while (CAN1.checkReceive() == CAN_MSGAVAIL) {
-    unsigned long dummyId;
-    byte dummyLen = 0;
-    byte dummyData[8];
-    CAN1.readMsgBuf(&dummyId, &dummyLen, dummyData);
-    Serial.println("Cleared old CAN message from buffer");
-  }
-  
   unsigned long startTime = millis();
-  const unsigned long timeout = 6000;  // 6 second timeout
+  const unsigned long timeout = 6000;  // 1 second timeout
   
   while (millis() - startTime < timeout) {
     if (CAN1.checkReceive() == CAN_MSGAVAIL) {
@@ -815,23 +805,12 @@ uint8_t waitForCanReply(uint16_t expectedId) {
       byte len = 0; 
       CAN1.readMsgBuf(&canId, &len, replyData);
       
-      Serial.print("Received CAN reply from ID: 0x");
-      Serial.print(canId, HEX);
-      Serial.print(", Expected ID: 0x");
-      Serial.print(expectedId, HEX);
-      Serial.print(", Reply data[1]: 0x");
-      Serial.println(replyData[1], HEX);
-      
       if (canId == expectedId && (replyData[1] == 0x02 || replyData[1] == 0x03)) {
-        Serial.println("Valid reply received - returning success");
         return 0x01;  // Success
-      } else {
-        Serial.println("Reply doesn't match expected criteria - continuing to wait");
       }
     }
     vTaskDelay(1);  // Small delay to prevent busy-waiting
   }
-  Serial.println("Timeout waiting for CAN reply");
   return 0x03;  // Timeout
 }
 
