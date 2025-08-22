@@ -423,21 +423,23 @@ def oneCycle():
 
     #****************************** Routine ******************************
 
-    # if insertion_servos.clamp_nozzle_close() != "success" : return "error08"
-    # if insertion_servos.clamp_joint_close() != "success" : return "error19"
+    if insertion_servos.clamp_nozzle_close() != "success" : return "error08"
+    if insertion_servos.clamp_joint_close() != "success" : return "error19"
+    if puller_extension.open_gripper() != "success" : return "error20"
 
-    # if insertion_servos.slider_joint_home() != "success" : return "error08"
-    # if insertion_servos.slider_nozzle_home() != "success" : return "error08"
+    if insertion_servos.slider_joint_home() != "success" : return "error08"
+    if insertion_servos.slider_nozzle_home() != "success" : return "error08"
 
     # if insertion_jig.home_x_axis_go_home() != "success" : return "error08"
+    # return False
     # if insertion_jig.home_z_axis_go_home() != "success" : return "error08"
 
     #Nozzle Position
 
     if hose_jig.insertion_position(False) != "success" : return "error05"
 
-    if insertion_jig.move_z_axis(home_position_z) != "success" : return "error01"
-    if insertion_jig.move_x_axis(home_position_x) != "success" : return "error02"
+    # if insertion_jig.move_z_axis(home_position_z) != "success" : return "error01"
+    # if insertion_jig.move_x_axis(home_position_x) != "success" : return "error02"
 
     if insertion_jig.move_z_axis(lubrication_position_z) != "success" : return "error03"
     if insertion_jig.move_x_axis(lubricate_nozzle) != "success" : return "error04"
@@ -479,7 +481,7 @@ def oneCycle():
     if hose_puller.move_y_actuator(wait_y) != "success" : return "error11"
     time.sleep(.5)
     if insertion_servos.activate_cutter() != "success" : return "error12"
-    if hose_puller.move_y_actuator(home_y+650) != "success" : return "error13"
+    if hose_puller.move_y_actuator(home_y+760) != "success" : return "error13"
     
     #Moving to Joint
 

@@ -1,0 +1,62 @@
+Power system code instruction for ESP32 WROOM DA
+
+1. Utilize multiple core and thread-safe
+2. on pin 18, Debounces and toggles a momentary push switch → sets a global “power switch” state
+3. on pin 19, detect if High(normal) or Low(power outage) in real-time → sets a global “power outage” state
+4. on pin 23, Drives a relay output to match the “power switch” state and “refreshes” it if ever mismatched
+5. Queries UART2 (RX=21, TX=22) in real-time with "GET\n", parses JSON with 7 floats, and prints them to USB Serial for debugging, below is working code to use (ArduinoJson V6 did not work):
+//***************
+bool extractFloat(const String& json, const char* key, float& out) {
+  String pat = String("\"") + key + String("\":");
+  int i = json.indexOf(pat);
+  if (i < 0) return false;
+  i += pat.length();
+  while (i < (int)json.length() && json[i] == ' ') i++;
+  int j = i;
+  while (j < (int)json.length() && json[j] != ',' && json[j] != '}') j++;
+  if (j <= i) return false;
+  out = json.substring(i, j).toFloat();
+  return true;
+}
+
+bool parseMeasurements(const String& json, Measurements& m) {
+  if (json.length() < 10 || json[0] != '{' || json[json.length()-1] != '}') return false;
+  bool ok = true;
+  ok &= extractFloat(json, "ac_v1", m.ac_v1);
+  ok &= extractFloat(json, "ac_v2", m.ac_v2);
+  ok &= extractFloat(json, "ac_i1", m.ac_i1);
+  ok &= extractFloat(json, "ac_i2", m.ac_i2);
+  ok &= extractFloat(json, "dc_v1", m.dc_v1);
+  ok &= extractFloat(json, "dc_v2", m.dc_v2);
+  ok &= extractFloat(json, "dc_i",  m.dc_i);
+  return ok;
+}
+//***************
+6. Reserve pin 4 and 5 for CAN bus
+7. Will not use WiFi and Bluetooth
+8. Two battery management task, it controls 2 relays on pin 25(bat1) and 26(bat2) for each battery, switch batteries between charger and inverter(load) individually
+9. Batteries SOC table as next:
+	//********************************
+	V < 10.0v : offline or damage,
+	10.0v =< V < 12.0v : 0%,
+	12.0v =< V < 13.15v : 25%,
+	13.15v =< V < 13.20v : 50%,
+	13.20v =< V < 13.33v : 75%,
+	13.33 =< V : 100%
+	//*********************************
+10. Start charging the lower voltage (dc_v) battery regardless soc, and stay in charging position until the other battery soc become 0, this is defined as charge-switching-soc. Battery over charge control is controlled by charging unit, no need to consider here
+11. Monitor soc real-time, detect if soc become offline or damage and then switch that relay to charging position, prepare for charge new battery
+12. If both go offline, the one detected later stay in inverter.
+13. Able to input charge-switching-soc for debugging
+14. Only one battery can be charging at a time
+15. At least one battery must be connected to inverter all time
+16. Monitor charging current "dc_i" continuously and set state as full  → sets a global “Battery full” state
+17. Reserve two counters to count up each time when batteries fully charged → sets a global “Battery charging counter” value
+18. The charger unit has its own battery detection function, and it need 7 second resting time between disconnection and new connection.
+19. Battery charging minimum dwell time is 10 second.
+20. Switch both batteries to inverter immediately when global “power outage” state is Low (power outage)
+21. Disable Power Switch pin 18 input immediately when global “power outage” state is Low (power outage), enable it when power back on again
+22. When global “power outage” state is Low (power outage) → sets a global “request turn off” state, reset when power back on
+23. The global state variables stored in NVS for restoring from system power lost
+
+

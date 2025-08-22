@@ -58,7 +58,7 @@ Servo gobilda;  // Create servo object to control a servo
 // INT = 25
 
 // Device CAN ID (only process messages with this ID)
-#define DEVICE_CAN_ID 0x189
+#define DEVICE_CAN_ID 0x188
 #define RESPONSE_CAN_ID 0x589
 
 // Instance for the second CAN bus (MCP2515)

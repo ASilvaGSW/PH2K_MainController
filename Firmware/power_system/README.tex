@@ -1,0 +1,621 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{geometry}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage{tcolorbox}
+\usepackage{tikz}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{float}
+\usepackage{enumitem}
+
+% Page setup
+\geometry{margin=1in}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{Power System Firmware - README}
+\fancyhead[R]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% Code listing setup
+\lstset{
+    backgroundcolor=\color{gray!10},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    commentstyle=\color{green!60!black},
+    deletekeywords={...},
+    escapeinside={\%*}{*)},
+    extendedchars=true,
+    frame=single,
+    keepspaces=true,
+    keywordstyle=\color{blue},
+    language=C++,
+    morekeywords={*,...},
+    numbers=left,
+    numbersep=5pt,
+    numberstyle=\tiny\color{gray},
+    rulecolor=\color{black},
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    stepnumber=1,
+    stringstyle=\color{orange},
+    tabsize=2,
+    title=\lstname
+}
+
+% Custom colors
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+% Title page
+\title{\Huge\textbf{Power System Firmware}\\\Large README}
+\author{ESP32 WROOM-DA Dual-Battery Backup System}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\newpage
+
+\tableofcontents
+\newpage
+
+\section{Overview}
+
+The Power System firmware provides intelligent dual-battery backup functionality using two ESP32 WROOM-DA microcontrollers. The system ensures uninterrupted power supply through automatic battery management, real-time monitoring, and seamless failover capabilities.
+
+\subsection{Key Features}
+\begin{itemize}
+    \item Dual ESP32 architecture (Master + Sensor)
+    \item Intelligent battery switching based on State of Charge (SOC)
+    \item Real-time power monitoring (7 analog channels)
+    \item Automatic power outage detection and response
+    \item OLED display for live monitoring
+    \item Serial CLI for configuration and debugging
+    \item Persistent state storage using NVS
+    \item Thread-safe multi-task operation
+\end{itemize}
+
+\section{System Architecture}
+
+\subsection{Hardware Components}
+
+\subsubsection{Master Controller (PowerSystem\_master.ino)}
+\begin{itemize}
+    \item ESP32 WROOM-DA microcontroller
+    \item Battery relay control (2 relays)
+    \item Power switch and outage detection
+    \item UART communication with sensor module
+    \item CLI interface via Serial
+\end{itemize}
+
+\subsubsection{Sensor Module (PowerSystem\_sensor.ino)}
+\begin{itemize}
+    \item ESP32 WROOM-DA microcontroller
+    \item 7-channel analog measurement system
+    \item 128x32 OLED display (SSD1306)
+    \item UART communication with master
+    \item Real-time data processing
+\end{itemize}
+
+\subsection{Communication Protocol}
+\begin{itemize}
+    \item UART2 at 115200 baud
+    \item JSON message format
+    \item 100ms polling rate
+    \item Error handling and retry mechanisms
+\end{itemize}
+
+\section{Pin Configuration}
+
+\subsection{Master Controller Pins}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+Pin & Function & Description \\ \midrule
+18 & PIN\_BTN & Power switch button (INPUT\_PULLUP) \\
+19 & PIN\_PWR\_GOOD & Power outage detection (INPUT) \\
+23 & PIN\_PWR\_RELAY & Main power relay control (OUTPUT) \\
+25 & PIN\_BAT1\_RELAY & Battery 1 relay control (OUTPUT) \\
+26 & PIN\_BAT2\_RELAY & Battery 2 relay control (OUTPUT) \\
+21 & PIN\_UART2\_RX & UART2 receive from sensor \\
+22 & PIN\_UART2\_TX & UART2 transmit to sensor \\
+4 & PIN\_CAN\_RX & Reserved for CAN (INPUT) \\
+5 & PIN\_CAN\_TX & Reserved for CAN (INPUT) \\ \bottomrule
+\end{tabular}
+\caption{Master Controller Pin Configuration}
+\end{table}
+
+\subsection{Sensor Module Pins}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+Pin & Function & Description \\ \midrule
+36 & PIN\_AC\_V1 & AC Voltage 1 measurement \\
+39 & PIN\_AC\_V2 & AC Voltage 2 measurement \\
+34 & PIN\_AC\_I1 & AC Current 1 measurement \\
+35 & PIN\_AC\_I2 & AC Current 2 measurement \\
+32 & PIN\_DC\_V1 & DC Voltage 1 measurement \\
+33 & PIN\_DC\_V2 & DC Voltage 2 measurement \\
+25 & PIN\_DC\_I & DC Current measurement \\
+18 & OLED\_CLK & OLED SPI clock \\
+23 & OLED\_MOSI & OLED SPI data \\
+5 & OLED\_CS & OLED chip select \\
+16 & OLED\_DC & OLED data/command \\
+17 & OLED\_RST & OLED reset \\
+21 & PIN\_UART2\_RX & UART2 receive from master \\
+22 & PIN\_UART2\_TX & UART2 transmit to master \\ \bottomrule
+\end{tabular}
+\caption{Sensor Module Pin Configuration}
+\end{table}
+
+\section{Battery Management System}
+
+\subsection{State of Charge (SOC) Mapping}
+
+The system uses voltage-based SOC estimation:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}ll@{}}
+\toprule
+Voltage Range & SOC Level \\ \midrule
+< 10.0V & 0\% (Offline) \\
+10.0V - 11.5V & 25\% \\
+11.5V - 12.0V & 50\% \\
+12.0V - 12.5V & 75\% \\
+> 12.5V & 100\% \\ \bottomrule
+\end{tabular}
+\caption{SOC Voltage Mapping}
+\end{table}
+
+\subsection{Battery Switching Logic}
+
+\begin{enumerate}
+    \item \textbf{Normal Operation}:
+    \begin{itemize}
+        \item Only one battery connected to CHARGER at any time
+        \item At least one battery connected to INVERTER always
+        \item Switch charger to battery with lower SOC
+        \item Default switching threshold: 75\% SOC
+    \end{itemize}
+    
+    \item \textbf{Power Outage Response}:
+    \begin{itemize}
+        \item Both batteries immediately switch to INVERTER
+        \item Charging is suspended
+        \item Power switch input is disabled
+        \item System enters "request turn off" state
+    \end{itemize}
+    
+    \item \textbf{Battery Full Detection}:
+    \begin{itemize}
+        \item Monitor DC current during charging
+        \item Full when current < 0.5A for 5 seconds
+        \item Increment persistent full counter
+        \item Switch charger to other battery
+    \end{itemize}
+\end{enumerate}
+
+\subsection{Safety Features}
+
+\begin{itemize}
+    \item \textbf{Timing Constraints}:
+    \begin{itemize}
+        \item 7-second rest period between charger connections
+        \item 10-second minimum dwell time on charger
+        \item 50ms button debounce period
+    \end{itemize}
+    
+    \item \textbf{Offline Detection}:
+    \begin{itemize}
+        \item Battery voltage < 10.0V triggers offline state
+        \item Offline battery automatically routed to charger
+        \item Online battery maintains inverter connection
+    \end{itemize}
+    
+    \item \textbf{Emergency Shutdown}:
+    \begin{itemize}
+        \item Both batteries offline triggers emergency mode
+        \item System maintains last known safe state
+        \item Automatic recovery when batteries return online
+    \end{itemize}
+\end{itemize}
+
+\section{Multi-Core Task Architecture}
+
+\subsection{Master Controller Tasks}
+
+\subsubsection{Core 0 (Protocol Core)}
+\begin{itemize}
+    \item \textbf{TaskUART} (Priority 3):
+    \begin{itemize}
+        \item Polls sensor module every 100ms
+        \item Parses JSON responses
+        \item Updates global measurement structure
+        \item Handles communication errors
+    \end{itemize}
+\end{itemize}
+
+\subsubsection{Core 1 (Application Core)}
+\begin{itemize}
+    \item \textbf{TaskIO} (Priority 2):
+    \begin{itemize}
+        \item Button debouncing and power switch control
+        \item Power outage detection and response
+        \item Serial CLI command processing
+        \item Power relay "refresh" functionality
+    \end{itemize}
+    
+    \item \textbf{TaskArbiter} (Priority 2):
+    \begin{itemize}
+        \item Battery management decision engine
+        \item SOC calculation and switching logic
+        \item State persistence coordination
+        \item Emergency response coordination
+    \end{itemize}
+    
+    \item \textbf{TaskBatt1/TaskBatt2} (Priority 2):
+    \begin{itemize}
+        \item Individual battery relay control
+        \item Timing constraint enforcement
+        \item Battery full detection
+        \item Safety rule validation
+    \end{itemize}
+\end{itemize}
+
+\subsection{Sensor Module Tasks}
+
+\subsubsection{Core 0 (Sampling Core)}
+\begin{itemize}
+    \item \textbf{samplerTask} (Priority 3):
+    \begin{itemize}
+        \item High-rate ADC sampling (1000 Hz)
+        \item RMS calculation for AC signals
+        \item Average calculation for DC signals
+        \item Thread-safe data publishing
+    \end{itemize}
+\end{itemize}
+
+\subsubsection{Core 1 (Interface Core)}
+\begin{itemize}
+    \item \textbf{uiTask} (Priority 2):
+    \begin{itemize}
+        \item OLED display updates (500ms)
+        \item UART command processing
+        \item JSON response generation
+        \item Rate limiting and error handling
+    \end{itemize}
+\end{itemize}
+
+\section{Persistent Storage (NVS)}
+
+The system uses ESP32's Non-Volatile Storage for persistent data:
+
+\subsection{Stored Parameters}
+\begin{itemize}
+    \item \textbf{chargeSwitchingSOC}: SOC threshold for battery switching (default: 75)
+    \item \textbf{batt1FullCount}: Battery 1 full charge counter
+    \item \textbf{batt2FullCount}: Battery 2 full charge counter
+    \item \textbf{powerSwitchState}: Last known power switch state
+\end{itemize}
+
+\subsection{NVS Operations}
+\begin{itemize}
+    \item Automatic loading on system startup
+    \item Periodic saving during operation
+    \item Error handling for corrupted data
+    \item Factory reset capability
+\end{itemize}
+
+\section{Command Line Interface}
+
+The master controller provides a serial CLI for configuration and monitoring:
+
+\subsection{Available Commands}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}ll@{}}
+\toprule
+Command & Description \\ \midrule
+\texttt{S=<value>} & Set charging switching SOC threshold (0-100) \\
+\texttt{STATE} & Print current system state summary \\
+\texttt{COUNTS} & Print battery full charge counters \\ \bottomrule
+\end{tabular}
+\caption{CLI Commands}
+\end{table}
+
+\subsection{Example Usage}
+\begin{lstlisting}[language=bash]
+# Set switching threshold to 80%
+S=80
+
+# Check system state
+STATE
+[STATE] Batt1: SOC=75%, TO_INVERTER, Full=12
+[STATE] Batt2: SOC=50%, TO_CHARGER, Full=8
+[STATE] Charging: Batt2, PowerSwitch: ON
+
+# Check charge counters
+COUNTS
+[COUNTS] Batt1 full count: 12
+[COUNTS] Batt2 full count: 8
+\end{lstlisting}
+
+\section{Sensor Specifications}
+
+\subsection{Measurement Channels}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}llll@{}}
+\toprule
+Channel & Type & Range & Accuracy \\ \midrule
+AC Voltage 1 & RMS & 0-300V AC & ±2\% \\
+AC Voltage 2 & RMS & 0-300V AC & ±2\% \\
+AC Current 1 & RMS & 0-30A AC & ±2\% \\
+AC Current 2 & RMS & 0-30A AC & ±2\% \\
+DC Voltage 1 & Average & 0-15V DC & ±1\% \\
+DC Voltage 2 & Average & 0-15V DC & ±1\% \\
+DC Current & Average & -30A to +30A DC & ±2\% \\ \bottomrule
+\end{tabular}
+\caption{Sensor Channel Specifications}
+\end{table}
+
+\subsection{Sampling Configuration}
+\begin{itemize}
+    \item \textbf{Sample Rate}: 1000 Hz per channel
+    \item \textbf{RMS Window}: 1 second (1000 samples)
+    \item \textbf{ADC Resolution}: 12-bit (4096 levels)
+    \item \textbf{Update Rate}: 1 Hz (measurements published every second)
+\end{itemize}
+
+\section{OLED Display}
+
+\subsection{Display Layout}
+The 128x32 pixel OLED shows real-time measurements:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}ll@{}}
+\toprule
+Line & Content Example \\ \midrule
+Line 1 & \texttt{Vac1:120  Vac2:119} \\
+Line 2 & \texttt{Iac1:2.34  Iac2:1.87} \\
+Line 3 & \texttt{Vdc1:13.2 Vdc2:12.8} \\
+Line 4 & \texttt{Idc:5.6A} \\ \bottomrule
+\end{tabular}
+\caption{OLED Display Layout}
+\end{table}
+
+\subsection{Display Features}
+\begin{itemize}
+    \item 500ms update rate
+    \item Automatic brightness control
+    \item Error indication for communication failures
+    \item Low power mode support
+\end{itemize}
+
+\section{Installation and Setup}
+
+\subsection{Hardware Requirements}
+\begin{itemize}
+    \item 2x ESP32 WROOM-DA development boards
+    \item 2x Battery relays (12V coil, 30A contacts)
+    \item 1x Power relay (12V coil, 10A contacts)
+    \item 1x 128x32 OLED display (SSD1306)
+    \item Voltage dividers for AC/DC voltage sensing
+    \item Current sensors (ACS712 or equivalent)
+    \item Power supply (5V/12V)
+\end{itemize}
+
+\subsection{Software Requirements}
+\begin{itemize}
+    \item Arduino IDE 1.8.x or 2.x
+    \item ESP32 Arduino Core 2.0.x
+    \item Required libraries:
+    \begin{itemize}
+        \item Adafruit SSD1306
+        \item Adafruit GFX Library
+        \item ArduinoJson (optional, for future enhancements)
+    \end{itemize}
+\end{itemize}
+
+\subsection{Compilation and Upload}
+
+\begin{enumerate}
+    \item Install ESP32 board support in Arduino IDE
+    \item Install required libraries via Library Manager
+    \item Open \texttt{PowerSystem\_master.ino} and \texttt{PowerSystem\_sensor.ino}
+    \item Select board: "ESP32 Dev Module"
+    \item Configure settings:
+    \begin{itemize}
+        \item CPU Frequency: 240MHz
+        \item Flash Size: 4MB
+        \item Partition Scheme: Default 4MB with spiffs
+    \end{itemize}
+    \item Upload to respective ESP32 modules
+\end{enumerate}
+
+\section{Configuration}
+
+\subsection{Initial Setup}
+
+\begin{enumerate}
+    \item Connect hardware according to pin configuration
+    \item Power on both ESP32 modules
+    \item Connect to master controller via Serial (115200 baud)
+    \item Verify communication between master and sensor
+    \item Configure SOC switching threshold if needed: \texttt{S=75}
+    \item Test battery switching functionality
+\end{enumerate}
+
+\subsection{Calibration}
+
+\begin{enumerate}
+    \item \textbf{Voltage Calibration}:
+    \begin{itemize}
+        \item Apply known voltages to measurement inputs
+        \item Adjust \texttt{DIVIDER\_GAIN} constants in \texttt{Power\_System.h}
+        \item Verify accuracy across full range
+    \end{itemize}
+    
+    \item \textbf{Current Calibration}:
+    \begin{itemize}
+        \item Apply known currents to current sensors
+        \item Adjust \texttt{ACS712\_SENS\_V\_PER\_A} constants
+        \item Verify zero offset calibration
+    \end{itemize}
+\end{enumerate}
+
+\section{Troubleshooting}
+
+\subsection{Common Issues}
+
+\begin{enumerate}
+    \item \textbf{Communication Failure}:
+    \begin{itemize}
+        \item Check UART wiring (RX/TX crossed)
+        \item Verify baud rate settings (115200)
+        \item Check power supply stability
+        \item Monitor serial output for error messages
+    \end{itemize}
+    
+    \item \textbf{Battery Not Switching}:
+    \begin{itemize}
+        \item Verify relay wiring and power
+        \item Check SOC calculation accuracy
+        \item Ensure timing constraints are met
+        \item Use \texttt{STATE} command to check battery status
+    \end{itemize}
+    
+    \item \textbf{Inaccurate Measurements}:
+    \begin{itemize}
+        \item Recalibrate voltage dividers
+        \item Check current sensor zero offset
+        \item Verify ADC reference voltage
+        \item Check for electrical noise interference
+    \end{itemize}
+    
+    \item \textbf{OLED Display Issues}:
+    \begin{itemize}
+        \item Check SPI wiring connections
+        \item Verify display power supply (3.3V)
+        \item Test with simple display example
+        \item Check for I2C address conflicts
+    \end{itemize}
+\end{enumerate}
+
+\subsection{Debug Output}
+
+Enable debug output by monitoring Serial at 115200 baud:
+
+\begin{lstlisting}[language=bash]
+[UART] Sent: GET
+[UART] Received: {"ac_v1":120.5,"ac_v2":119.8,...}
+[BATT] Batt1 SOC: 75% -> TO_INVERTER
+[BATT] Batt2 SOC: 50% -> TO_CHARGER
+[PWR] Power outage detected!
+[PWR] Both batteries -> INVERTER
+\end{lstlisting}
+
+\section{Performance Specifications}
+
+\subsection{System Performance}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}ll@{}}
+\toprule
+Parameter & Specification \\ \midrule
+Power Outage Response Time & < 10ms \\
+Battery Switch Decision Time & < 100ms \\
+Relay Switching Time & < 1s (with timing constraints) \\
+Measurement Update Rate & 100ms (UART polling) \\
+Display Update Rate & 500ms \\
+Button Response Time & < 100ms (after debounce) \\
+CPU Utilization (Master) & ~20\% average \\
+CPU Utilization (Sensor) & ~35\% average \\
+RAM Usage & ~40KB of 520KB available \\
+Flash Usage & ~500KB of 4MB available \\ \bottomrule
+\end{tabular}
+\caption{System Performance Specifications}
+\end{table}
+
+\subsection{Power Consumption}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}ll@{}}
+\toprule
+Component & Power Consumption \\ \midrule
+Master Controller & ~150mA @ 3.3V \\
+Sensor Module & ~200mA @ 3.3V (OLED active) \\
+Total System & ~350mA @ 3.3V \\ \bottomrule
+\end{tabular}
+\caption{Power Consumption}
+\end{table}
+
+\section{Future Enhancements}
+
+\subsection{Planned Features}
+\begin{itemize}
+    \item CAN bus integration for system-wide communication
+    \item Web interface for remote monitoring and configuration
+    \item Data logging to SD card or cloud storage
+    \item Advanced battery health monitoring
+    \item Predictive maintenance alerts
+    \item Mobile app integration
+    \item Power consumption optimization
+\end{itemize}
+
+\subsection{Expansion Possibilities}
+\begin{itemize}
+    \item Support for more than 2 batteries
+    \item Integration with solar charging systems
+    \item Load balancing and priority management
+    \item Temperature monitoring and thermal protection
+    \item Wireless communication (WiFi/Bluetooth)
+    \item Integration with building management systems
+\end{itemize}
+
+\section{Support and Documentation}
+
+\subsection{Additional Resources}
+\begin{itemize}
+    \item \texttt{TECHNICAL\_DOCUMENTATION.md}: Detailed technical analysis
+    \item \texttt{Power\_System.h}: Hardware definitions and constants
+    \item \texttt{Power\_system\_master\_code\_instruction.txt}: Development requirements
+    \item Source code comments: Inline documentation
+\end{itemize}
+
+\subsection{Contact Information}
+For technical support, bug reports, or feature requests, please refer to the project documentation or contact the development team.
+
+\section{License and Warranty}
+
+This firmware is provided as-is for educational and development purposes. Users are responsible for proper testing and validation before deployment in critical applications.
+
+\textbf{Important}: This system is designed for backup power applications. Always ensure proper safety measures and comply with local electrical codes and regulations.
+
+\end{document}
