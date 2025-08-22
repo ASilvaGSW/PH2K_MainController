@@ -40,8 +40,12 @@
 
 // EEPROM Configuration
 #define EEPROM_SIZE 32  // 8 bytes for counters + 24 bytes for config values
-#define COUNTER_ADDR 0          
-
+#define COUNTER_ADDR 0
+#define ACTUATOR_COUNTER_ADDR 4
+#define SERVO_OPEN_ANGLE_ADDR 8
+#define SERVO_CLOSE_ANGLE_ADDR 10
+#define ACTUATOR_DELIVER_POSITION_ADDR 12
+#define ACTUATOR_INSERTION_POSITION_ADDR 14
 
 
 // Global variables

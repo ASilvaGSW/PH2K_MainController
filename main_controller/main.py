@@ -547,6 +547,70 @@ def insertionAccuracy():
     # pick_and_place.stop_left_conveyor()
     # pick_and_place.stop_right_conveyor()
 
+def testHome():
+    """Test function for new go home methods"""
+    global elevator_in, pick_and_place, hose_puller, hose_jig
+    
+    print("Testing new go home functions...")
+    
+    # Test ElevatorIn homing functions
+    print("\n--- Testing ElevatorIn homing functions ---")
+    
+    print("Testing home_gantry_x...")
+    result = elevator_in.home_gantry_x()
+    print(f"Result: {result}")
+    
+    print("Testing home_gantry_y...")
+    result = elevator_in.home_gantry_y()
+    print(f"Result: {result}")
+    
+    print("Testing home_gantry_z...")
+    result = elevator_in.home_gantry_z()
+    print(f"Result: {result}")
+    
+    print("Testing home_elevator_z...")
+    result = elevator_in.home_elevator_z()
+    print(f"Result: {result}")
+    
+    # print("Testing home_all_gantry_axes...")
+    # result = elevator_in.home_all_gantry_axes()
+    # print(f"Result: {result}")
+    
+    # print("Testing home_all_axes...")
+    # result = elevator_in.home_all_axes()
+    # print(f"Result: {result}")
+    
+    # Test PickAndPlace homing functions
+    print("\n--- Testing PickAndPlace homing functions ---")
+    
+    print("Testing home_x_axis...")
+    result = pick_and_place.home_x_axis()
+    print(f"Result: {result}")
+    
+    print("Testing home_z_axis...")
+    result = pick_and_place.home_z_axis()
+    print(f"Result: {result}")
+    
+    # Test HosePuller homing functions
+    # print("\n--- Testing HosePuller homing functions ---")
+    
+    # print("Testing home_y_axis...")
+    # result = hose_puller.home_y_axis()
+    # print(f"Result: {result}")
+    
+    # print("Testing home_z_axis...")
+    # result = hose_puller.home_z_axis()
+    # print(f"Result: {result}")
+    
+    # Test HoseJig homing function
+    # print("\n--- Testing HoseJig homing function ---")
+    
+    # print("Testing home_actuator...")
+    # result = hose_jig.home_actuator()
+    # print(f"Result: {result}")
+    
+    # print("\nAll homing tests completed!")
+
 if __name__ == "__main__":
    
     my_main()
@@ -560,8 +624,12 @@ if __name__ == "__main__":
     # insertionRoutine()
 
     # moveHosepuller()
-    for i in range(1):
-        if oneCycle() != "success" : break
+    
+    # Test the new go home functions
+    testHome()
+    
+    # for i in range(1):
+    #     if oneCycle() != "success" : break
 
     canbus.close_canbus()
 
