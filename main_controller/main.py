@@ -93,6 +93,7 @@ def moveHosepuller():
     # hose_puller.move_y_actuator(home_y)
     # hose_puller.move_z_actuator(safe_position)
     # hose_jig.insertion_position()
+    hose_jig.go_home()
     # hose_puller.move_y_actuator(pickup_y)
     # hose_puller.move_z_actuator(z_home)
     # puller_extension.close_gripper()
@@ -623,10 +624,10 @@ if __name__ == "__main__":
 
     # insertionRoutine()
 
-    # moveHosepuller()
+    moveHosepuller()
     
     # Test the new go home functions
-    testHome()
+    # testHome()
     
     # for i in range(1):
     #     if oneCycle() != "success" : break
