@@ -96,7 +96,7 @@ class Canbus:
             reply_data: CAN data bytes if successful, None otherwise
         """
         if max_retries is None:
-            max_retries = 70  # 7 segundos si timeout_ms=100ms
+            max_retries = 1100  # 7 segundos si timeout_ms=100ms
 
         print(f"Starting read_message: timeout_ms={timeout_ms}, max_retries={max_retries}, expected_total_time={max_retries*timeout_ms}ms")
         start_time = time.time()

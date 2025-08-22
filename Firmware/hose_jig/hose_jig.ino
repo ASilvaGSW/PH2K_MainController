@@ -827,7 +827,7 @@ uint8_t waitForCanReply(uint16_t expectedId) {
   flushCanBuffer();
   
   unsigned long startTime = millis();
-  const unsigned long timeout = 6000;  // 6 second timeout
+  const unsigned long timeout = 10000;  // 6 second timeout
   
   while (millis() - startTime < timeout) {
     if (CAN1.checkReceive() == CAN_MSGAVAIL) {

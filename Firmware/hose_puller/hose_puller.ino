@@ -408,6 +408,8 @@ void process_instruction(CanFrame instruction)
       uint8_t payload2[8] = {0};  // Initialize buffer for CAN message
       z_axis.abs_mode(ACTUATOR_HOME_POSITION, payload2);  // Generate the CAN message
 
+      flushCanBuffer();
+
       if (CAN1.sendMsgBuf(z_axis.motor_id, 0, 8, payload2) != CAN_OK) {
         Serial.println("Error sending actuator command");
         byte errorResponse[] = {0x03, 0x04, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK
@@ -467,6 +469,8 @@ void process_instruction(CanFrame instruction)
       uint8_t payload[8] = {0};  // Initialize buffer for CAN message
       y_axis.abs_mode(angle, payload);  // Generate the CAN message
 
+      flushCanBuffer();
+
       if (CAN1.sendMsgBuf(y_axis.motor_id, 0, 8, payload) != CAN_OK)
       {
         Serial.println("Error sending actuator command");
@@ -506,6 +510,8 @@ void process_instruction(CanFrame instruction)
 
       uint8_t payload[8] = {0};  // Initialize buffer for CAN message
       z_axis.abs_mode(angle, payload);  // Generate the CAN message
+
+      flushCanBuffer();
 
       if (CAN1.sendMsgBuf(z_axis.motor_id, 0, 8, payload) != CAN_OK)
       {
@@ -738,6 +744,8 @@ void process_instruction(CanFrame instruction)
       uint8_t payload[2] = {0};  // Initialize buffer for CAN message (2 bytes)
       y_axis.go_home(payload);  // Generate the CAN message
 
+      flushCanBuffer();
+
       if (CAN1.sendMsgBuf(y_axis.motor_id, 0, 2, payload) != CAN_OK) {
         Serial.println("Error sending actuator command");
         byte errorResponse[] = {0x13, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK
@@ -766,6 +774,8 @@ void process_instruction(CanFrame instruction)
       
       uint8_t payload[2] = {0};  // Initialize buffer for CAN message (2 bytes)
       z_axis.go_home(payload);  // Generate the CAN message
+
+      flushCanBuffer();
 
       if (CAN1.sendMsgBuf(z_axis.motor_id, 0, 2, payload) != CAN_OK) {
         Serial.println("Error sending actuator command");
@@ -801,6 +811,8 @@ void process_instruction(CanFrame instruction)
 
       uint8_t payload2[8] = {0};  // Initialize buffer for CAN message
       z_axis.abs_mode(0, payload2);  // Generate the CAN message
+
+      flushCanBuffer();
 
       if (CAN1.sendMsgBuf(z_axis.motor_id, 0, 8, payload2) != CAN_OK) {
         Serial.println("Error sending actuator command");
@@ -887,10 +899,24 @@ void process_instruction(CanFrame instruction)
  * RETURNS:
  *   0x01 if reply received, 0x02 if timeout.
  */
+// Helper function to flush CAN buffer
+void flushCanBuffer() {
+  byte tempData[8];
+  unsigned long tempId;
+  byte tempLen;
+  
+  // Read and discard all pending messages
+  while (CAN1.checkReceive() == CAN_MSGAVAIL) {
+    CAN1.readMsgBuf(&tempId, &tempLen, tempData);
+    Serial.println("Flushed old CAN message from buffer");
+  }
+}
+
+
 uint8_t waitForCanReply(uint16_t expectedId) {
   memset(replyData, 0, sizeof(replyData)); // Clear the buffer before waiting
   unsigned long startTime = millis();
-  const unsigned long timeout = 6000;  // 1 second timeout
+  const unsigned long timeout = 10000;  // 1 second timeout
   
   while (millis() - startTime < timeout) {
     if (CAN1.checkReceive() == CAN_MSGAVAIL) {

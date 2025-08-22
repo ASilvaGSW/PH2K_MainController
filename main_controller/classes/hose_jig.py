@@ -167,7 +167,7 @@ class HoseJig:
         return status, position
 
     #Case 0x18: Home actuator using go_home function
-    def home_actuator(self):
+    def go_home(self):
         status, reply_data = self.canbus.send_message(self.canbus_id, [0x18, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
         return status
 

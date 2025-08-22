@@ -76,8 +76,8 @@ def moveHosepuller():
 
     safe_position = 200
     home_y = 4200
-    wait_y = 6000
-    pickup_y = 9060
+    wait_y = 5930
+    pickup_y = 8990
     z_home = 50
 
     offset_x = -480
@@ -87,27 +87,33 @@ def moveHosepuller():
     # insertion_jig.move_x_axis(0)
 
     #****************************** Hose puller ******************************
+    hose_puller.home_y_axis()
+    hose_puller.home_z_axis()
+    hose_jig.go_home()
+
     # hose_puller.move_y_actuator(0)
     # hose_puller.move_z_actuator(0)
 
-    # hose_puller.move_y_actuator(home_y)
-    # hose_puller.move_z_actuator(safe_position)
-    # hose_jig.insertion_position()
-    # hose_puller.move_y_actuator(pickup_y)
-    # hose_puller.move_z_actuator(z_home)
-    # puller_extension.close_gripper()
-    # hose_puller.move_y_actuator(pickup_y-500)
-    # hose_puller.move_z_actuator(safe_position)
-    # hose_puller.move_y_actuator(wait_y)
-    # insertion_servos.activate_cutter()
-    # hose_puller.move_y_actuator(home_y)
-    # hose_puller.move_z_actuator(z_home)
-    # hose_jig.gripper_close()
-    # puller_extension.open_gripper()
-    # hose_puller.move_z_actuator(safe_position)
-    # hose_jig.deliver_position()
-    # hose_jig.gripper_open()
-    # hose_puller.move_z_actuator(0)
+    hose_puller.move_y_actuator(home_y)
+    hose_puller.move_z_actuator(safe_position)
+    hose_jig.insertion_position()
+    hose_puller.move_y_actuator(pickup_y)
+    hose_puller.move_z_actuator(z_home)
+    puller_extension.close_gripper()
+    hose_puller.move_y_actuator(pickup_y-500)
+    hose_puller.move_z_actuator(safe_position)
+    hose_puller.move_y_actuator(wait_y)
+    insertion_servos.activate_cutter()
+    hose_puller.move_y_actuator(home_y)
+    hose_puller.move_z_actuator(z_home)
+    hose_jig.gripper_close()
+    puller_extension.open_gripper()
+    hose_puller.move_z_actuator(safe_position)
+    hose_jig.deliver_position()
+    hose_jig.gripper_open()
+    hose_puller.move_z_actuator(0)
+
+
     
 def moveInsertionJig():
     global insertion_jig, insertion_servos
@@ -626,7 +632,7 @@ if __name__ == "__main__":
     # moveHosepuller()
     
     # Test the new go home functions
-    testHome()
+    # testHome()
     
     # for i in range(1):
     #     if oneCycle() != "success" : break
