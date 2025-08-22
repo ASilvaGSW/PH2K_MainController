@@ -381,6 +381,9 @@ void process_instruction(CanFrame instruction)
       uint8_t payload[8] = {0};  // Initialize buffer for CAN message
       x_axis.abs_mode(ACTUATOR_HOME_POSITION, payload);  // Generate the CAN message
 
+      // Flush CAN buffer before sending new message
+      flushCanBuffer();
+
       if (CAN1.sendMsgBuf(x_axis.motor_id, 0, 8, payload) != CAN_OK) {
         Serial.println("Error sending actuator command");
         byte errorResponse[] = {0x03, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK
@@ -433,10 +436,8 @@ void process_instruction(CanFrame instruction)
       }
       Serial.println();
 
-      // Check CAN bus status before sending
-      if(CAN1.checkReceive() == CAN_MSGAVAIL) {
-        Serial.println("Warning: CAN buffer has pending messages before send!");
-      }
+      // Flush CAN buffer before sending new message
+      flushCanBuffer();
 
       // Try to send the message
       byte sendStatus = CAN1.sendMsgBuf(x_axis.motor_id, 0, 8, payload);
@@ -544,6 +545,9 @@ void process_instruction(CanFrame instruction)
       uint8_t payload[8] = {0};  // Initialize buffer for CAN message
       x_axis.abs_mode(ACTUATOR_INSERTION_POSITION, payload);  // Generate the CAN message
 
+      // Flush CAN buffer before sending new message
+      flushCanBuffer();
+
       if (CAN1.sendMsgBuf(x_axis.motor_id, 0, 8, payload) != CAN_OK) {
         Serial.println("Error sending actuator command");
         byte errorResponse[] = {0x0B, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK
@@ -572,6 +576,9 @@ void process_instruction(CanFrame instruction)
       
       uint8_t payload[8] = {0};
       x_axis.abs_mode(ACTUATOR_DELIVER_POSITION, payload);
+
+      // Flush CAN buffer before sending new message
+      flushCanBuffer();
 
       if (CAN1.sendMsgBuf(x_axis.motor_id, 0, 8, payload) != CAN_OK) {
         Serial.println("Error sending actuator command");
@@ -725,6 +732,9 @@ void process_instruction(CanFrame instruction)
 
       uint8_t payload[2] = {0};  // Initialize buffer for CAN message
       x_axis.go_home(payload);  // Generate the go_home CAN message
+      
+      // Flush CAN buffer before sending new message
+      flushCanBuffer();
 
       if (CAN1.sendMsgBuf(x_axis.motor_id, 0, 2, payload) != CAN_OK) {
         Serial.println("Error sending go_home command");
@@ -761,7 +771,10 @@ void process_instruction(CanFrame instruction)
       // Move linear actuator to home position (assuming position 0 is home)
 
       uint8_t payload[8] = {0};  // Initialize buffer for CAN message
-      x_axis.abs_mode(0, payload);  // Generate the CAN message
+      x_axis.abs_mode(ACTUATOR_DELIVER_POSITION, payload);  // Generate the CAN message
+
+      // Flush CAN buffer before sending new message
+      flushCanBuffer();
 
       if (CAN1.sendMsgBuf(x_axis.motor_id, 0, 8, payload) != CAN_OK) {
         Serial.println("Error sending actuator command");
@@ -793,11 +806,28 @@ void process_instruction(CanFrame instruction)
 
 }
 
+// Helper function to flush CAN buffer
+void flushCanBuffer() {
+  byte tempData[8];
+  unsigned long tempId;
+  byte tempLen;
+  
+  // Read and discard all pending messages
+  while (CAN1.checkReceive() == CAN_MSGAVAIL) {
+    CAN1.readMsgBuf(&tempId, &tempLen, tempData);
+    Serial.println("Flushed old CAN message from buffer");
+  }
+}
+
 // Helper function to wait for CAN reply
 uint8_t waitForCanReply(uint16_t expectedId) {
   memset(replyData, 0, sizeof(replyData)); // Clear the buffer before waiting
+  
+  // Flush any pending messages before waiting for the expected reply
+  flushCanBuffer();
+  
   unsigned long startTime = millis();
-  const unsigned long timeout = 6000;  // 1 second timeout
+  const unsigned long timeout = 6000;  // 6 second timeout
   
   while (millis() - startTime < timeout) {
     if (CAN1.checkReceive() == CAN_MSGAVAIL) {
@@ -807,6 +837,9 @@ uint8_t waitForCanReply(uint16_t expectedId) {
       
       if (canId == expectedId && (replyData[1] == 0x02 || replyData[1] == 0x03)) {
         return 0x01;  // Success
+      }
+      else if (canId == expectedId && replyData[1] == 0x00) {
+        return 0x02;  // Failure
       }
     }
     vTaskDelay(1);  // Small delay to prevent busy-waiting
