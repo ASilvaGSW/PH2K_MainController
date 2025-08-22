@@ -18,6 +18,7 @@ public:
     void check_connection(uint8_t* payload);
     void update_id(uint16_t new_id, uint8_t* payload);
     void speed_mode(bool dir, uint16_t speed, uint8_t acc, uint8_t* payload);
+    void go_home(uint8_t* payload);
 };
 
-#endif // LINEAR_ACTUATOR_H 
+#endif // LINEAR_ACTUATOR_H
