@@ -81,5 +81,4 @@ void LinearActuator::go_home(uint8_t* payload) {
     uint8_t crc = (byte1 + motor_id) & 0xFF;
     payload[0] = byte1;
     payload[1] = crc;
-    for (int i = 2; i < 8; i++) payload[i] = 0;
 }

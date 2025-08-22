@@ -21,6 +21,7 @@
 # 0x15: Read SERVO_CLOSE_ANGLE
 # 0x16: Read ACTUATOR_DELIVER_POSITION
 # 0x17: Read ACTUATOR_INSERTION_POSITION
+# 0x18: Home actuator using go_home function
 # 0xFF: Power off - Move all to home position
  
 class HoseJig:
@@ -164,6 +165,11 @@ class HoseJig:
         status, reply_data = self.canbus.send_message(self.canbus_id, [0x17, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
         position = reply_data[2] << 8 | reply_data[3]
         return status, position
+
+    #Case 0x18: Home actuator using go_home function
+    def home_actuator(self):
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x18, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+        return status
 
     #Case 0xFF: Power off - Move all to home position
     def power_off(self):

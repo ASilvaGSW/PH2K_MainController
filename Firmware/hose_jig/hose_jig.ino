@@ -22,6 +22,7 @@
  * 0x15: Read SERVO_CLOSE_ANGLE
  * 0x16: Read ACTUATOR_DELIVER_POSITION
  * 0x17: Read ACTUATOR_INSERTION_POSITION
+ * 0x18: Home actuator using go_home function
  * 0xFF: Power off - Move all to home position
  */
 
@@ -711,6 +712,35 @@ void process_instruction(CanFrame instruction)
       send_twai_response(response);
     }
     break;    
+
+    // ***************************** CASE 0x18 ***************************** //
+    // Home actuator using go_home function
+    case 0x18:
+    {
+      Serial.println("Case 0x18: Homing actuator using go_home function");
+
+      uint8_t payload[2] = {0};  // Initialize buffer for CAN message
+      x_axis.go_home(payload);  // Generate the go_home CAN message
+
+      if (CAN1.sendMsgBuf(x_axis.motor_id, 0, 2, payload) != CAN_OK) {
+        Serial.println("Error sending go_home command");
+        byte errorResponse[] = {0x18, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK
+        send_twai_response(errorResponse);
+        break;
+      }
+
+      // Wait for reply and get status
+      uint8_t status = waitForCanReply(x_axis.motor_id);
+
+      if (status == 0x01) {
+        incrementActuatorCounter();
+      }
+
+      // Send response with status
+      byte statusResponse[] = {0x18, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(statusResponse);
+    }
+    break;
 
     // ***************************** CASE 0xFF ***************************** //
     // Power off - Move all to home position

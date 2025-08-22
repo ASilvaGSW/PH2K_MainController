@@ -9,6 +9,8 @@
 # 0x07: Read Y actuator movement counter
 # 0x08: Reset Y movement counter
 # 0x09: Reset Z movement counter
+# 0x13: Home Y axis using go_home function
+# 0x14: Home Z axis using go_home function
 # 0xFF: Power off, home all axes.
 
 class HosePuller:
@@ -70,6 +72,16 @@ class HosePuller:
     # Case 0x09: Reset Z movement counter
     def reset_z_counter(self):
         status = self.canbus.send_message(self.canbus_id, [0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])[0]
+        return status
+
+    # Case 0x13: Home Y axis using go_home function
+    def home_y_axis(self):
+        status = self.canbus.send_message(self.canbus_id, [0x13, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])[0]
+        return status
+
+    # Case 0x14: Home Z axis using go_home function
+    def home_z_axis(self):
+        status = self.canbus.send_message(self.canbus_id, [0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])[0]
         return status
 
     # Case 0xFF: Power off, home all axes

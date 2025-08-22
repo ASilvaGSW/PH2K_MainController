@@ -23,6 +23,12 @@
 #   IN: [actuator_id] | OUT: [0x0B, counter_H, counter_L, ...]
 # 0x0C: Reset Actuator Counter
 #   IN: [actuator_id] | OUT: [0x0C, 0x01, ...]
+# 0x10: Home Individual Actuator
+#   IN: [actuator_id] | OUT: [0x10, status, ...]
+# 0x11: Home All Gantry Axes
+#   IN: None | OUT: [0x11, status, ...]
+# 0x12: Home All Axes (Gantry + Elevator)
+#   IN: None | OUT: [0x12, status, ...]
 # 0xFF: Power off - Move all to home position
 #   IN: None | OUT: None (moves all to home)
 
@@ -164,6 +170,33 @@ class ElevatorIn:
     # 0x0C: Reset Actuator Counter
     def reset_actuator_counter(self, actuator_id):
         status = self.canbus.send_message(self.canbus_id, [0x0C, actuator_id, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])[0]
+        return status
+
+    # 0x10: Home Individual Actuator
+    def home_individual_actuator(self, actuator_id):
+        status = self.canbus.send_message(self.canbus_id, [0x10, actuator_id] + [0x00]*6)[0]
+        return status
+
+    def home_gantry_x(self):
+        return self.home_individual_actuator(1)
+
+    def home_gantry_y(self):
+        return self.home_individual_actuator(2)
+
+    def home_gantry_z(self):
+        return self.home_individual_actuator(3)
+
+    def home_elevator_z(self):
+        return self.home_individual_actuator(4)
+
+    # 0x11: Home All Gantry Axes
+    def home_all_gantry_axes(self):
+        status = self.canbus.send_message(self.canbus_id, [0x11] + [0x00]*7)[0]
+        return status
+
+    # 0x12: Home All Axes (Gantry + Elevator)
+    def home_all_axes(self):
+        status = self.canbus.send_message(self.canbus_id, [0x12] + [0x00]*7)[0]
         return status
 
     # 0xFF: Power off - Move all to home position

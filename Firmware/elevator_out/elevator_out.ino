@@ -4,6 +4,14 @@
  * 0x02 - FAIL
  * 0x03 - TIMEOUT
  * 0x04 - NO LOCAL NETWORK
+ * 
+ * CAN Commands:
+ * 0x10 - Home Individual Actuator (by actuator_id)
+ * 0x11 - Home All Gantry Axes (gantryX, gantryY, gantryY2, gantryZ)
+ * 0x12 - Home All Axes (all gantry axes + elevatorZ)
+ * 0x13 - Control Servo
+ * 0x14 - Get Servo Counter
+ * 0x15 - Reset Servo Counter
 */
 
 #include <ESP32-TWAI-CAN.hpp>
@@ -358,7 +366,7 @@ void process_instruction(CanFrame instruction)
     // Move Gripper
     case 0x06:
     {
-      action = instruction.data[1];
+      uint8_t action = instruction.data[1];
       
       if (action == 0x01)
       {
@@ -383,9 +391,9 @@ void process_instruction(CanFrame instruction)
     {
       Serial.println("Case 0x07: Set gripper force");
       
-      newGripperForce = instruction.data[1];
+      uint8_t newGripperForce = instruction.data[1];
 
-      if (newGripperForce >= 4 || newGripperForce <= 7)
+      if (newGripperForce >= 4 && newGripperForce <= 7)
       {
         gripperForce = newGripperForce;      
         gripper.setFuerza(gripperForce);
@@ -451,8 +459,8 @@ void process_instruction(CanFrame instruction)
         default: break;
       }
 
-      counter_high = counter >> 8;
-      counter_low = counter & 0xFF;
+      uint8_t counter_high = counter >> 8;
+      uint8_t counter_low = counter & 0xFF;
 
       byte response[] = {0x0B, counter_high, counter_low, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(response);
@@ -476,17 +484,216 @@ void process_instruction(CanFrame instruction)
         default: break;
       }
 
-      saveActuatorCounter();
+      SaveCounter(actuator_id);
       byte statusResponse[] = {0x0C, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(statusResponse);
     }
     break;
 
     // ***************************** CASE 0x10 ***************************** //
-    // Control servo
+    // Home Individual Actuator
     case 0x10:
     {
-      Serial.println("Case 0x10: Control servo");
+      Serial.println("Case 0x10: Home Individual Actuator");
+      uint8_t actuator_id = instruction.data[1];
+      
+      uint8_t payload[2] = {0};
+      uint8_t payload2[2] = {0};
+      bool dual_axis = false;
+      uint16_t expected_id = 0;
+      uint16_t expected_id2 = 0;
+      
+      // Generate go_home command based on actuator ID
+      if (actuator_id == 1) {
+        gantryX.go_home(payload);
+        expected_id = gantryX.motor_id + 0x580;
+      }
+      else if (actuator_id == 2) {
+        gantryY.go_home(payload);
+        gantryY2.go_home(payload2);
+        expected_id = gantryY.motor_id + 0x580;
+        expected_id2 = gantryY2.motor_id + 0x580;
+        dual_axis = true;
+      }
+      else if (actuator_id == 3) {
+        gantryZ.go_home(payload);
+        expected_id = gantryZ.motor_id + 0x580;
+      }
+      else if (actuator_id == 4) {
+        elevatorZ.go_home(payload);
+        expected_id = elevatorZ.motor_id + 0x580;
+      }
+      else {
+        Serial.println("Invalid actuator ID");
+        byte errorResponse[] = {0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+        send_twai_response(errorResponse);
+        break;
+      }
+      
+      // Send CAN message(s)
+      uint8_t status = 0x04; // Default to NO LOCAL NETWORK
+      
+      if (dual_axis) {
+        if (CAN1.sendMsgBuf(gantryY.motor_id, 0, 2, payload) == CAN_OK &&
+            CAN1.sendMsgBuf(gantryY2.motor_id, 0, 2, payload2) == CAN_OK) {
+          status = waitForCanReplyMultiple(expected_id, expected_id2);
+        }
+      } else {
+        if (CAN1.sendMsgBuf(actuator_id, 0, 2, payload) == CAN_OK) {
+          status = waitForCanReply(expected_id);
+        }
+      }
+      
+      byte statusResponse[] = {0x10, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(statusResponse);
+    }
+    break;
+
+    // ***************************** CASE 0x11 ***************************** //
+    // Home All Gantry Axes
+    case 0x11:
+    {
+      Serial.println("Case 0x11: Home All Gantry Axes");
+      
+      uint8_t payload_x[2] = {0};
+      uint8_t payload_y[2] = {0};
+      uint8_t payload_y2[2] = {0};
+      uint8_t payload_z[2] = {0};
+      
+      // Generate go_home commands for all gantry axes
+      gantryX.go_home(payload_x);
+      gantryY.go_home(payload_y);
+      gantryY2.go_home(payload_y2);
+      gantryZ.go_home(payload_z);
+      
+      // Send CAN messages
+      bool can_success = true;
+      can_success &= (CAN1.sendMsgBuf(gantryX.motor_id, 0, 2, payload_x) == CAN_OK);
+      can_success &= (CAN1.sendMsgBuf(gantryY.motor_id, 0, 2, payload_y) == CAN_OK);
+      can_success &= (CAN1.sendMsgBuf(gantryY2.motor_id, 0, 2, payload_y2) == CAN_OK);
+      can_success &= (CAN1.sendMsgBuf(gantryZ.motor_id, 0, 2, payload_z) == CAN_OK);
+      
+      uint8_t status = 0x04; // Default to NO LOCAL NETWORK
+      
+      if (can_success) {
+        // Wait for replies from all gantry actuators
+        bool all_replies_received = true;
+        unsigned long startTime = millis();
+        const unsigned long timeout = 6000;
+        
+        bool received_x = false, received_y = false, received_y2 = false, received_z = false;
+        
+        while (millis() - startTime < timeout && !all_replies_received) {
+          if (CAN1.checkReceive() == CAN_MSGAVAIL) {
+            unsigned long canId;
+            byte len = 0;
+            CAN1.readMsgBuf(&canId, &len, replyData);
+            
+            if (canId == (gantryX.motor_id + 0x580) && (replyData[1] == 0x02 || replyData[1] == 0x03)) received_x = true;
+            else if (canId == (gantryY.motor_id + 0x580) && (replyData[1] == 0x02 || replyData[1] == 0x03)) received_y = true;
+            else if (canId == (gantryY2.motor_id + 0x580) && (replyData[1] == 0x02 || replyData[1] == 0x03)) received_y2 = true;
+            else if (canId == (gantryZ.motor_id + 0x580) && (replyData[1] == 0x02 || replyData[1] == 0x03)) received_z = true;
+            
+            // Check for failure responses
+            if ((canId == (gantryX.motor_id + 0x580) || canId == (gantryY.motor_id + 0x580) || 
+                 canId == (gantryY2.motor_id + 0x580) || canId == (gantryZ.motor_id + 0x580)) && 
+                replyData[1] == 0x00) {
+              status = 0x02; // FAIL
+              break;
+            }
+            
+            all_replies_received = received_x && received_y && received_y2 && received_z;
+          }
+          vTaskDelay(1);
+        }
+        
+        if (status != 0x02) {
+          status = all_replies_received ? 0x01 : 0x03; // OK or TIMEOUT
+        }
+      }
+      
+      byte statusResponse[] = {0x11, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(statusResponse);
+    }
+    break;
+
+    // ***************************** CASE 0x12 ***************************** //
+    // Home All Axes
+    case 0x12:
+    {
+      Serial.println("Case 0x12: Home All Axes");
+      
+      uint8_t payload_x[2] = {0};
+      uint8_t payload_y[2] = {0};
+      uint8_t payload_y2[2] = {0};
+      uint8_t payload_z[2] = {0};
+      uint8_t payload_elevator[2] = {0};
+      
+      // Generate go_home commands for all axes
+      gantryX.go_home(payload_x);
+      gantryY.go_home(payload_y);
+      gantryY2.go_home(payload_y2);
+      gantryZ.go_home(payload_z);
+      elevatorZ.go_home(payload_elevator);
+      
+      // Send CAN messages
+      bool can_success = true;
+      can_success &= (CAN1.sendMsgBuf(gantryX.motor_id, 0, 2, payload_x) == CAN_OK);
+      can_success &= (CAN1.sendMsgBuf(gantryY.motor_id, 0, 2, payload_y) == CAN_OK);
+      can_success &= (CAN1.sendMsgBuf(gantryY2.motor_id, 0, 2, payload_y2) == CAN_OK);
+      can_success &= (CAN1.sendMsgBuf(gantryZ.motor_id, 0, 2, payload_z) == CAN_OK);
+      can_success &= (CAN1.sendMsgBuf(elevatorZ.motor_id, 0, 2, payload_elevator) == CAN_OK);
+      
+      uint8_t status = 0x04; // Default to NO LOCAL NETWORK
+      
+      if (can_success) {
+        // Wait for replies from all actuators
+        bool all_replies_received = true;
+        unsigned long startTime = millis();
+        const unsigned long timeout = 6000;
+        
+        bool received_x = false, received_y = false, received_y2 = false, received_z = false, received_elevator = false;
+        
+        while (millis() - startTime < timeout && !all_replies_received) {
+          if (CAN1.checkReceive() == CAN_MSGAVAIL) {
+            unsigned long canId;
+            byte len = 0;
+            CAN1.readMsgBuf(&canId, &len, replyData);
+            
+            if (canId == (gantryX.motor_id + 0x580) && (replyData[1] == 0x02 || replyData[1] == 0x03)) received_x = true;
+            else if (canId == (gantryY.motor_id + 0x580) && (replyData[1] == 0x02 || replyData[1] == 0x03)) received_y = true;
+            else if (canId == (gantryY2.motor_id + 0x580) && (replyData[1] == 0x02 || replyData[1] == 0x03)) received_y2 = true;
+            else if (canId == (gantryZ.motor_id + 0x580) && (replyData[1] == 0x02 || replyData[1] == 0x03)) received_z = true;
+            else if (canId == (elevatorZ.motor_id + 0x580) && (replyData[1] == 0x02 || replyData[1] == 0x03)) received_elevator = true;
+            
+            // Check for failure responses
+            if ((canId == (gantryX.motor_id + 0x580) || canId == (gantryY.motor_id + 0x580) || 
+                 canId == (gantryY2.motor_id + 0x580) || canId == (gantryZ.motor_id + 0x580) || 
+                 canId == (elevatorZ.motor_id + 0x580)) && replyData[1] == 0x00) {
+              status = 0x02; // FAIL
+              break;
+            }
+            
+            all_replies_received = received_x && received_y && received_y2 && received_z && received_elevator;
+          }
+          vTaskDelay(1);
+        }
+        
+        if (status != 0x02) {
+          status = all_replies_received ? 0x01 : 0x03; // OK or TIMEOUT
+        }
+      }
+      
+      byte statusResponse[] = {0x12, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(statusResponse);
+    }
+    break;
+
+    // ***************************** CASE 0x13 ***************************** //
+    // Control servo
+    case 0x13:
+    {
+      Serial.println("Case 0x13: Control servo");
       uint8_t action = instruction.data[1];
       
       if (action == 1) {
@@ -499,37 +706,37 @@ void process_instruction(CanFrame instruction)
       }
       else {
         Serial.println("Invalid servo action");
-        byte errorResponse[] = {0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+        byte errorResponse[] = {0x13, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
         send_twai_response(errorResponse);
         break;
       }
       
       saveServoCounter();
-      byte statusResponse[] = {0x10, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      byte statusResponse[] = {0x13, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(statusResponse);
     }
     break;
 
-    // ***************************** CASE 0x11 ***************************** //
+    // ***************************** CASE 0x14 ***************************** //
     // Get Servo Counter
-    case 0x11:
+    case 0x14:
     {
-      Serial.println("Case 0x11: Get Servo Counter");
+      Serial.println("Case 0x14: Get Servo Counter");
       uint8_t counter_high = counter_servo >> 8;
       uint8_t counter_low = counter_servo & 0xFF;
-      byte response[] = {0x11, counter_high, counter_low, 0x00, 0x00, 0x00, 0x00, 0x00};
+      byte response[] = {0x14, counter_high, counter_low, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(response);
     }
     break;
 
-    // ***************************** CASE 0x12 ***************************** //
+    // ***************************** CASE 0x15 ***************************** //
     // Reset Servo Counter
-    case 0x12:
+    case 0x15:
     {
-      Serial.println("Case 0x12: Reset Servo Counter");
+      Serial.println("Case 0x15: Reset Servo Counter");
       counter_servo = 0;
       saveServoCounter();
-      byte statusResponse[] = {0x12, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      byte statusResponse[] = {0x15, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(statusResponse);
     }
     break;

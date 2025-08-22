@@ -39,6 +39,10 @@
 #   IN: None | OUT: [0x14, 0x01, counter_high, counter_low, 0x00, 0x00, 0x00, 0x00]
 # 0x15: Reset Right Conveyor Movement Counter
 #   IN: None | OUT: [0x15, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+# 0x16: Home X axis using go_home function
+#   IN: None | OUT: [0x16, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+# 0x17: Home Z axis using go_home function
+#   IN: None | OUT: [0x17, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
 # 0xFF: Power Off (Move All to Home Position)
 #   IN: None | OUT: [0xFF, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
 
@@ -191,6 +195,16 @@ class PickAndPlace:
     # 0x15: Reset Right Conveyor Movement Counter
     def reset_right_conveyor_counter(self):
         status = self.canbus.send_message(self.canbus_id, [0x15] + [0x00]*7)[0]
+        return status
+
+    # 0x16: Home X axis using go_home function
+    def home_x_axis(self):
+        status = self.canbus.send_message(self.canbus_id, [0x16] + [0x00]*7)[0]
+        return status
+
+    # 0x17: Home Z axis using go_home function
+    def home_z_axis(self):
+        status = self.canbus.send_message(self.canbus_id, [0x17] + [0x00]*7)[0]
         return status
 
     # 0xFF: Power Off (Move All to Home Position)

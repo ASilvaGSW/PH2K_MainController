@@ -754,6 +754,64 @@ void process_instruction(CanFrame instruction)
     }
     break;
 
+    // ***************************** CASE 0x16 ***************************** //
+    // Home X axis using go_home function
+    case 0x16:
+    {
+      Serial.println("Case 0x16: Homing X axis using go_home");
+      
+      uint8_t payload[2] = {0};  // Initialize buffer for CAN message (2 bytes)
+      x_axis.go_home(payload);  // Generate the CAN message
+
+      if (CAN1.sendMsgBuf(x_axis.motor_id, 0, 2, payload) != CAN_OK) {
+        Serial.println("Error sending actuator command");
+        byte errorResponse[] = {0x16, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK
+        send_twai_response(errorResponse);
+        break;
+      }
+
+      // Wait for reply and get status
+      uint8_t status = waitForCanReply(x_axis.motor_id);
+
+      if (status == 0x01) {
+        incrementActuatorCounterX();
+      }
+      
+      // Send response with status
+      byte statusResponse[] = {0x16, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(statusResponse);
+    }
+    break;
+
+    // ***************************** CASE 0x17 ***************************** //
+    // Home Z axis using go_home function
+    case 0x17:
+    {
+      Serial.println("Case 0x17: Homing Z axis using go_home");
+      
+      uint8_t payload[2] = {0};  // Initialize buffer for CAN message (2 bytes)
+      z_axis.go_home(payload);  // Generate the CAN message
+
+      if (CAN1.sendMsgBuf(z_axis.motor_id, 0, 2, payload) != CAN_OK) {
+        Serial.println("Error sending actuator command");
+        byte errorResponse[] = {0x17, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK
+        send_twai_response(errorResponse);
+        break;
+      }
+
+      // Wait for reply and get status
+      uint8_t status = waitForCanReply(z_axis.motor_id);
+
+      if (status == 0x01) {
+        incrementActuatorCounterZ();
+      }
+      
+      // Send response with status
+      byte statusResponse[] = {0x17, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(statusResponse);
+    }
+    break;
+
     // ***************************** CASE 0xFF ***************************** //
     // Power off - Move all to home position
     case 0xFF:

@@ -23,6 +23,12 @@
 //   IN: [actuator_id] | OUT: [0x0B, counter_H, counter_L, ...]
 // 0x0C: Reset Actuator Counter
 //   IN: [actuator_id] | OUT: [0x0C, 0x01, ...]
+// 0x10: Home Individual Actuator
+//   IN: [actuator_id] | OUT: [0x10, status, ...]
+// 0x11: Home All Gantry Axes
+//   IN: None | OUT: [0x11, status, ...]
+// 0x12: Home All Axes (Gantry + Elevator)
+//   IN: None | OUT: [0x12, status, ...]
 // 0xFF: Power off - Move all to home position
   //   IN: None | OUT: None (moves all to home)
 
@@ -498,6 +504,151 @@ void process_instruction(CanFrame instruction)
       SaveActuatorCounter(actuator_id);
       
       byte statusResponse[] = {0x0C, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(statusResponse);
+    }
+    break;
+
+    // ***************************** CASE 0x10 ***************************** //
+    // Home Individual Actuator
+    case 0x10:
+    {
+      Serial.println("Case 0x10: Home Individual Actuator");
+      
+      uint8_t actuator_id = instruction.data[1];
+      uint8_t payload[2] = {0};
+      uint8_t payload2[2] = {0};
+      uint8_t status = 0x01;
+      
+      switch (actuator_id)
+      {
+        case 1: // Gantry X
+          gantryX.go_home(payload);
+          if (CAN1.sendMsgBuf(gantryX.motor_id, 0, 2, payload) != CAN_OK) {
+            status = 0x04; // NO LOCAL NETWORK
+          } else {
+            status = waitForCanReply(gantryX.motor_id);
+          }
+          break;
+          
+        case 2: // Gantry Y (dual axis)
+          gantryY.go_home(payload);
+          gantryY2.go_home(payload2);
+          if (CAN1.sendMsgBuf(gantryY.motor_id, 0, 2, payload) != CAN_OK ||
+              CAN1.sendMsgBuf(gantryY2.motor_id, 0, 2, payload2) != CAN_OK) {
+            status = 0x04; // NO LOCAL NETWORK
+          } else {
+            status = waitForCanReplyMultiple(gantryY.motor_id, gantryY2.motor_id);
+          }
+          break;
+          
+        case 3: // Gantry Z
+          gantryZ.go_home(payload);
+          if (CAN1.sendMsgBuf(gantryZ.motor_id, 0, 2, payload) != CAN_OK) {
+            status = 0x04; // NO LOCAL NETWORK
+          } else {
+            status = waitForCanReply(gantryZ.motor_id);
+          }
+          break;
+          
+        case 4: // Elevator Z
+          elevatorZ.go_home(payload);
+          if (CAN1.sendMsgBuf(elevatorZ.motor_id, 0, 2, payload) != CAN_OK) {
+            status = 0x04; // NO LOCAL NETWORK
+          } else {
+            status = waitForCanReply(elevatorZ.motor_id);
+          }
+          break;
+          
+        default:
+          status = 0x02; // FAIL - Invalid actuator ID
+          break;
+      }
+      
+      byte statusResponse[] = {0x10, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(statusResponse);
+    }
+    break;
+
+    // ***************************** CASE 0x11 ***************************** //
+    // Home All Gantry Axes
+    case 0x11:
+    {
+      Serial.println("Case 0x11: Home All Gantry Axes");
+      
+      uint8_t payload[2] = {0};
+      uint8_t payload2[2] = {0};
+      uint8_t payload3[2] = {0};
+      uint8_t payload4[2] = {0};
+      uint8_t status = 0x01;
+      
+      // Generate home commands for all gantry axes
+      gantryX.go_home(payload);
+      gantryY.go_home(payload2);
+      gantryY2.go_home(payload3);
+      gantryZ.go_home(payload4);
+      
+      // Send commands to all gantry actuators
+      if (CAN1.sendMsgBuf(gantryX.motor_id, 0, 2, payload) != CAN_OK ||
+          CAN1.sendMsgBuf(gantryY.motor_id, 0, 2, payload2) != CAN_OK ||
+          CAN1.sendMsgBuf(gantryY2.motor_id, 0, 2, payload3) != CAN_OK ||
+          CAN1.sendMsgBuf(gantryZ.motor_id, 0, 2, payload4) != CAN_OK) {
+        status = 0x04; // NO LOCAL NETWORK
+      } else {
+        // Wait for all replies (simplified - checking key actuators)
+        uint8_t statusX = waitForCanReply(gantryX.motor_id);
+        uint8_t statusY = waitForCanReplyMultiple(gantryY.motor_id, gantryY2.motor_id);
+        uint8_t statusZ = waitForCanReply(gantryZ.motor_id);
+        
+        if (statusX != 0x01 || statusY != 0x01 || statusZ != 0x01) {
+          status = (statusX == 0x03 || statusY == 0x03 || statusZ == 0x03) ? 0x03 : 0x02;
+        }
+      }
+      
+      byte statusResponse[] = {0x11, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(statusResponse);
+    }
+    break;
+
+    // ***************************** CASE 0x12 ***************************** //
+    // Home All Axes (Gantry + Elevator)
+    case 0x12:
+    {
+      Serial.println("Case 0x12: Home All Axes");
+      
+      uint8_t payload[2] = {0};
+      uint8_t payload2[2] = {0};
+      uint8_t payload3[2] = {0};
+      uint8_t payload4[2] = {0};
+      uint8_t payload5[2] = {0};
+      uint8_t status = 0x01;
+      
+      // Generate home commands for all axes
+      gantryX.go_home(payload);
+      gantryY.go_home(payload2);
+      gantryY2.go_home(payload3);
+      gantryZ.go_home(payload4);
+      elevatorZ.go_home(payload5);
+      
+      // Send commands to all actuators
+      if (CAN1.sendMsgBuf(gantryX.motor_id, 0, 2, payload) != CAN_OK ||
+          CAN1.sendMsgBuf(gantryY.motor_id, 0, 2, payload2) != CAN_OK ||
+          CAN1.sendMsgBuf(gantryY2.motor_id, 0, 2, payload3) != CAN_OK ||
+          CAN1.sendMsgBuf(gantryZ.motor_id, 0, 2, payload4) != CAN_OK ||
+          CAN1.sendMsgBuf(elevatorZ.motor_id, 0, 2, payload5) != CAN_OK) {
+        status = 0x04; // NO LOCAL NETWORK
+      } else {
+        // Wait for all replies
+        uint8_t statusX = waitForCanReply(gantryX.motor_id);
+        uint8_t statusY = waitForCanReplyMultiple(gantryY.motor_id, gantryY2.motor_id);
+        uint8_t statusZ = waitForCanReply(gantryZ.motor_id);
+        uint8_t statusE = waitForCanReply(elevatorZ.motor_id);
+        
+        if (statusX != 0x01 || statusY != 0x01 || statusZ != 0x01 || statusE != 0x01) {
+          status = (statusX == 0x03 || statusY == 0x03 || statusZ == 0x03 || statusE == 0x03) ? 0x03 : 0x02;
+        }
+      }
+      
+      byte statusResponse[] = {0x12, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(statusResponse);
     }
     break;
