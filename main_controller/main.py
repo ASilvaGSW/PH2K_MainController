@@ -27,6 +27,7 @@ from classes.insertion_jig import InsertionJig
 from classes.elevator_in import ElevatorIn
 from classes.pick_and_place import PickAndPlace
 from classes.insertion_servos import InsertionServos
+from classes.lubrication_feeder import LubricationFeeder
 
 # Variables globales para acceder a los objetos desde cualquier función
 canbus = None
@@ -37,9 +38,10 @@ insertion_jig = None
 elevator_in = None
 pick_and_place = None
 insertion_servos = None
+lubrication_feeder = None
 
 def my_main():
-    global canbus, hose_jig, hose_puller, puller_extension, insertion_jig, elevator_in, pick_and_place, insertion_servos
+    global canbus, hose_jig, hose_puller, puller_extension, insertion_jig, elevator_in, pick_and_place, insertion_servos, lubrication_feeder
     
     # Example CAN IDs (these should be configured according to your hardware setup)
     CANBUS_ID_JIG = 0x0CA
@@ -49,6 +51,7 @@ def my_main():
     CANBUS_ID_ELEVATOR_IN = 0x189   
     CANBUS_ID_PICK_AND_PLACE = 0x191
     CANBUS_ID_INSERTION_SERVOS = 0x002
+    CANBUS_ID_LUBRICATION_FEEDER = 0x019
 
     # Setup CANbus and devices
     canbus = Canbus()
@@ -61,6 +64,7 @@ def my_main():
     elevator_in = ElevatorIn(canbus, CANBUS_ID_ELEVATOR_IN)
     pick_and_place = PickAndPlace(canbus, CANBUS_ID_PICK_AND_PLACE)
     insertion_servos = InsertionServos(canbus, CANBUS_ID_INSERTION_SERVOS)
+    lubrication_feeder = LubricationFeeder(canbus, CANBUS_ID_LUBRICATION_FEEDER)
 
     # for i in range(2):
     #     hose_jig.send_heartbeat()
@@ -70,6 +74,7 @@ def my_main():
     #     insertion_jig.send_heartbeat()
     #     elevator_in.send_heartbeat()
     #     insertion_servos.send_heartbeat()
+    #     lubrication_feeder.send_heartbeat()
 
 def moveHosepuller():
     global hose_puller, hose_jig, puller_extension,insertion_servos, insertion_jig
@@ -560,7 +565,7 @@ def insertionAccuracy():
 
 def testHome():
     """Test function for new go home methods"""
-    global elevator_in, pick_and_place, hose_puller, hose_jig
+    global elevator_in, pick_and_place, hose_puller, hose_jig, insertion_jig
     
     print("Testing new go home functions...")
     
@@ -579,17 +584,11 @@ def testHome():
     result = elevator_in.home_gantry_z()
     print(f"Result: {result}")
     
-    print("Testing home_elevator_z...")
-    result = elevator_in.home_elevator_z()
-    print(f"Result: {result}")
-    
-    # print("Testing home_all_gantry_axes...")
-    # result = elevator_in.home_all_gantry_axes()
+    # print("Testing home_elevator_z...")
+    # result = elevator_in.home_elevator_z()
     # print(f"Result: {result}")
-    
-    # print("Testing home_all_axes...")
-    # result = elevator_in.home_all_axes()
-    # print(f"Result: {result}")
+
+    input("Continue")
     
     # Test PickAndPlace homing functions
     print("\n--- Testing PickAndPlace homing functions ---")
@@ -602,25 +601,50 @@ def testHome():
     result = pick_and_place.home_z_axis()
     print(f"Result: {result}")
     
+    input("Continue")
+
     # Test HosePuller homing functions
-    # print("\n--- Testing HosePuller homing functions ---")
+    print("\n--- Testing HosePuller homing functions ---")
     
-    # print("Testing home_y_axis...")
-    # result = hose_puller.home_y_axis()
-    # print(f"Result: {result}")
+    print("Testing home_y_axis...")
+    result = hose_puller.home_y_axis()
+    print(f"Result: {result}")
     
-    # print("Testing home_z_axis...")
-    # result = hose_puller.home_z_axis()
-    # print(f"Result: {result}")
+    print("Testing home_z_axis...")
+    result = hose_puller.home_z_axis()
+    print(f"Result: {result}")
     
+    input("Continue")
+
+    # Test InsertionJig homing functions
+    print("\n--- Testing InsertionJig homing functions ---")
+    
+    print("Testing home_x_axis...")
+    result = insertion_jig.home_x_axis()
+    print(f"Result: {result}")
+    
+    print("Testing home_z_axis...")
+    result = insertion_jig.home_z_axis()
+    print(f"Result: {result}")
+    
+    input("Continue")
+
     # Test HoseJig homing function
-    # print("\n--- Testing HoseJig homing function ---")
+    print("\n--- Testing HoseJig homing function ---")
     
-    # print("Testing home_actuator...")
-    # result = hose_jig.home_actuator()
-    # print(f"Result: {result}")
+    print("Testing home_actuator...")
+    result = hose_jig.go_home()
+    print(f"Result: {result}")
     
-    # print("\nAll homing tests completed!")
+    print("\nAll homing tests completed!")
+
+def lubrication_test():
+    
+    global lubrication_feeder
+
+    lubrication_feeder.lubricate_nozzle(5000)
+
+    # lubrication_feeder.feed_hose()
 
 if __name__ == "__main__":
    
@@ -630,7 +654,7 @@ if __name__ == "__main__":
 
     # moveElevatorIn()
 
-    movePickandPlace()
+    # movePickandPlace()
 
     # insertionRoutine()
 
@@ -641,6 +665,8 @@ if __name__ == "__main__":
     
     # for i in range(1):
     #     if oneCycle() != "success" : break
+
+    lubrication_test()
 
     canbus.close_canbus()
 
