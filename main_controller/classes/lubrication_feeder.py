@@ -54,6 +54,8 @@
 #   IN: None | OUT: [0x1C, 0x01, ...]
 # 0x1D: Acknowledge Message (Send acknowledgment response)
 #   IN: None | OUT: [0x1D, 0x01, ...]
+# 0x1E: Set Hose Holder Angle (Dynamic servo angle control 0-180 degrees)
+#   IN: [angle] | OUT: [0x1E, 0x01, ...] or [0x1E, 0x02, ...] for failure
 # 0xFF: Emergency Stop (Stop all actuators immediately)
 #   IN: None | OUT: None (stops all actuators)
 
