@@ -66,15 +66,15 @@ def my_main():
     insertion_servos = InsertionServos(canbus, CANBUS_ID_INSERTION_SERVOS)
     lubrication_feeder = LubricationFeeder(canbus, CANBUS_ID_LUBRICATION_FEEDER)
 
-    # for i in range(2):
-    #     hose_jig.send_heartbeat()
-    #     hose_puller.send_heartbeat()
-    #     puller_extension.send_heartbeat()
-    #     pick_and_place.send_heartbeat()
-    #     insertion_jig.send_heartbeat()
-    #     elevator_in.send_heartbeat()
-    #     insertion_servos.send_heartbeat()
-    #     lubrication_feeder.send_heartbeat()
+    for i in range(2):
+        hose_jig.send_heartbeat()
+        hose_puller.send_heartbeat()
+        puller_extension.send_heartbeat()
+        pick_and_place.send_heartbeat()
+        insertion_jig.send_heartbeat()
+        elevator_in.send_heartbeat()
+        insertion_servos.send_heartbeat()
+        lubrication_feeder.send_heartbeat()
 
 def moveHosepuller():
     global hose_puller, hose_jig, puller_extension,insertion_servos, insertion_jig
@@ -620,11 +620,11 @@ def testHome():
     print("\n--- Testing InsertionJig homing functions ---")
     
     print("Testing home_x_axis...")
-    result = insertion_jig.home_x_axis()
+    result = insertion_jig.home_x_axis_go_home()
     print(f"Result: {result}")
     
     print("Testing home_z_axis...")
-    result = insertion_jig.home_z_axis()
+    result = insertion_jig.home_z_axis_go_home()
     print(f"Result: {result}")
     
     input("Continue")
@@ -642,7 +642,7 @@ def lubrication_test():
     
     global lubrication_feeder
 
-    lubrication_feeder.lubricate_nozzle(5000)
+    # lubrication_feeder.lubricate_nozzle(5000)
 
     # lubrication_feeder.feed_hose()
 

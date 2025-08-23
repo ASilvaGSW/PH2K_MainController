@@ -487,13 +487,13 @@ void process_instruction(CanFrame instruction)
       if (CAN1.sendMsgBuf(feeder.motor_id, 0, 8, payload) != CAN_OK)
       {
         Serial.println("Error sending feeder speed command");
-        byte errorResponse[] = {0x05, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK
+        byte errorResponse[] = {0x05, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK
         send_twai_response(errorResponse);
         break;
       }
 
       // Wait for reply and get status
-      uint8_t status = waitForCanReply(feeder.motor_id);
+      uint8_t status = waitForCanReplySpeed(feeder.motor_id);
 
       if (status == 0x01) {
         incrementFeederCounter();
@@ -826,13 +826,13 @@ void process_instruction(CanFrame instruction)
       if (CAN1.sendMsgBuf(pre_feeder.motor_id, 0, 8, payload) != CAN_OK)
       {
         Serial.println("Error sending pre-feeder speed command");
-        byte errorResponse[] = {0x13, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK
+        byte errorResponse[] = {0x13, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK
         send_twai_response(errorResponse);
         break;
       }
 
       // Wait for reply and get status
-      uint8_t status = waitForCanReply(pre_feeder.motor_id);
+      uint8_t status = waitForCanReplySpeed(pre_feeder.motor_id);
 
       if (status == 0x01) {
         incrementPreFeederCounter();
@@ -876,13 +876,13 @@ void process_instruction(CanFrame instruction)
       if (CAN1.sendMsgBuf(feeder.motor_id, 0, 8, payload) != CAN_OK)
       {
         Serial.println("Error sending feeder speed command");
-        byte errorResponse[] = {0x14, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK
+        byte errorResponse[] = {0x14, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK
         send_twai_response(errorResponse);
         break;
       }
 
       // Wait for reply and get status
-      uint8_t status = waitForCanReply(feeder.motor_id);
+      uint8_t status = waitForCanReplySpeed(feeder.motor_id);
 
       if (status == 0x01) {
         incrementFeederCounter();
@@ -912,13 +912,13 @@ void process_instruction(CanFrame instruction)
         if (CAN1.sendMsgBuf(pre_feeder.motor_id, 0, 8, payload2) != CAN_OK)
         {
           Serial.println("Error sending pre-feeder speed command");
-          byte errorResponse[] = {0x14, 0x05, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK
+          byte errorResponse[] = {0x14, 0x04, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK
           send_twai_response(errorResponse);
           break;
         }
 
         // Wait for reply and get status
-        uint8_t preStatus = waitForCanReply(pre_feeder.motor_id);
+        uint8_t preStatus = waitForCanReplySpeed(pre_feeder.motor_id);
 
         if (preStatus == 0x01) {
           incrementPreFeederCounter();
@@ -1286,6 +1286,32 @@ uint8_t waitForCanReply(uint16_t expectedId)
       CAN1.readMsgBuf(&canId, &len, replyData);
       
       if (canId == expectedId && (replyData[1] == 0x02 || replyData[1] == 0x03))
+      {
+        return 0x01;  // Success
+      }
+      else if (canId == expectedId && replyData[1] == 0x00)
+      {
+        return 0x02;  // Failure
+      }
+    }
+    vTaskDelay(1);  // Small delay to prevent busy-waiting
+  }
+  return 0x03;  // Timeout
+}
+
+uint8_t waitForCanReplySpeed(uint16_t expectedId)
+{
+  memset(replyData, 0, sizeof(replyData)); // Clear the buffer before waiting
+  unsigned long startTime = millis();
+  const unsigned long timeout = 6000;  // 1 second timeout
+  
+  while (millis() - startTime < timeout) {
+    if (CAN1.checkReceive() == CAN_MSGAVAIL) {
+      unsigned long canId;
+      byte len = 0;
+      CAN1.readMsgBuf(&canId, &len, replyData);
+      
+      if (canId == expectedId && (replyData[1] == 0x01))
       {
         return 0x01;  // Success
       }
