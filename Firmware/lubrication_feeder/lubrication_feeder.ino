@@ -34,6 +34,7 @@
  * 0x1B - Read Servo Counter (Hose holder servo usage counter)
  * 0x1C - Reset Servo Counter (Clear servo usage counter)
  * 0x1D - Acknowledge Message (Send acknowledgment response)
+ * 0x1E - Set Hose Holder Angle (Dynamic servo angle control 0-180 degrees)
  * 0xFF - Emergency Stop (Stop all actuators immediately)
  *
  * Note: All commands send acknowledgment message (0xAA + function_code) before execution
@@ -138,6 +139,7 @@ QueueHandle_t instruction_queue;
 // Function declarations
 void process_instruction(CanFrame instruction);
 uint8_t waitForCanReply(uint16_t expectedId);
+uint8_t waitForCanReplySpeed(uint16_t expectedId);
 void send_twai_response(const byte response_data[8]);
 
 
@@ -1177,6 +1179,43 @@ void process_instruction(CanFrame instruction)
       // Send acknowledge response with 0xAA in first byte and function code in second byte
       if (enableAckMessages) {
         byte response[] = {0xAA, function_code, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+        send_twai_response(response);
+      }
+    }
+    break;
+
+    // ***************************** CASE 0x1E ***************************** //
+    // Set hose holder servo to dynamic angle
+    case 0x1E:
+    {
+      // Send acknowledgment message
+      if (enableAckMessages) {
+        byte ack[] = {0xAA, 0x1E, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+        send_twai_response(ack);
+      }
+      
+      Serial.println("Case 0x1E: Setting hose holder servo to dynamic angle");
+      
+      // Get angle from instruction data (data[1] contains the angle)
+      uint8_t angle = instruction.data[1];
+      
+      // Validate angle range (0-180 degrees for servo)
+      if (angle > 180) {
+        Serial.println("Error: Angle out of range (0-180)");
+        // Send failure response
+        byte response[] = {0x1E, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+        send_twai_response(response);
+      } else {
+        // Move servo to specified angle
+        hoseHolderServo.write(angle);
+        incrementServoCounter();
+        
+        Serial.print("Hose holder set to angle: ");
+        Serial.print(angle);
+        Serial.println(" degrees");
+        
+        // Send success response
+        byte response[] = {0x1E, 0x01, angle, 0x00, 0x00, 0x00, 0x00, 0x00};
         send_twai_response(response);
       }
     }

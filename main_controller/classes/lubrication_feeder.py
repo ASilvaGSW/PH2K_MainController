@@ -286,3 +286,23 @@ class LubricationFeeder:
     def disengage_magnet(self):
         """Deactivate electromagnet"""
         return self.detach_electromagnet()
+
+    def set_hose_holder_angle(self, angle):
+        """
+        Set hose holder servo to a specific angle (0-180 degrees).
+        
+        Args:
+            angle (int): Target angle for the servo (0-180 degrees)
+            
+        Returns:
+            int: Status code (1=success, 2=failure, 3=timeout)
+        """
+        if angle < 0 or angle > 180:
+            print(f"Error: Angle {angle} out of range (0-180)")
+            return 2
+            
+        status, reply_data = self.canbus.send_message(
+            self.canbus_id, 
+            [0x1E, angle, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+        )
+        return status
