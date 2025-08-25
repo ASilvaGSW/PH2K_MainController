@@ -115,7 +115,7 @@ class Canbus:
                                 elapsed = time.time() - start_time
                                 print(f"Valid response (success) from CAN ID {search_can_id}: {can_data} (found after {elapsed:.3f}s)")
                                 return 'success', can_data
-                            elif can_data[1] == 2:
+                            elif can_data[1] == 2 or can_data[1] == 4:
                                 elapsed = time.time() - start_time
                                 print(f"Valid response (error) from CAN ID {search_can_id}: {can_data} (found after {elapsed:.3f}s)")
                                 return 'error', can_data

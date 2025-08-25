@@ -59,6 +59,8 @@
 # 0xFF: Emergency Stop (Stop all actuators immediately)
 #   IN: None | OUT: None (stops all actuators)
 
+import time
+
 class LubricationFeeder:
     def __init__(self, canbus, canbus_id):
         self.canbus = canbus
@@ -221,21 +223,21 @@ class LubricationFeeder:
         return status
 
     # Convenience methods for common operations
-    def lubricate_nozzle(self, duration=1000):
+    def lubricate_joint(self, duration=1000):
         """Activate primary lubrication valve for specified duration"""
         return self.activate_valve_1(duration)
 
-    def lubricate_joint(self, duration=1000):
+    def lubricate_nozzle(self, duration=1000):
         """Activate secondary lubrication valve for specified duration"""
         return self.activate_valve_2(duration)
 
     def feed_hose(self, speed=1000, direction=1, duration=3):
         """Move main feeder at specified speed and direction for a duration, then stop"""
-        import time
+       
         
         # Start movement with specified speed
         status = self.move_feeder(speed, direction)
-        if status != 1:
+        if status != "success":
             return status
         
         # Wait for specified duration
@@ -251,7 +253,7 @@ class LubricationFeeder:
         
         # Start movement with specified speed
         status = self.move_pre_feeder(speed, direction)
-        if status != 1:
+        if status != "success":
             return status
         
         # Wait for specified duration

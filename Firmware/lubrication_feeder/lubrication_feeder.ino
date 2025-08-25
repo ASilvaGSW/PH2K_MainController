@@ -486,7 +486,7 @@ void process_instruction(CanFrame instruction)
       uint8_t payload[8] = {0};  // Initialize buffer for CAN message
       feeder.speed_mode(dir, speed, acceleration, payload);  // Generate the CAN message
 
-      if (CAN1.sendMsgBuf(feeder.motor_id, 0, 8, payload) != CAN_OK)
+      if (CAN1.sendMsgBuf(feeder.motor_id, 0, 5, payload) != CAN_OK)
       {
         Serial.println("Error sending feeder speed command");
         byte errorResponse[] = {0x05, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK
@@ -825,7 +825,7 @@ void process_instruction(CanFrame instruction)
       uint8_t payload[8] = {0};  // Initialize buffer for CAN message
       pre_feeder.speed_mode(dir, speed, acceleration, payload);  // Generate the CAN message
 
-      if (CAN1.sendMsgBuf(pre_feeder.motor_id, 0, 8, payload) != CAN_OK)
+      if (CAN1.sendMsgBuf(pre_feeder.motor_id, 0, 5, payload) != CAN_OK)
       {
         Serial.println("Error sending pre-feeder speed command");
         byte errorResponse[] = {0x13, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK
@@ -875,7 +875,7 @@ void process_instruction(CanFrame instruction)
       uint8_t payload[8] = {0};  // Initialize buffer for CAN message
       feeder.speed_mode(dir, speed, acceleration, payload);  // Generate the CAN message
 
-      if (CAN1.sendMsgBuf(feeder.motor_id, 0, 8, payload) != CAN_OK)
+      if (CAN1.sendMsgBuf(feeder.motor_id, 0, 5, payload) != CAN_OK)
       {
         Serial.println("Error sending feeder speed command");
         byte errorResponse[] = {0x14, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK
@@ -911,7 +911,7 @@ void process_instruction(CanFrame instruction)
         uint8_t payload2[8] = {0};  // Initialize buffer for CAN message
         pre_feeder.speed_mode(preFeederDir, speed, acceleration, payload2);  // Generate the CAN message
 
-        if (CAN1.sendMsgBuf(pre_feeder.motor_id, 0, 8, payload2) != CAN_OK)
+        if (CAN1.sendMsgBuf(pre_feeder.motor_id, 0, 5, payload2) != CAN_OK)
         {
           Serial.println("Error sending pre-feeder speed command");
           byte errorResponse[] = {0x14, 0x04, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK

@@ -66,15 +66,16 @@ def my_main():
     insertion_servos = InsertionServos(canbus, CANBUS_ID_INSERTION_SERVOS)
     lubrication_feeder = LubricationFeeder(canbus, CANBUS_ID_LUBRICATION_FEEDER)
 
-    for i in range(2):
-        hose_jig.send_heartbeat()
-        hose_puller.send_heartbeat()
-        puller_extension.send_heartbeat()
-        pick_and_place.send_heartbeat()
-        insertion_jig.send_heartbeat()
-        elevator_in.send_heartbeat()
-        insertion_servos.send_heartbeat()
-        lubrication_feeder.send_heartbeat()
+    if False:
+        for i in range(2):
+            hose_jig.send_heartbeat()
+            hose_puller.send_heartbeat()
+            puller_extension.send_heartbeat()
+            pick_and_place.send_heartbeat()
+            insertion_jig.send_heartbeat()
+            elevator_in.send_heartbeat()
+            insertion_servos.send_heartbeat()
+            lubrication_feeder.send_heartbeat()
 
 def moveHosepuller():
     global hose_puller, hose_jig, puller_extension,insertion_servos, insertion_jig
@@ -188,7 +189,7 @@ def moveInsertionJig():
     # insertion_servos.slider_joint_home()
 
 def insertionRoutine():
-    global insertion_jig, insertion_servos
+    global insertion_jig, insertion_servos, lubrication_feeder
 
     # insertion_servos.slider_joint_home()
 
@@ -233,9 +234,14 @@ def insertionRoutine():
     
     insertion_jig.move_z_axis(home_position_z)
     insertion_jig.move_x_axis(home_position_x)
+    insertion_servos.holder_hose_nozzle_close()
 
     insertion_jig.move_x_axis(lubricate_nozzle)
     insertion_jig.move_z_axis(lubrication_position_z)
+
+    lubrication_feeder.lubricate_nozzle(200)
+
+    time.sleep(.4)
 
     insertion_jig.move_z_axis(insertion_position_z)
     insertion_jig.move_x_axis(insert_nozzle)
@@ -256,28 +262,28 @@ def insertionRoutine():
 
     insertion_servos.activate_cutter()
 
-    input("Continue?")
+    # input("Continue?")
 
-    # #Moving to Joint
+    # # #Moving to Joint
 
-    insertion_jig.move_z_axis(librication_position_joint_z)
-    insertion_jig.move_x_axis(lubricate_joint)
+    # insertion_jig.move_z_axis(librication_position_joint_z)
+    # insertion_jig.move_x_axis(lubricate_joint)
 
-    insertion_jig.move_z_axis(insertion_position_joint_z)
-    insertion_jig.move_x_axis(insert_joint)
+    # insertion_jig.move_z_axis(insertion_position_joint_z)
+    # insertion_jig.move_x_axis(insert_joint)
    
 
-    # #Clamp Insertion
+    # # #Clamp Insertion
 
-    insertion_servos.holder_hose_joint_close()
-    insertion_servos.clamp_joint_close()
-    time.sleep(0.5)
-    insertion_servos.slider_joint_insertion()
-    time.sleep(1)
-    insertion_servos.holder_hose_joint_open()
-    insertion_servos.clamp_joint_open()
-    time.sleep(0.5)
-    insertion_servos.slider_joint_home()
+    # insertion_servos.holder_hose_joint_close()
+    # insertion_servos.clamp_joint_close()
+    # time.sleep(0.5)
+    # insertion_servos.slider_joint_insertion()
+    # time.sleep(1)
+    # insertion_servos.holder_hose_joint_open()
+    # insertion_servos.clamp_joint_open()
+    # time.sleep(0.5)
+    # insertion_servos.slider_joint_home()
 
 
     # insertion_jig.move_z_axis(0)
@@ -639,12 +645,17 @@ def testHome():
     print("\nAll homing tests completed!")
 
 def lubrication_test():
-    
-    global lubrication_feeder
+    pass
+    # global lubrication_feeder
 
-    # lubrication_feeder.lubricate_nozzle(5000)
+    # for i in range(1):
+    #     lubrication_feeder.lubricate_nozzle(100)
+    #     time.sleep(.5)
 
-    # lubrication_feeder.feed_hose()
+    # lubrication_feeder.feed_hose(duration=1)
+    # lubrication_feeder.pre_feed_hose(duration=1)
+
+    # lubrication_feeder.set_hose_holder_angle(0)
 
 if __name__ == "__main__":
    
@@ -656,7 +667,7 @@ if __name__ == "__main__":
 
     # movePickandPlace()
 
-    # insertionRoutine()
+    insertionRoutine()
 
     # moveHosepuller()
     
@@ -666,7 +677,7 @@ if __name__ == "__main__":
     # for i in range(1):
     #     if oneCycle() != "success" : break
 
-    lubrication_test()
+    # lubrication_test()
 
     canbus.close_canbus()
 
