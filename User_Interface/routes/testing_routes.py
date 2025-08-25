@@ -14,6 +14,7 @@ from classes.insertion_jig import InsertionJig
 from classes.elevator_in import ElevatorIn
 from classes.pick_and_place import PickAndPlace
 from classes.insertion_servos import InsertionServos
+from classes.lubrication_feeder import LubricationFeeder
 
 # Now we can import the Canbus class
 try:
@@ -49,6 +50,7 @@ CANBUS_ID_INSERTION = 0x0C9
 CANBUS_ID_ELEVATOR_IN = 0x189   
 CANBUS_ID_PICK_AND_PLACE = 0x191
 CANBUS_ID_INSERTION_SERVOS = 0x002
+CANBUS_ID_LUBRICATION_FEEDER = 0x019
 
 #Instance Declaration
 hose_jig = HoseJig(canbus, CANBUS_ID_JIG)
@@ -58,6 +60,7 @@ insertion_jig = InsertionJig(canbus, CANBUS_ID_INSERTION)
 elevator_in = ElevatorIn(canbus, CANBUS_ID_ELEVATOR_IN)
 pick_and_place = PickAndPlace(canbus, CANBUS_ID_PICK_AND_PLACE)
 insertion_servos = InsertionServos(canbus, CANBUS_ID_INSERTION_SERVOS)
+lubrication_feeder = LubricationFeeder(canbus, CANBUS_ID_LUBRICATION_FEEDER)
 
 # Device list for batch operations
 devices = [
@@ -67,7 +70,8 @@ devices = [
     ('Insertion Jig', insertion_jig),
     ('Elevator In', elevator_in),
     ('Pick and Place', pick_and_place),
-    ('Insertion Servos', insertion_servos)
+    ('Insertion Servos', insertion_servos),
+    ('Lubrication Feeder', lubrication_feeder)
 ]
 
 # Helper functions for batch device operations
@@ -514,27 +518,29 @@ def movePickandPlace():
 
 # Making Insertions
 def insertionRoutine():
-    global insertion_jig, insertion_servos
+    global insertion_jig, insertion_servos,lubrication_feeder
 
     # insertion_servos.slider_joint_home()
 
     #****************************** Insertion Jig ******************************
 
-    offset_x = -310
-    offset_z = -20
+    offset_x = 0
+    offset_z = 0
 
-    home_position_z = 3000 + offset_z
+    home_position_z = 4000 + offset_z
     home_position_x = 0 + offset_x
 
-    lubrication_position_z = -2310 + offset_z
-    insertion_position_z = -2360 + offset_z
-    insertion_position_joint_z = -2230 + offset_z
-    librication_position_joint_z = -2250 + offset_z
+    lubrication_position_z = 500 + offset_z
+    lubricate_nozzle = -5380 + offset_x
 
-    lubricate_nozzle = -5530 + offset_x
-    insert_nozzle = -6790 + offset_x  
-    insert_joint = -9190 + offset_x
-    lubricate_joint = -11200 + offset_x
+    insertion_position_z = 490 + offset_z
+    insert_nozzle = -6570 + offset_x  
+
+    librication_position_joint_z = 580 + offset_z
+    lubricate_joint = -11000 + offset_x
+
+    insertion_position_joint_z = 600 + offset_z
+    insert_joint = -8950 + offset_x
 
     #****************************** Routine ******************************
 
@@ -545,6 +551,10 @@ def insertionRoutine():
 
     if insertion_jig.move_z_axis(lubrication_position_z) != "success" : return "error03"
     if insertion_jig.move_x_axis(lubricate_nozzle) != "success" : return "error04"
+
+    if lubrication_feeder.lubricate_nozzle(200) != "success" : return "error03"
+
+    time.sleep(.4)
 
     if insertion_jig.move_z_axis(insertion_position_z) != "success" : return "error05"
     if insertion_jig.move_x_axis(insert_nozzle) != "success" : return "error06"
@@ -569,6 +579,10 @@ def insertionRoutine():
 
     if insertion_jig.move_z_axis(librication_position_joint_z) != "success" : return "error14"
     if insertion_jig.move_x_axis(lubricate_joint) != "success" : return "error15"
+
+    if lubrication_feeder.lubricate_joint(200) != "success" : return "error03"
+
+    time.sleep(.4)
 
     if insertion_jig.move_z_axis(insertion_position_joint_z) != "success" : return "error16"
     if insertion_jig.move_x_axis(insert_joint) != "success" : return "error17"
@@ -598,9 +612,13 @@ def moveHosepuller():
 
     safe_position = 200
     home_y = 4200
-    wait_y = 6000
-    pickup_y = 9060
+    wait_y = 5930
+    pickup_y = 8990
     z_home = 50
+
+    offset_x = -480
+    offset_z = -20
+
 
     if insertion_jig.move_z_axis(0) != "success" : return "error01"
     if insertion_jig.move_x_axis(0) != "success" : return "error02"
