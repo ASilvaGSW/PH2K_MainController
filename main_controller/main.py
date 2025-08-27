@@ -66,7 +66,7 @@ def my_main():
     insertion_servos = InsertionServos(canbus, CANBUS_ID_INSERTION_SERVOS)
     lubrication_feeder = LubricationFeeder(canbus, CANBUS_ID_LUBRICATION_FEEDER)
 
-    if False:
+    if True:
         if hose_jig.send_heartbeat() != "success" : print("Hose Jig Not Connected")
         if hose_puller.send_heartbeat() != "success" : print("Hose Puller Not Connected")
         if puller_extension.send_heartbeat() != "success" : print("Puller Extension Not Connected")
@@ -563,12 +563,12 @@ def oneCycle():
     if hose_puller.move_y_actuator(pickup_y-500) != "success" : return "error09"
     if hose_puller.move_z_actuator(safe_position) != "success" : return "error10"
     if hose_puller.move_y_actuator(wait_y+1900) != "success" : return "error11"
-    if hose_puller.move_z_actuator(safe_position+25) != "success" : return "error10"
+    if hose_puller.move_z_actuator(safe_position+35) != "success" : return "error10"
     if hose_puller.move_y_actuator(wait_y) != "success" : return "error11"
     if lubrication_feeder.close_hose_holder() != "success" : return "error01"
     time.sleep(.5)
     if insertion_servos.activate_cutter() != "success" : return "error12"
-    if hose_puller.move_y_actuator(home_y+680) != "success" : return "error13" #Aqui ahre el cambio
+    if hose_puller.move_y_actuator_with_speed(home_y+660,100) != "success" : return "error13" #Aqui ahre el cambio
     
     if lubrication_feeder.move_pre_feeder(0) != "success" : return "error04"
 
@@ -725,11 +725,11 @@ def lubrication_test():
 
     # lubrication_feeder.open_hose_holder()
     # return""
-    lubrication_feeder.close_hose_holder()
-    lubrication_feeder.feed_hose(duration=3.15)
-    lubrication_feeder.close_hose_holder()
-    time.sleep(1)
-    insertion_servos.activate_cutter()
+    # lubrication_feeder.close_hose_holder()
+    # lubrication_feeder.feed_hose(duration=3.15)
+    # lubrication_feeder.close_hose_holder()
+    # time.sleep(1)
+    # insertion_servos.activate_cutter()
 
 
 if __name__ == "__main__":

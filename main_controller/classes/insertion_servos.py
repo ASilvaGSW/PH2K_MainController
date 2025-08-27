@@ -23,8 +23,8 @@ class InsertionServos:
 
         #works for both sides joint and nozzle
         self.holder_hose_open_pos = 0
-        self.holder_hose_close_pos = 111
-        self.holder_hose_close_pos2 = 122
+        self.holder_hose_close_pos = 115
+        self.holder_hose_close_pos2 = 125
 
         self.slider_nozzle_home_pos = 125
         self.slider_nozzle_insertion_pos = 3
@@ -98,7 +98,7 @@ class InsertionServos:
     #Custom Functions
 
     def activate_cutter(self):
-        self.cutter(75)
+        self.cutter(80)
         time.sleep(0.5)
         return self.cutter(1)
 
