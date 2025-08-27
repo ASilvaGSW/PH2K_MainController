@@ -179,15 +179,13 @@ class LubricationFeeder:
             return status, level_status
         return status, 0
 
-    # 0x17: Open Hose Holder (Servo to 90 degrees)
+    # 0x17: Open Hose Holder (Servo to 0 degrees)
     def open_hose_holder(self):
-        status = self.canbus.send_message(self.canbus_id, [0x17] + [0x00]*7)[0]
-        return status
+        return self.set_hose_holder_angle(25)
 
     # 0x18: Close Hose Holder (Servo to 0 degrees)
     def close_hose_holder(self):
-        status = self.canbus.send_message(self.canbus_id, [0x18] + [0x00]*7)[0]
-        return status
+        return self.set_hose_holder_angle(35)
 
     # 0x19: Attach Electromagnet (Activate electromagnet)
     def attach_electromagnet(self):
@@ -231,7 +229,7 @@ class LubricationFeeder:
         """Activate secondary lubrication valve for specified duration"""
         return self.activate_valve_2(duration)
 
-    def feed_hose(self, speed=1000, direction=1, duration=3):
+    def feed_hose(self, speed=1000, direction=0, duration=3):
         """Move main feeder at specified speed and direction for a duration, then stop"""
        
         
@@ -277,11 +275,11 @@ class LubricationFeeder:
 
     def hold_hose(self):
         """Open hose holder to grip hose"""
-        return self.open_hose_holder()
+        return self.close_hose_holder()
 
     def release_hose(self):
         """Close hose holder to release hose"""
-        return self.close_hose_holder()
+        return self.open_hose_holder()
 
     def engage_magnet(self):
         """Activate electromagnet"""

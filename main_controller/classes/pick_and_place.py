@@ -67,7 +67,7 @@ class PickAndPlace:
         return status
 
     # 0x04: Move Actuator X to Absolute Position
-    def move_actuator_x(self, position):
+    def move_actuator_x(self, position, flag = True):
         orientation = 0
         if position < 0:
             orientation = 1
@@ -75,11 +75,11 @@ class PickAndPlace:
         
         pos_high = (position >> 8) & 0xFF
         pos_low = position & 0xFF
-        status = self.canbus.send_message(self.canbus_id, [0x04, pos_high, pos_low, orientation, 0x00, 0x00, 0x00, 0x00])[0]
+        status = self.canbus.send_message(self.canbus_id, [0x04, pos_high, pos_low, orientation, 0x00, 0x00, 0x00, 0x00],flag)[0]
         return status
 
     # 0x05: Move Actuator Z to Absolute Position
-    def move_actuator_z(self, position):
+    def move_actuator_z(self, position, flag = True):
         orientation = 0
         if position < 0:
             orientation = 1
@@ -87,7 +87,7 @@ class PickAndPlace:
         
         pos_high = (position >> 8) & 0xFF
         pos_low = position & 0xFF
-        status = self.canbus.send_message(self.canbus_id, [0x05, pos_high, pos_low, orientation, 0x00, 0x00, 0x00, 0x00])[0]
+        status = self.canbus.send_message(self.canbus_id, [0x05, pos_high, pos_low, orientation, 0x00, 0x00, 0x00, 0x00],flag)[0]
         return status
 
     # 0x06: Read Actuator Z Movement Counter
@@ -123,8 +123,8 @@ class PickAndPlace:
         status = self.canbus.send_message(self.canbus_id, [0x0A, direction, speed_high, speed_low, acceleration, 0x00, 0x00, 0x00])[0]
         return status
     
-    def start_left_conveyor(self):
-        return self.move_left_conveyor(0, 1500, 236)
+    def start_left_conveyor(self,speed=500):
+        return self.move_left_conveyor(0, speed, 236)
 
     def stop_left_conveyor(self):
         return self.move_left_conveyor(0, 0, 0)
@@ -136,8 +136,8 @@ class PickAndPlace:
         status = self.canbus.send_message(self.canbus_id, [0x0B, direction, speed_high, speed_low, acceleration, 0x00, 0x00, 0x00])[0]
         return status
 
-    def start_right_conveyor(self):
-        return self.move_right_conveyor(0, 1500, 236)
+    def start_right_conveyor(self,speed=500):
+        return self.move_right_conveyor(0, speed, 236)
 
     def stop_right_conveyor(self):
         return self.move_right_conveyor(0, 0, 0)

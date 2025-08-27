@@ -288,6 +288,7 @@ def test_action_7():
     except Exception as e:
         return jsonify(success=False, message=f'Error in Test Action 7: {str(e)}'), 500
 
+#One Cycle
 @testing_bp.route('/test_action_8', methods=['POST'])
 def test_action_8():
     """Test Action 8 - One Cycle function"""
@@ -465,55 +466,86 @@ def moveElevatorIn():
 
 #Doing Pick and Place
 def movePickandPlace():
-
     global pick_and_place, insertion_servos, insertion_jig
 
+    # pick_and_place.home_x_axis()
+    # pick_and_place.home_z_axis()
+
+
     # Homing Insertion Jig
-    if insertion_servos.slider_joint_home() != "success" : return "error01"
-    if insertion_jig.move_z_axis(5000) != "success" : return "error02"
-    if insertion_jig.move_x_axis(-8500) != "success" : return "error03"
+    insertion_servos.slider_joint_home()
+    insertion_jig.move_z_axis(7000)
+    insertion_jig.move_x_axis(-8500)
+    pick_and_place.open_gripper()
 
 
-    #Home Pick and Place
-    if pick_and_place.move_actuator_z(0) != "success" : return "error04"   
-    if pick_and_place.move_actuator_x(0) != "success" : return "error05"
-    if pick_and_place.open_gripper() != "success" : return "error06"
+    nozzle_high = -1312
+    nozzle_x = [-615,-485,-335,-205,-55,75]
+    trans_nozzle_high = -1000
+    deliver_nozzle_x = -3900
+    deliver_nozzle_z = -1325
 
-    # #Pick Nozzle
-    if pick_and_place.move_actuator_x(-1800) != "success" : return "error07"
-    if pick_and_place.move_actuator_z(-1250) != "success" : return "error08"
-    if pick_and_place.close_gripper() != "success" : return "error09"
+    # *******************************************************
 
-    # #Safe Position 1
-    if pick_and_place.move_actuator_z(-1000) != "success" : return "error10"
+    # pick_and_place.start_left_conveyor()
+    # time.sleep(.7)
+    # pick_and_place.stop_left_conveyor()
 
-    # #Place Nozzle
-    if pick_and_place.move_actuator_x(-4090) != "success" : return "error11"
-    if pick_and_place.move_actuator_z(-1380) != "success" : return "error12"
-    if pick_and_place.open_gripper() != "success" : return "error13"
+    # #Home Pick and Place
+
+    # for nozzle in nozzle_x:
+
+    pick_and_place.move_actuator_z(0)
+    pick_and_place.move_actuator_x(0)
+
+    pick_and_place.move_actuator_x(nozzle_x[1])
+    pick_and_place.move_actuator_z(nozzle_high)
+
+    pick_and_place.close_gripper()
+
+    pick_and_place.move_actuator_z(trans_nozzle_high)
+    pick_and_place.move_actuator_x(deliver_nozzle_x)
+    pick_and_place.move_actuator_z(deliver_nozzle_z)
+    pick_and_place.open_gripper()
+
+    pick_and_place.move_actuator_z(0,False)
+    pick_and_place.move_actuator_x(0,False)   
+
+    # *******************************************************
+
+
+    # # #Pick Nozzle
+    # pick_and_place.move_actuator_x(-1800)
+    # pick_and_place.move_actuator_z(-1250)
+    # pick_and_place.close_gripper()
+
+    # # #Safe Position 1
+    # pick_and_place.move_actuator_z(-1000)
+
+    # # #Place Nozzle
+    # pick_and_place.move_actuator_x(-4090)
+    # pick_and_place.move_actuator_z(-1380)
+    # pick_and_place.open_gripper()
 
     # #Safe Position 2
-    if pick_and_place.move_actuator_z(-1000) != "success" : return "error14"    
+    # pick_and_place.move_actuator_z(-1000)
 
-    # #Pick Joint
-    if pick_and_place.move_actuator_x(-850) != "success" : return "error15"
-    if pick_and_place.move_actuator_z(-1250) != "success" : return "error16"
-    if pick_and_place.close_gripper() != "success" : return "error17"
+    # # #Pick Joint
+    # pick_and_place.move_actuator_x(-850)
+    # pick_and_place.move_actuator_z(-1250)
+    # pick_and_place.close_gripper()
 
     # #Safe Position 3
-    if pick_and_place.move_actuator_z(-1000) != "success" : return "error18"
+    # pick_and_place.move_actuator_z(-1000)
 
-    # #Place Joint
-    if pick_and_place.move_actuator_x(-4390) != "success" : return "error19"
-    if pick_and_place.move_actuator_z(-1320) != "success" : return "error20"
-    if pick_and_place.open_gripper() != "success" : return "error21"
+    # # Place Joint
+    # pick_and_place.move_actuator_x(-4390)
+    # pick_and_place.move_actuator_z(-1320)
+    # pick_and_place.open_gripper()
 
-    # #Safe Position 4
-    if pick_and_place.move_actuator_z(0) != "success" : return "error22"
-    if pick_and_place.move_actuator_x(0) != "success" : return "error23"
-    if pick_and_place.open_gripper() != "success" : return "error24"
-
-    return "success"
+    # pick_and_place.move_actuator_z(0)
+    # pick_and_place.move_actuator_x(0)
+    # pick_and_place.open_gripper()
 
 
 # Making Insertions
@@ -651,53 +683,78 @@ def moveHosepuller():
     
 def oneCycle():
 
-    global insertion_jig, insertion_servos, hose_puller, hose_jig, puller_extension,pick_and_place
+    global insertion_jig, insertion_servos, hose_puller, hose_jig, puller_extension,pick_and_place,lubrication_feeder
+
+
+    # if lubrication_feeder.open_hose_holder() != "success" : return "error03"
+    # return ""
 
     #****************************** Insertion Jig ******************************
 
-    offset_x = -330
-    offset_z = -20
+    offset_x = 0
+    offset_z = 0
 
-    home_position_z = 3000 + offset_z
+    home_position_z = 4000 + offset_z
     home_position_x = 0 + offset_x
 
-    lubrication_position_z = -2310 + offset_z
-    insertion_position_z = -2360 + offset_z
-    insertion_position_joint_z = -2230 + offset_z
-    librication_position_joint_z = -2250 + offset_z
+    lubrication_position_z = 500 + offset_z
+    lubricate_nozzle = -5380 + offset_x
 
-    lubricate_nozzle = -5530 + offset_x
-    insert_nozzle = -6790 + offset_x  
-    insert_joint = -9190 + offset_x
-    lubricate_joint = -11200 + offset_x
+    insertion_position_z = 490 + offset_z
+    insert_nozzle = -6570 + offset_x  
+
+    librication_position_joint_z = 580 + offset_z
+    lubricate_joint = -11000 + offset_x
+
+    insertion_position_joint_z = 600 + offset_z
+    insert_joint = -8950 + offset_x
 
     safe_position = 200
     home_y = 4200
-    wait_y = 6000
-    pickup_y = 9060
+    wait_y = 5930
+    pickup_y = 8990
     z_home = 50
+
+    #****************************** Routine ******************************
+
+
+
+    if lubrication_feeder.close_hose_holder() != "success" : return "error01"
+    if lubrication_feeder.feed_hose(duration=1.53) != "success" : return "error02"
+    time.sleep(2)
+    if insertion_servos.holder_hose_nozzle_close() != "success" : return "error08"
+    if lubrication_feeder.open_hose_holder() != "success" : return "error03"
 
 
     if insertion_servos.clamp_nozzle_close() != "success" : return "error08"
     if insertion_servos.clamp_joint_close() != "success" : return "error19"
+    if puller_extension.open_gripper() != "success" : return "error20"
 
-    if insertion_servos.slider_joint_home() != "success" : return "error23"
-    #****************************** Routine ******************************
+    if insertion_servos.slider_joint_home() != "success" : return "error08"
+    if insertion_servos.slider_nozzle_home() != "success" : return "error08"
+
+    # if insertion_jig.home_x_axis_go_home() != "success" : return "error08"
+    # if insertion_jig.home_z_axis_go_home() != "success" : return "error08"
 
     #Nozzle Position
+
+    if hose_jig.insertion_position(False) != "success" : return "error05"
 
     if insertion_jig.move_z_axis(home_position_z) != "success" : return "error01"
     if insertion_jig.move_x_axis(home_position_x) != "success" : return "error02"
 
+    if insertion_servos.holder_hose_nozzle_close() != "success" : return "error18"
+
     if insertion_jig.move_z_axis(lubrication_position_z) != "success" : return "error03"
     if insertion_jig.move_x_axis(lubricate_nozzle) != "success" : return "error04"
 
+    if lubrication_feeder.lubricate_nozzle(15) != "success" : return "error03.1"
+    time.sleep(0.5)
+
     if insertion_jig.move_z_axis(insertion_position_z) != "success" : return "error05"
     if insertion_jig.move_x_axis(insert_nozzle) != "success" : return "error06"
-  
-    
+      
     # Nozzle Insertion
-
 
     if insertion_servos.holder_hose_nozzle_close() != "success" : return "error07"
     if insertion_servos.clamp_nozzle_close() != "success" : return "error08"
@@ -709,25 +766,27 @@ def oneCycle():
     time.sleep(.5)
     if insertion_servos.slider_nozzle_home() != "success" : return "error12"
 
-
     #Go to Down Position for Hose Puller
 
-    if insertion_jig.move_z_axis(1000) != "success" : return "error13"
+    if insertion_jig.move_z_axis(4000) != "success" : return "error13"
 
     #Hose Puller Action
 
-    if hose_puller.move_y_actuator(home_y) != "success" : return "error03"
     if hose_puller.move_z_actuator(safe_position) != "success" : return "error04"
+    if hose_puller.move_y_actuator(home_y) != "success" : return "error03"
     if hose_jig.insertion_position() != "success" : return "error05"
-    if hose_puller.move_y_actuator(pickup_y) != "success" : return "error06"
+    if hose_puller.move_y_actuator(pickup_y+30) != "success" : return "error06"
     if hose_puller.move_z_actuator(z_home) != "success" : return "error07"
     if puller_extension.close_gripper() != "success" : return "error08"
     if hose_puller.move_y_actuator(pickup_y-500) != "success" : return "error09"
     if hose_puller.move_z_actuator(safe_position) != "success" : return "error10"
+    if hose_puller.move_y_actuator(wait_y+1900) != "success" : return "error11"
+    if hose_puller.move_z_actuator(safe_position+25) != "success" : return "error10"
     if hose_puller.move_y_actuator(wait_y) != "success" : return "error11"
+    if lubrication_feeder.close_hose_holder() != "success" : return "error01"
     time.sleep(.5)
     if insertion_servos.activate_cutter() != "success" : return "error12"
-    if hose_puller.move_y_actuator(home_y+720) != "success" : return "error13"
+    if hose_puller.move_y_actuator(home_y+687) != "success" : return "error13"
     
     #Moving to Joint
 
@@ -736,11 +795,14 @@ def oneCycle():
     if insertion_jig.move_x_axis(lubricate_joint) != "success" : return "error15"
     if insertion_jig.move_z_axis(librication_position_joint_z) != "success" : return "error14"
 
+    if lubrication_feeder.lubricate_joint(16) != "success" : return "error14.1"
+    time.sleep(0.5)
+
     if insertion_jig.move_x_axis(insert_joint) != "success" : return "error17"
     if insertion_jig.move_z_axis(insertion_position_joint_z) != "success" : return "error16"
    
 
-    #Clamp Insertion
+    #Joint Insertion
 
    
     if insertion_servos.clamp_joint_close() != "success" : return "error19"
@@ -757,8 +819,8 @@ def oneCycle():
 
     if hose_puller.move_y_actuator(home_y) != "success" : return "error13"
 
-    if insertion_jig.move_z_axis(0) != "success" : return "error24"
-    if insertion_jig.move_x_axis(0) != "success" : return "error25"
+    if insertion_jig.move_z_axis(3000,False) != "success" : return "error24"
+    if insertion_jig.move_x_axis(0,False) != "success" : return "error25"
 
 
     if hose_puller.move_z_actuator(z_home) != "success" : return "error14"
@@ -770,3 +832,77 @@ def oneCycle():
     if hose_puller.move_z_actuator(0) != "success" : return "error20"
 
     return "success"
+
+
+def testHome():
+    # """Test function for new go home methods"""
+    global elevator_in, pick_and_place, hose_puller, hose_jig, insertion_jig
+    
+    print("Testing new go home functions...")
+
+
+    
+    # Test ElevatorIn homing functions
+    print("\n--- Testing ElevatorIn homing functions ---")
+    
+    print("Testing home_gantry_x...")
+    result = elevator_in.home_gantry_x()
+    print(f"Result: {result}")
+    
+    print("Testing home_gantry_y...")
+    result = elevator_in.home_gantry_y()
+    print(f"Result: {result}")
+    
+    print("Testing home_gantry_z...")
+    result = elevator_in.home_gantry_z()
+    print(f"Result: {result}")
+    
+    # print("Testing home_elevator_z...")
+    # result = elevator_in.home_elevator_z()
+    # print(f"Result: {result}")
+
+    
+    # Test PickAndPlace homing functions
+    print("\n--- Testing PickAndPlace homing functions ---")
+    
+    print("Testing home_x_axis...")
+    result = pick_and_place.home_x_axis()
+    print(f"Result: {result}")
+    
+    print("Testing home_z_axis...")
+    result = pick_and_place.home_z_axis()
+    print(f"Result: {result}")
+
+
+    # Test HoseJig homing function
+    print("\n--- Testing HoseJig homing function ---")
+    
+    print("Testing home_actuator...")
+    result = hose_jig.go_home()
+    print(f"Result: {result}")
+    
+
+    # Test HosePuller homing functions
+    print("\n--- Testing HosePuller homing functions ---")
+    
+    print("Testing home_y_axis...")
+    result = hose_puller.home_y_axis()
+    print(f"Result: {result}")
+    
+    print("Testing home_z_axis...")
+    result = hose_puller.home_z_axis()
+    print(f"Result: {result}")
+    
+
+    # Test InsertionJig homing functions
+    print("\n--- Testing InsertionJig homing functions ---")
+    
+    print("Testing home_x_axis...")
+    result = insertion_jig.home_x_axis_go_home()
+    print(f"Result: {result}")
+    
+    print("Testing home_z_axis...")
+    result = insertion_jig.home_z_axis_go_home()
+    print(f"Result: {result}")
+    
+    print("\nAll homing tests completed!")
