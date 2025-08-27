@@ -48,7 +48,7 @@ class Canbus:
         except:
             pass  # Si hay timeout, el buffer está limpio
 
-    def send_message(self, can_id, data, wait_for_reply = True):
+    def send_message(self, can_id, data, wait_for_reply = True,max_retries=None):
 
         print("\n")
 
@@ -73,7 +73,7 @@ class Canbus:
                 return 'success', None
             
             # Espera la respuesta usando el nuevo read_message
-            reply_status, reply_data = self.read_message(10, can_id + 0x400)
+            reply_status, reply_data = self.read_message(10, can_id + 0x400,max_retries)
             
             if reply_status == 'success':
                 return 'success', reply_data

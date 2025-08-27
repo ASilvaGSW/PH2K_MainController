@@ -73,7 +73,7 @@ class LubricationFeeder:
 
     # 0x02: Send Heartbeat
     def send_heartbeat(self):
-        status = self.canbus.send_message(self.canbus_id, [0x02] + [0x00]*7)[0]
+        status = self.canbus.send_message(self.canbus_id, [0x02] + [0x00]*7,max_retries=30)[0]
         return status
 
     # 0x03: Activate Valve 1 (Primary lubrication valve)
@@ -150,7 +150,7 @@ class LubricationFeeder:
         return status
 
     # 0x13: Move Pre-feeder (Speed mode with direction & acceleration)
-    def move_pre_feeder(self, speed, direction=1, acceleration=236):
+    def move_pre_feeder(self, speed=500, direction=1, acceleration=236):
         speed_high = (speed >> 8) & 0xFF
         speed_low = speed & 0xFF
         status = self.canbus.send_message(self.canbus_id, [0x13, speed_high, speed_low, direction, acceleration] + [0x00]*3)[0]
@@ -229,12 +229,12 @@ class LubricationFeeder:
         """Activate secondary lubrication valve for specified duration"""
         return self.activate_valve_2(duration)
 
-    def feed_hose(self, speed=1000, direction=0, duration=3):
+    def feed_hose(self, speed=500, direction=0, duration=3):
         """Move main feeder at specified speed and direction for a duration, then stop"""
        
         
         # Start movement with specified speed
-        status = self.move_feeder(speed, direction)
+        status = self.move_feeder(speed, direction,236)
         if status != "success":
             return status
         
@@ -242,7 +242,9 @@ class LubricationFeeder:
         time.sleep(duration)
         
         # Stop movement by sending 0 speed
-        stop_status = self.move_feeder(0, direction)
+        stop_status = self.move_feeder(0, direction,236)
+
+        time.sleep(0.5)
         return stop_status
 
     def pre_feed_hose(self, speed=1000, direction=1, duration=3):

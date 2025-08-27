@@ -26,7 +26,7 @@ class PullerExtension:
 
     # Case 0x02: Heartbeat
     def send_heartbeat(self):
-        status = self.canbus.send_message(self.canbus_id, [0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])[0]
+        status = self.canbus.send_message(self.canbus_id, [0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],max_retries=30)[0]
         return status
 
     # Case 0x0A: Read stepper movement counter

@@ -142,6 +142,30 @@
                         </div>
                     </button>
                 </div>
+                
+                <!-- Test Button 9 -->
+                <div class="col">
+                    <button class="btn w-100 h-100" onclick="testAction9()" style="min-height: 100px;">
+                        <div class="menu-card">
+                            <div class="icon-container mb-2">
+                                <i class="bi bi-house"></i>
+                            </div>
+                            <div class="card-title lang-text" data-en="Test Home" data-es="Prueba Inicio" data-jp="テストホーム" style="font-size: 0.85rem;">Test Home</div>
+                        </div>
+                    </button>
+                </div>
+                
+                <!-- Test Button 10 -->
+                <div class="col">
+                    <button class="btn w-100 h-100" onclick="testAction10()" style="min-height: 100px;">
+                        <div class="menu-card">
+                            <div class="icon-container mb-2">
+                                <i class="bi bi-droplet"></i>
+                            </div>
+                            <div class="card-title lang-text" data-en="Lubrication Test" data-es="Prueba de Lubricación" data-jp="潤滑テスト" style="font-size: 0.85rem;">Lubrication Test</div>
+                        </div>
+                    </button>
+                </div>
             </div>
             
             <!-- Test Results Section -->
@@ -310,6 +334,14 @@
             testAction(8);
         }
         
+        function testAction9() {
+            testAction(9);
+        }
+        
+        function testAction10() {
+            testAction(10);
+        }
+        
         function testAction(actionNumber) {
             const timestamp = new Date().toLocaleString();
             const button = document.querySelector(`button[onclick="testAction${actionNumber}()"]`);
@@ -368,7 +400,9 @@
                         5: '<div class="menu-card"><div class="icon-container mb-2"><i class="bi bi-arrow-down-circle"></i></div><div class="card-title lang-text" data-en="Insertion" data-es="Inserción" data-jp="挿入" style="font-size: 0.85rem;">Insertion</div></div>',
                         6: '<div class="menu-card"><div class="icon-container mb-2"><i class="bi bi-arrow-left-right"></i></div><div class="card-title lang-text" data-en="Hose Pulling" data-es="Tirar Manguera" data-jp="ホース引き" style="font-size: 0.85rem;">Hose Pulling</div></div>',
                         7: '<div class="menu-card"><div class="icon-container mb-2"><i class="bi bi-list-check"></i></div><div class="card-title lang-text" data-en="Full Routine" data-es="Rutina Completa" data-jp="フルルーチン" style="font-size: 0.85rem;">Full Routine</div></div>',
-                        8: '<div class="menu-card"><div class="icon-container mb-2"><i class="bi bi-database"></i></div><div class="card-title lang-text" data-en="Insertion Full Cycle" data-es="Ciclo Completo de Inserción" data-jp="挿入フルサイクル" style="font-size: 0.85rem;">Insertion Full Cycle</div></div>'
+                        8: '<div class="menu-card"><div class="icon-container mb-2"><i class="bi bi-database"></i></div><div class="card-title lang-text" data-en="Insertion Full Cycle" data-es="Ciclo Completo de Inserción" data-jp="挿入フルサイクル" style="font-size: 0.85rem;">Insertion Full Cycle</div></div>',
+                        9: '<div class="menu-card"><div class="icon-container mb-2"><i class="bi bi-house"></i></div><div class="card-title lang-text" data-en="Test Home" data-es="Prueba Inicio" data-jp="テストホーム" style="font-size: 0.85rem;">Test Home</div></div>',
+                        10: '<div class="menu-card"><div class="icon-container mb-2"><i class="bi bi-droplet"></i></div><div class="card-title lang-text" data-en="Lubrication Test" data-es="Prueba de Lubricación" data-jp="潤滑テスト" style="font-size: 0.85rem;">Lubrication Test</div></div>'
                     };
                     button.innerHTML = buttonContents[actionNumber] || `Action ${actionNumber}`;
                 }

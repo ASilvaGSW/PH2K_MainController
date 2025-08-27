@@ -48,7 +48,7 @@ class InsertionJig:
         Returns:
             tuple: (status, reply_data) from the CAN bus.
         """
-        status, reply_data = self.canbus.send_message(self.canbus_id, [0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],max_retries=30)
         return status
     
     # Case 0x03: Home X Axis

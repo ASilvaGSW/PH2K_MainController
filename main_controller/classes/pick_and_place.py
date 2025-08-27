@@ -58,7 +58,7 @@ class PickAndPlace:
 
     # 0x02: Send Heartbeat
     def send_heartbeat(self):
-        status = self.canbus.send_message(self.canbus_id, [0x02] + [0x00]*7)[0]
+        status = self.canbus.send_message(self.canbus_id, [0x02] + [0x00]*7,max_retries=30)[0]
         return status
 
     # 0x03: Home Actuators

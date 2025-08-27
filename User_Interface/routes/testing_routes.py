@@ -314,6 +314,60 @@ def test_action_8():
     except Exception as e:
         return jsonify(success=False, message=f'Error in Test Action 8: {str(e)}'), 500
 
+#Homing
+@testing_bp.route('/test_action_9', methods=['POST'])
+def test_action_9():
+    """Test Action 9 - Home function"""
+    if not session.get('logged_in'):
+        return jsonify(success=False, message='Not authenticated'), 401
+    
+    try:
+        # TODO: Add your CAN bus and Python actions here
+        if testHome() != "success" : return jsonify(success=False, message=f'Error in Home'), 500
+        
+        result = {
+            'success': True,
+            'message': 'Home executed successfully',
+            'action': 'home',
+            'timestamp': datetime.now().isoformat(),
+            'data': {
+                'status': 'completed',
+                'details': 'Home function executed'
+            }
+        }
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify(success=False, message=f'Error in Test Action 9: {str(e)}'), 500
+
+#Lubrication
+@testing_bp.route('/test_action_10', methods=['POST'])
+def test_action_10():
+    """Test Action 10 - Lubrication function"""
+    if not session.get('logged_in'):
+        return jsonify(success=False, message='Not authenticated'), 401
+    
+    try:
+        # TODO: Add your CAN bus and Python actions here
+        if lubrication_test() != "success" : return jsonify(success=False, message=f'Error in Lubrication'), 500
+        
+        result = {
+            'success': True,
+            'message': 'Lubrication executed successfully',
+            'action': 'lubrication',
+            'timestamp': datetime.now().isoformat(),
+            'data': {
+                'status': 'completed',
+                'details': 'Lubrication function executed'
+            }
+        }
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify(success=False, message=f'Error in Test Action 10: {str(e)}'), 500
+
+
+
 @testing_bp.route('/canbus_diagnostic', methods=['GET'])
 def canbus_diagnostic():
     """Diagnostic route to check CAN bus status"""
@@ -748,7 +802,7 @@ def oneCycle():
     if insertion_jig.move_z_axis(lubrication_position_z) != "success" : return "error03"
     if insertion_jig.move_x_axis(lubricate_nozzle) != "success" : return "error04"
 
-    if lubrication_feeder.lubricate_nozzle(15) != "success" : return "error03.1"
+    if lubrication_feeder.lubricate_nozzle(5) != "success" : return "error03.1"
     time.sleep(0.5)
 
     if insertion_jig.move_z_axis(insertion_position_z) != "success" : return "error05"
@@ -772,6 +826,8 @@ def oneCycle():
 
     #Hose Puller Action
 
+    if lubrication_feeder.move_pre_feeder(50) != "success" : return "error04"
+
     if hose_puller.move_z_actuator(safe_position) != "success" : return "error04"
     if hose_puller.move_y_actuator(home_y) != "success" : return "error03"
     if hose_jig.insertion_position() != "success" : return "error05"
@@ -788,6 +844,8 @@ def oneCycle():
     if insertion_servos.activate_cutter() != "success" : return "error12"
     if hose_puller.move_y_actuator(home_y+687) != "success" : return "error13"
     
+    if lubrication_feeder.move_pre_feeder(0) != "success" : return "error04"
+
     #Moving to Joint
 
     if insertion_servos.holder_hose_joint_close() != "success" : return "error18"
@@ -795,7 +853,7 @@ def oneCycle():
     if insertion_jig.move_x_axis(lubricate_joint) != "success" : return "error15"
     if insertion_jig.move_z_axis(librication_position_joint_z) != "success" : return "error14"
 
-    if lubrication_feeder.lubricate_joint(16) != "success" : return "error14.1"
+    if lubrication_feeder.lubricate_joint(6) != "success" : return "error14.1"
     time.sleep(0.5)
 
     if insertion_jig.move_x_axis(insert_joint) != "success" : return "error17"
@@ -836,11 +894,38 @@ def oneCycle():
 
 def testHome():
     # """Test function for new go home methods"""
-    global elevator_in, pick_and_place, hose_puller, hose_jig, insertion_jig
+    global elevator_in, pick_and_place, hose_puller, hose_jig, insertion_jig,insertion_servos, puller_extension
     
-    print("Testing new go home functions...")
+    print("Homing Servos")
+
+    print("Insertion Jig Servos")
+
+    result = insertion_servos.cutter_open()
+    print(f"Cutter Result: {result}")
+    result = insertion_servos.holder_hose_nozzle_open()
+    print(f"Holder Hose Nozzle Result: {result}")
+    result = insertion_servos.clamp_nozzle_open()
+    print(f"Clamp Nozzle Result: {result}")
+    result = insertion_servos.slider_nozzle_home()
+    print(f"Slider Nozzle Result: {result}")
+    result = insertion_servos.holder_hose_joint_open()
+    print(f"Holder Hose Joint Result: {result}")
+    result = insertion_servos.clamp_joint_open()
+    print(f"Clamp Joint Result: {result}")
+    result = insertion_servos.slider_joint_home()
+    print(f"Slider Joint Result: {result}")
+
+    print("Grippers")
+
+    result = pick_and_place.open_gripper()
+    print(f"Gripper P&P Result: {result}")
+
+    result = puller_extension.open_gripper()
+    print(f"Gripper Puller Result: {result}")
 
 
+
+    print("Calibration functions...")
     
     # Test ElevatorIn homing functions
     print("\n--- Testing ElevatorIn homing functions ---")
@@ -856,10 +941,6 @@ def testHome():
     print("Testing home_gantry_z...")
     result = elevator_in.home_gantry_z()
     print(f"Result: {result}")
-    
-    # print("Testing home_elevator_z...")
-    # result = elevator_in.home_elevator_z()
-    # print(f"Result: {result}")
 
     
     # Test PickAndPlace homing functions
@@ -906,3 +987,16 @@ def testHome():
     print(f"Result: {result}")
     
     print("\nAll homing tests completed!")
+
+    return "success"
+
+
+def lubrication_test():
+    global lubrication_feeder,insertion_servos
+
+    # for i in range(1):
+    lubrication_feeder.lubricate_nozzle(duration=5)
+    lubrication_feeder.lubricate_joint(duration=50)
+    insertion_servos.activate_cutter()
+
+    return "success"

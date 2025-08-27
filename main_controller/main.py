@@ -67,15 +67,14 @@ def my_main():
     lubrication_feeder = LubricationFeeder(canbus, CANBUS_ID_LUBRICATION_FEEDER)
 
     if False:
-        for i in range(1):
-            hose_jig.send_heartbeat()
-            hose_puller.send_heartbeat()
-            puller_extension.send_heartbeat()
-            pick_and_place.send_heartbeat()
-            insertion_jig.send_heartbeat()
-            elevator_in.send_heartbeat()
-            insertion_servos.send_heartbeat()
-            lubrication_feeder.send_heartbeat()
+        if hose_jig.send_heartbeat() != "success" : print("Hose Jig Not Connected")
+        if hose_puller.send_heartbeat() != "success" : print("Hose Puller Not Connected")
+        if puller_extension.send_heartbeat() != "success" : print("Puller Extension Not Connected")
+        if pick_and_place.send_heartbeat() != "success" : print("Pick and Place Not Connected") 
+        if insertion_jig.send_heartbeat() != "success" : print("Insertion Jig Not Connected")
+        if elevator_in.send_heartbeat() != "success" : print("Elevator In Not Connected")
+        if insertion_servos.send_heartbeat() != "success" : print("Insertion Servos Not Connected")
+        if lubrication_feeder.send_heartbeat() != "success" : print("Lubrication Feeder Not Connected")
 
 def moveHosepuller():
     global hose_puller, hose_jig, puller_extension,insertion_servos, insertion_jig
@@ -498,11 +497,14 @@ def oneCycle():
 
     #****************************** Routine ******************************
 
+
+
     if lubrication_feeder.close_hose_holder() != "success" : return "error01"
-    if lubrication_feeder.feed_hose(duration=1.53) != "success" : return "error02"
-    time.sleep(2)
+    if lubrication_feeder.feed_hose(duration=3.15) != "success" : return "error02"
+    time.sleep(1)
     if insertion_servos.holder_hose_nozzle_close() != "success" : return "error08"
     if lubrication_feeder.open_hose_holder() != "success" : return "error03"
+
 
     if insertion_servos.clamp_nozzle_close() != "success" : return "error08"
     if insertion_servos.clamp_joint_close() != "success" : return "error19"
@@ -550,6 +552,8 @@ def oneCycle():
 
     #Hose Puller Action
 
+    if lubrication_feeder.move_pre_feeder(50) != "success" : return "error04"
+
     if hose_puller.move_z_actuator(safe_position) != "success" : return "error04"
     if hose_puller.move_y_actuator(home_y) != "success" : return "error03"
     if hose_jig.insertion_position() != "success" : return "error05"
@@ -564,8 +568,10 @@ def oneCycle():
     if lubrication_feeder.close_hose_holder() != "success" : return "error01"
     time.sleep(.5)
     if insertion_servos.activate_cutter() != "success" : return "error12"
-    if hose_puller.move_y_actuator(home_y+687) != "success" : return "error13"
+    if hose_puller.move_y_actuator(home_y+680) != "success" : return "error13" #Aqui ahre el cambio
     
+    if lubrication_feeder.move_pre_feeder(0) != "success" : return "error04"
+
     #Moving to Joint
 
     if insertion_servos.holder_hose_joint_close() != "success" : return "error18"
@@ -658,7 +664,7 @@ def testHome():
     # result = elevator_in.home_elevator_z()
     # print(f"Result: {result}")
 
-    input("Continue")
+    # input("Continue") 
     
     # Test PickAndPlace homing functions
     print("\n--- Testing PickAndPlace homing functions ---")
@@ -671,7 +677,7 @@ def testHome():
     result = pick_and_place.home_z_axis()
     print(f"Result: {result}")
 
-    input("Continue")
+    # input("Continue")
 
     # Test HoseJig homing function
     print("\n--- Testing HoseJig homing function ---")
@@ -681,7 +687,7 @@ def testHome():
     print(f"Result: {result}")
     
     
-    input("Continue")
+    # input("Continue") 
 
     # Test HosePuller homing functions
     print("\n--- Testing HosePuller homing functions ---")
@@ -694,7 +700,7 @@ def testHome():
     result = hose_puller.home_z_axis()
     print(f"Result: {result}")
     
-    input("Continue")
+    # input("Continue")
 
     # Test InsertionJig homing functions
     print("\n--- Testing InsertionJig homing functions ---")
@@ -710,21 +716,21 @@ def testHome():
     print("\nAll homing tests completed!")
 
 def lubrication_test():
-    pass
-    # global lubrication_feeder
+    global lubrication_feeder,insertion_servos
 
     # for i in range(1):
     # lubrication_feeder.lubricate_nozzle(duration=5)
-    lubrication_feeder.lubricate_joint(duration=6)
+    # lubrication_feeder.lubricate_joint(duration=6)
     #     time.sleep(.5)
 
     # lubrication_feeder.open_hose_holder()
-    # lubrication_feeder.close_hose_holder()
-    # lubrication_feeder.feed_hose(duration=1.5)
-    # lubrication_feeder.open_hose_holder()
-    # lubrication_feeder.pre_feed_hose(duration=1)
+    # return""
+    lubrication_feeder.close_hose_holder()
+    lubrication_feeder.feed_hose(duration=3.15)
+    lubrication_feeder.close_hose_holder()
+    time.sleep(1)
+    insertion_servos.activate_cutter()
 
-    # lubrication_feeder.set_hose_holder_angle(0)
 
 if __name__ == "__main__":
    
@@ -734,7 +740,7 @@ if __name__ == "__main__":
 
     # moveElevatorIn()
 
-    movePickandPlace()
+    # movePickandPlace()
 
     # insertionRoutine()
 

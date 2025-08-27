@@ -43,7 +43,7 @@ class InsertionServos:
 
     def send_heartbeat(self):
         """Send a heartbeat command to check if the device is alive"""
-        status, reply_data = self.canbus.send_message(self.canbus_id,[0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+        status, reply_data = self.canbus.send_message(self.canbus_id,[0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],max_retries=30)
         return status
 
     def slider_joint(self,angle):
@@ -98,9 +98,9 @@ class InsertionServos:
     #Custom Functions
 
     def activate_cutter(self):
-        self.cutter(80)
+        self.cutter(75)
         time.sleep(0.5)
-        return self.cutter(0)
+        return self.cutter(1)
 
     def slider_joint_insertion(self):
         return self.slider_joint(self.slider_joint_insertion_pos)

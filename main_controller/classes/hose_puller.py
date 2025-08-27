@@ -11,6 +11,7 @@
 # 0x09: Reset Z movement counter
 # 0x13: Home Y axis using go_home function
 # 0x14: Home Z axis using go_home function
+# 0x15: Move Y actuator to absolute position with speed control
 # 0xFF: Power off, home all axes.
 
 class HosePuller:
@@ -26,7 +27,7 @@ class HosePuller:
 
     # Case 0x02: Heartbeat
     def send_heartbeat(self):
-        status = self.canbus.send_message(self.canbus_id, [0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])[0]
+        status = self.canbus.send_message(self.canbus_id, [0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],max_retries=30)[0]
         return status
 
     # Case 0x03: Home actuators (Y and Z)
@@ -36,16 +37,20 @@ class HosePuller:
 
     # Case 0x04: Move Y actuator to absolute position
     def move_y_actuator(self, position):
-        position_high = position >> 8
-        position_low = position & 0xFF
-        status = self.canbus.send_message(self.canbus_id, [0x04, position_high, position_low, 0x00, 0x00, 0x00, 0x00, 0x00])[0]
+        orientation = 1 if position < 0 else 0
+        abs_position = abs(position)
+        position_high = abs_position >> 8
+        position_low = abs_position & 0xFF
+        status = self.canbus.send_message(self.canbus_id, [0x04, position_high, position_low, orientation, 0x00, 0x00, 0x00, 0x00])[0]
         return status
 
     # Case 0x05: Move Z actuator to absolute position
     def move_z_actuator(self, position):
-        position_high = position >> 8
-        position_low = position & 0xFF
-        status = self.canbus.send_message(self.canbus_id, [0x05, position_high, position_low, 0x00, 0x00, 0x00, 0x00, 0x00])[0]
+        orientation = 1 if position < 0 else 0
+        abs_position = abs(position)
+        position_high = abs_position >> 8
+        position_low = abs_position & 0xFF
+        status = self.canbus.send_message(self.canbus_id, [0x05, position_high, position_low, orientation, 0x00, 0x00, 0x00, 0x00])[0]
         return status
 
     # Case 0x06: Read Z actuator movement counter
@@ -83,6 +88,19 @@ class HosePuller:
     def home_z_axis(self):
         status = self.canbus.send_message(self.canbus_id, [0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])[0]
         return status
+
+    # Case 0x15: Move Y actuator to absolute position with speed control
+    def move_y_actuator_with_speed(self, position, speed):
+        orientation = 1 if position < 0 else 0
+        abs_position = abs(position)
+        position_high = abs_position >> 8
+        position_low = abs_position & 0xFF
+        speed_high = speed >> 8
+        speed_low = speed & 0xFF
+        status = self.canbus.send_message(self.canbus_id, [0x15, position_high, position_low, orientation, speed_high, speed_low, 0x00, 0x00])[0]
+        return status
+
+    
 
     # Case 0xFF: Power off, home all axes
     def power_off(self):

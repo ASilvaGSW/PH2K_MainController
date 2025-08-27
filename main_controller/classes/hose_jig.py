@@ -39,7 +39,7 @@ class HoseJig:
     
     #Case 0x02: Send ping
     def send_heartbeat(self):
-        status, reply_data = self.canbus.send_message(self.canbus_id, [0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],max_retries=30)
         return status
     
     #Case 0x03: Home actuator
