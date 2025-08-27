@@ -1,5 +1,7 @@
 import can
 import time
+import subprocess
+import os
 
 # Configurar la interfaz can0
 # sudo modprobe can
@@ -28,6 +30,73 @@ class Canbus:
         self.channel = None  # Referencia al bus CAN
         self.is_started = False
         self.interface = 'can0'  # Interfaz socketcan por defecto en Jetson
+        
+        # Configurar automáticamente la interfaz CAN al inicializar
+        self.setup_can_interface()
+
+    def setup_can_interface(self):
+        """
+        Configura automáticamente la interfaz CAN en el Jetson Orin Nano.
+        Ejecuta los comandos necesarios para habilitar el bus CAN.
+        
+        Returns:
+            True si la configuración fue exitosa, False en caso contrario
+        """
+        try:
+            print("Configurando interfaz CAN en Jetson Orin Nano...")
+            
+            # Lista de comandos para configurar CAN
+            commands = [
+                "sudo modprobe can",
+                "sudo modprobe can-raw",
+                "sudo modprobe mttcan",
+                f"sudo ip link set {self.interface} down",
+                f"sudo ip link set {self.interface} type can bitrate {self.bitrate}",
+                f"sudo ip link set {self.interface} up"
+            ]
+            
+            for cmd in commands:
+                try:
+                    print(f"Ejecutando: {cmd}")
+                    result = subprocess.run(
+                        cmd.split(),
+                        capture_output=True,
+                        text=True,
+                        timeout=10
+                    )
+                    
+                    if result.returncode != 0:
+                        print(f"Advertencia en comando '{cmd}': {result.stderr}")
+                        # Algunos comandos pueden fallar si ya están configurados, continuamos
+                        
+                except subprocess.TimeoutExpired:
+                    print(f"Timeout en comando: {cmd}")
+                except Exception as e:
+                    print(f"Error ejecutando '{cmd}': {e}")
+            
+            # Verificar si la interfaz está disponible
+            try:
+                result = subprocess.run(
+                    ["ip", "link", "show", self.interface],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                
+                if result.returncode == 0:
+                    print(f"Interfaz {self.interface} configurada correctamente")
+                    return True
+                else:
+                    print(f"Error: Interfaz {self.interface} no disponible")
+                    return False
+                    
+            except Exception as e:
+                print(f"Error verificando interfaz: {e}")
+                return False
+                
+        except Exception as e:
+            print(f"Error en setup_can_interface: {e}")
+            return False
 
     def device_list(self):
         """
@@ -86,7 +155,7 @@ class Canbus:
         except:
             pass  # Si hay timeout, el buffer está limpio
 
-    def send_message(self, can_id, data, wait_for_reply=True):
+    def send_message(self, can_id, data, wait_for_reply=True, max_retries=None):
         """
         Envía un mensaje CAN y espera una respuesta del mismo CAN ID.
         
@@ -120,7 +189,7 @@ class Canbus:
                 return 'success', None
             
             # Espera la respuesta usando el nuevo read_message
-            reply_status, reply_data = self.read_message(10, can_id + 0x400)
+            reply_status, reply_data = self.read_message(10, can_id + 0x400, max_retries)
             
             if reply_status == 'success':
                 return 'success', reply_data
@@ -150,7 +219,7 @@ class Canbus:
                 reply_data: Datos de respuesta si es exitoso, None en caso contrario
         """
         if max_retries is None:
-            max_retries = 70  # 7 segundos si timeout_ms=100ms
+            max_retries = 110  # 7 segundos si timeout_ms=100ms
 
         print(f"Starting read_message: timeout_ms={timeout_ms}, max_retries={max_retries}, expected_total_time={max_retries*timeout_ms}ms")
         start_time = time.time()
@@ -173,7 +242,7 @@ class Canbus:
                                 elapsed = time.time() - start_time
                                 print(f"Valid response (success) from CAN ID {search_can_id}: {can_data} (found after {elapsed:.3f}s)")
                                 return 'success', can_data
-                            elif can_data[1] == 2:
+                            elif can_data[1] == 2 or can_data[1] == 4:
                                 elapsed = time.time() - start_time
                                 print(f"Valid response (error) from CAN ID {search_can_id}: {can_data} (found after {elapsed:.3f}s)")
                                 return 'error', can_data
