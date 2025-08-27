@@ -45,21 +45,22 @@ class Canbus:
         try:
             print("Configurando interfaz CAN en Jetson Orin Nano...")
             
-            # Lista de comandos para configurar CAN
+            # Lista de comandos para configurar CAN con contraseña
             commands = [
-                "sudo modprobe can",
-                "sudo modprobe can-raw",
-                "sudo modprobe mttcan",
-                f"sudo ip link set {self.interface} down",
-                f"sudo ip link set {self.interface} type can bitrate {self.bitrate}",
-                f"sudo ip link set {self.interface} up"
+                "echo 'root' | sudo -S modprobe can",
+                "echo 'root' | sudo -S modprobe can-raw",
+                "echo 'root' | sudo -S modprobe mttcan",
+                f"echo 'root' | sudo -S ip link set {self.interface} down",
+                f"echo 'root' | sudo -S ip link set {self.interface} type can bitrate {self.bitrate}",
+                f"echo 'root' | sudo -S ip link set {self.interface} up"
             ]
             
             for cmd in commands:
                 try:
                     print(f"Ejecutando: {cmd}")
                     result = subprocess.run(
-                        cmd.split(),
+                        cmd,
+                        shell=True,
                         capture_output=True,
                         text=True,
                         timeout=10
