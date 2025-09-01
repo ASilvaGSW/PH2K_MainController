@@ -190,7 +190,7 @@ class Canbus:
                 return 'success', None
             
             # Espera la respuesta usando el nuevo read_message
-            reply_status, reply_data = self.read_message(10, can_id + 0x400, data[0], max_retries)
+            reply_status, reply_data = self.read_message(10, can_id + 0x400, max_retries,data[0])
             
             if reply_status == 'success':
                 return 'success', reply_data
@@ -205,7 +205,7 @@ class Canbus:
             print(f"Error in send_message: {e}")
             return 'error', None
 
-    def read_message(self, timeout_ms, search_can_id, function_id, max_retries=None):
+    def read_message(self, timeout_ms, search_can_id, max_retries=None, function_id=0x00):
         """
         Lee un mensaje de un CAN ID específico después de enviar un mensaje.
         
