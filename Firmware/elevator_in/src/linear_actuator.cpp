@@ -59,7 +59,6 @@ void LinearActuator::speed_mode(bool dir, uint16_t speed, uint8_t acc, uint8_t* 
     payload[2] = byte3;
     payload[3] = byte4;
     payload[4] = crc;
-    for (int i = 5; i < 8; i++) payload[i] = 0;
 }
 
 void LinearActuator::go_home(uint8_t* payload) {

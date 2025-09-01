@@ -29,6 +29,8 @@
 //   IN: None | OUT: [0x11, status, ...]
 // 0x12: Home All Axes (Gantry + Elevator)
 //   IN: None | OUT: [0x12, status, ...]
+// 0x13: Move Elevator in Speed Mode until IR Sensor
+//   IN: [direction, speed_H, speed_L, acceleration] | OUT: [0x13, status, ...]
 // 0xFF: Power off - Move all to home position
   //   IN: None | OUT: None (moves all to home)
 
@@ -85,6 +87,9 @@ byte replyData[8];  // Buffer for CAN replies
 // SCK = 18
 // CS = 26
 // INT = 25
+
+// IR Sensor Pin
+#define IR_SENSOR_PIN 21  // GPIO21 - IR Sensor input
 
 // Device CAN ID (only process messages with this ID)
 #define DEVICE_CAN_ID 0x189
@@ -218,6 +223,10 @@ void setup()
   Serial.println("CAN system ready. Main loop running on core 1.");
 
   gripper.setFuerza(gripperForce);
+
+  // Initialize IR sensor pin
+  pinMode(IR_SENSOR_PIN, INPUT);
+  Serial.println("IR sensor on pin 21 initialized");
 
   // Send startup message
   byte startup_msg[] = {0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
@@ -661,6 +670,65 @@ void process_instruction(CanFrame instruction)
     {
         Serial.println("Case 0xFF: Powering off - Moving all to home position");
         
+    }
+    break;
+
+    // ***************************** CASE 0x13 ***************************** //
+    // Move Elevator in Speed Mode until IR Sensor is activated
+    case 0x13:
+    {
+      Serial.println("Case 0x13: Move Elevator in Speed Mode until IR Sensor");
+      
+      uint8_t direction = instruction.data[1];  // 0 = down, 1 = up
+      uint16_t speed = instruction.data[2] << 8 | instruction.data[3];  // Speed value
+      uint8_t acceleration = instruction.data[4];  // Acceleration value
+      
+      uint8_t payload[5] = {0};
+      uint8_t status = 0x01;
+      
+      // Start elevator in speed mode
+      elevatorZ.speed_mode(direction, speed, acceleration, payload);
+      
+      if (CAN1.sendMsgBuf(elevatorZ.motor_id, 0, 5, payload) != CAN_OK) {
+        status = 0x04; // NO LOCAL NETWORK
+      } else {
+        // Monitor IR sensor while moving
+        unsigned long startTime = millis();
+        const unsigned long maxTimeout = 30000; // 30 second maximum timeout
+        bool sensorActivated = false;
+        
+        while (millis() - startTime < maxTimeout && !sensorActivated) {
+          // Check IR sensor status
+          if (digitalRead(IR_SENSOR_PIN) == LOW) { // Assuming LOW means object detected
+            sensorActivated = true;
+            Serial.println("IR sensor activated - stopping elevator");
+            
+            // Stop the elevator by sending a stop command (speed = 0)
+            uint8_t stopPayload[8] = {0};
+            elevatorZ.speed_mode(direction, 0, acceleration, stopPayload);
+            CAN1.sendMsgBuf(elevatorZ.motor_id, 0, 8, stopPayload);
+            
+            status = 0x01; // Success
+            break;
+          }
+          
+          delay(10); // Small delay to avoid overwhelming the sensor
+        }
+        
+        if (!sensorActivated) {
+          // Timeout occurred - stop the elevator
+          uint8_t stopPayload[8] = {0};
+          elevatorZ.speed_mode(direction, 0, acceleration, stopPayload);
+          CAN1.sendMsgBuf(elevatorZ.motor_id, 0, 8, stopPayload);
+          status = 0x03; // TIMEOUT
+          Serial.println("Timeout - IR sensor not activated");
+        }
+      }
+      
+      saveElevatorZCounter();
+      
+      byte statusResponse[] = {0x13, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(statusResponse);
     }
     break;
 
