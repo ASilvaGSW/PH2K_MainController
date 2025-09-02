@@ -66,15 +66,15 @@ def my_main():
     insertion_servos = InsertionServos(canbus, CANBUS_ID_INSERTION_SERVOS)
     lubrication_feeder = LubricationFeeder(canbus, CANBUS_ID_LUBRICATION_FEEDER)
 
-    if True:
-        if hose_jig.send_heartbeat() != "success" : print("Hose Jig Not Connected")
-        if hose_puller.send_heartbeat() != "success" : print("Hose Puller Not Connected")
-        if puller_extension.send_heartbeat() != "success" : print("Puller Extension Not Connected")
-        if pick_and_place.send_heartbeat() != "success" : print("Pick and Place Not Connected") 
-        if insertion_jig.send_heartbeat() != "success" : print("Insertion Jig Not Connected")
-        if elevator_in.send_heartbeat() != "success" : print("Elevator In Not Connected")
-        if insertion_servos.send_heartbeat() != "success" : print("Insertion Servos Not Connected")
-        if lubrication_feeder.send_heartbeat() != "success" : print("Lubrication Feeder Not Connected")
+    if False:
+        print("Hose Jig Connected") if hose_jig.send_heartbeat() == "success" else print("Hose Jig Not Connected")
+        print("Hose Puller Connected") if hose_puller.send_heartbeat() == "success" else print("Hose Puller Not Connected")
+        print("Puller Extension Connected") if puller_extension.send_heartbeat() == "success" else print("Puller Extension Not Connected")
+        print("Pick and Place Connected") if pick_and_place.send_heartbeat() == "success" else print("Pick and Place Not Connected")
+        print("Insertion Jig Connected") if insertion_jig.send_heartbeat() == "success" else print("Insertion Jig Not Connected")
+        print("Elevator In Connected") if elevator_in.send_heartbeat() == "success" else print("Elevator In Not Connected")
+        print("Insertion Servos Connected") if insertion_servos.send_heartbeat() == "success" else print("Insertion Servos Not Connected")
+        print("Lubrication Feeder Connected") if lubrication_feeder.send_heartbeat() == "success" else print("Lubrication Feeder Not Connected")
 
 def moveHosepuller():
     global hose_puller, hose_jig, puller_extension,insertion_servos, insertion_jig
@@ -310,64 +310,70 @@ def moveElevatorIn():
 
     home = [0,0,0]
     safety_high = -300
-    cassette_deliver_high = -630
+    cassette_deliver_high = -610
     transportation_high = -500
 
     #left
 
-    pick_left = [-252,-330,-775]
-    deliver_left = [-260,-1800,-500]
+    # pick_left = [-252,-330,-775]
+    pick_left = [-225,-315,-840]
+    deliver_left = [-225,-1800,-500]
     
     #Right
 
-    pick_right = [-1380,-330,-775]
-    deliver_right = [-1380,-1800,-500]
+    # pick_right = [-1380,-330,-775]
+    pick_right = [-1358,-315,-860]
+    deliver_right = [-1353,-1800,-500]
 
     #Alignin Elevator
 
-    # elevator_in.move_elevator_z(-4200)
+
     
     # return ""
     
     # elevator_in.home_gantry_z()
     # elevator_in.home_gantry_x()
     # elevator_in.home_gantry_y()
+    # elevator_in.home_elevator_z()
 
+    # elevator_in.move_elevator_z(-12500)
+
+    #
     #Left Side
     
-    # elevator_in.move_gantry_array(pick_left)
+    elevator_in.move_gantry_array(pick_left)
 
-    # elevator_in.close_gripper()
+    elevator_in.close_gripper()
 
-    # elevator_in.move_gantry_z(transportation_high)
+    elevator_in.move_gantry_z(transportation_high)
 
-    # elevator_in.move_gantry_array(deliver_left)
+    elevator_in.move_gantry_array(deliver_left)
 
-    # elevator_in.move_gantry_z(cassette_deliver_high)
+    elevator_in.move_gantry_z(cassette_deliver_high)
 
-    # elevator_in.open_gripper()
+    elevator_in.open_gripper()
 
-    # elevator_in.move_gantry_z(safety_high)
+    elevator_in.move_gantry_z(safety_high)
 
-    # elevator_in.move_gantry_array(home)
+    elevator_in.move_gantry_array(home)
 
     # # #Right Side
 
-    # elevator_in.move_gantry_array(pick_right)
+    elevator_in.move_gantry_array(pick_right)
 
-    # elevator_in.close_gripper()
+    elevator_in.close_gripper()
 
-    # elevator_in.move_gantry_z(transportation_high)
+    elevator_in.move_gantry_z(transportation_high)
 
-    # elevator_in.move_gantry_array(deliver_right)
+    elevator_in.move_gantry_array(deliver_right)
 
-    # elevator_in.move_gantry_z(cassette_deliver_high)
+    elevator_in.move_gantry_z(cassette_deliver_high)
 
-    # elevator_in.open_gripper()
+    elevator_in.open_gripper()
 
-    # elevator_in.move_gantry_z(safety_high)
+    elevator_in.move_gantry_z(safety_high)
 
-    # elevator_in.move_gantry_array(home)
+    elevator_in.move_gantry_array(home)
 
     # # #conveyors
 
@@ -382,24 +388,36 @@ def moveElevatorIn():
 def movePickandPlace():
     global pick_and_place, insertion_servos, insertion_jig
 
+
     # pick_and_place.home_x_axis()
     # pick_and_place.home_z_axis()
 
 
     # Homing Insertion Jig
-    insertion_servos.slider_joint_home()
-    insertion_jig.move_z_axis(7000)
-    insertion_jig.move_x_axis(-8500)
-    pick_and_place.open_gripper()
+    # insertion_servos.slider_joint_receive()
+    # insertion_jig.move_z_axis(7000)
+    # insertion_jig.move_x_axis(-8500)
+    # pick_and_place.open_gripper()
 
-
+    #Nozzle Data
     nozzle_high = -1312
     nozzle_x = [-615,-485,-335,-205,-55,75]
     trans_nozzle_high = -1000
     deliver_nozzle_x = -3900
     deliver_nozzle_z = -1325
 
+    # Joint Data
+    # joint_high = -1300
+    joint_high = -1300
+    joint_x = [-1800,-1715]
+    trans_joint_high = -1000
+    deliver_joint_x = -4205
+    # deliver_joint_z = -1320
+    deliver_joint_z = -1318
+
     # *******************************************************
+
+    #Nozzle
 
     # pick_and_place.start_left_conveyor()
     # time.sleep(.7)
@@ -408,58 +426,56 @@ def movePickandPlace():
     # #Home Pick and Place
 
     # for nozzle in nozzle_x:
-
-    pick_and_place.move_actuator_z(0)
-    pick_and_place.move_actuator_x(0)
-
-    pick_and_place.move_actuator_x(nozzle_x[1])
-    pick_and_place.move_actuator_z(nozzle_high)
-
-    pick_and_place.close_gripper()
-
-    pick_and_place.move_actuator_z(trans_nozzle_high)
-    pick_and_place.move_actuator_x(deliver_nozzle_x)
-    pick_and_place.move_actuator_z(deliver_nozzle_z)
-    pick_and_place.open_gripper()
-
-    pick_and_place.move_actuator_z(0,False)
-    pick_and_place.move_actuator_x(0,False)   
+    #
+    # pick_and_place.move_actuator_z(0)
+    # pick_and_place.move_actuator_x(0)
+    #
+    # pick_and_place.move_actuator_x(nozzle_x[1])
+    # pick_and_place.move_actuator_z(nozzle_high)
+    #
+    # pick_and_place.close_gripper()
+    #
+    # pick_and_place.move_actuator_z(trans_nozzle_high)
+    # pick_and_place.move_actuator_x(deliver_nozzle_x)
+    # pick_and_place.move_actuator_z(deliver_nozzle_z)
+    # pick_and_place.open_gripper()
+    #
+    # pick_and_place.move_actuator_z(0,False)
+    # pick_and_place.move_actuator_x(0,False)
 
     # *******************************************************
 
+    # Joint
 
-    # # #Pick Nozzle
-    # pick_and_place.move_actuator_x(-1800)
-    # pick_and_place.move_actuator_z(-1250)
-    # pick_and_place.close_gripper()
+    # pick_and_place.start_right_conveyor()
+    # time.sleep(.7)
+    # pick_and_place.stop_right_conveyor()
 
-    # # #Safe Position 1
-    # pick_and_place.move_actuator_z(-1000)
+    #Home Pick and Place
 
-    # # #Place Nozzle
-    # pick_and_place.move_actuator_x(-4090)
-    # pick_and_place.move_actuator_z(-1380)
-    # pick_and_place.open_gripper()
-
-    # #Safe Position 2
-    # pick_and_place.move_actuator_z(-1000)
-
-    # # #Pick Joint
-    # pick_and_place.move_actuator_x(-850)
-    # pick_and_place.move_actuator_z(-1250)
-    # pick_and_place.close_gripper()
-
-    # #Safe Position 3
-    # pick_and_place.move_actuator_z(-1000)
-
-    # # Place Joint
-    # pick_and_place.move_actuator_x(-4390)
-    # pick_and_place.move_actuator_z(-1320)
-    # pick_and_place.open_gripper()
+    # for nozzle in nozzle_x:
 
     # pick_and_place.move_actuator_z(0)
     # pick_and_place.move_actuator_x(0)
+    #
+    # pick_and_place.move_actuator_x(joint_x[1])
+    # pick_and_place.move_actuator_z(joint_high)
+    #
+    # pick_and_place.close_gripper()
+    #
+    # pick_and_place.move_actuator_z(trans_joint_high)
+    #
+    # pick_and_place.move_actuator_x(deliver_joint_x)
+    # pick_and_place.move_actuator_z(deliver_joint_z)
+    #
+    # time.sleep(1)
+    #
     # pick_and_place.open_gripper()
+
+    #
+    #
+    # pick_and_place.move_actuator_z(0,False)
+    # pick_and_place.move_actuator_x(0,False)
 
 def oneCycle():
 
@@ -738,7 +754,7 @@ if __name__ == "__main__":
 
     # insertionAccuracy()
 
-    # moveElevatorIn()
+    moveElevatorIn()
 
     # movePickandPlace()
 
@@ -750,7 +766,7 @@ if __name__ == "__main__":
     # testHome()
     
     # for i in range(1):
-    oneCycle()
+    # oneCycle()
 
     # lubrication_test()
 
