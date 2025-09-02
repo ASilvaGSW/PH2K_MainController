@@ -227,8 +227,8 @@ void setup()
   gripper.setFuerza(gripperForce);
 
   // Initialize IR sensor pin
-  pinMode(IR_SENSOR_PIN, INPUT);
-  Serial.println("IR sensor on pin 21 initialized");
+  pinMode(IR_SENSOR_PIN, INPUT_PULLUP);
+  Serial.println("IR sensor on pin 21 initialized with pullup");
 
   // Send startup message
   byte startup_msg[] = {0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
