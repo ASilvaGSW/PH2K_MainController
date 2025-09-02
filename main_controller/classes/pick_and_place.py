@@ -43,6 +43,10 @@
 #   IN: None | OUT: [0x16, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
 # 0x17: Home Z axis using go_home function
 #   IN: None | OUT: [0x17, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+# 0x18: Move Left Conveyor Until IR Sensor Activation
+#   IN: [direction, speed_high, speed_low, acceleration] | OUT: [0x18, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+# 0x19: Move Right Conveyor Until IR Sensor Activation
+#   IN: [direction, speed_high, speed_low, acceleration] | OUT: [0x19, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
 # 0xFF: Power Off (Move All to Home Position)
 #   IN: None | OUT: [0xFF, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
 
@@ -205,6 +209,20 @@ class PickAndPlace:
     # 0x17: Home Z axis using go_home function
     def home_z_axis(self):
         status = self.canbus.send_message(self.canbus_id, [0x17] + [0x00]*7)[0]
+        return status
+
+    # 0x18: Move Left Conveyor Until IR Sensor Activation
+    def move_left_conveyor_until_sensor(self, direction, speed, acceleration):
+        speed_high = (speed >> 8) & 0xFF
+        speed_low = speed & 0xFF
+        status = self.canbus.send_message(self.canbus_id, [0x18, direction, speed_high, speed_low, acceleration, 0x00, 0x00, 0x00])[0]
+        return status
+
+    # 0x19: Move Right Conveyor Until IR Sensor Activation
+    def move_right_conveyor_until_sensor(self, direction, speed, acceleration):
+        speed_high = (speed >> 8) & 0xFF
+        speed_low = speed & 0xFF
+        status = self.canbus.send_message(self.canbus_id, [0x19, direction, speed_high, speed_low, acceleration, 0x00, 0x00, 0x00])[0]
         return status
 
     # 0xFF: Power Off (Move All to Home Position)

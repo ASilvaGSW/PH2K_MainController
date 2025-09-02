@@ -29,6 +29,8 @@
 #   IN: None | OUT: [0x11, status, ...]
 # 0x12: Home All Axes (Gantry + Elevator)
 #   IN: None | OUT: [0x12, status, ...]
+# 0x13: Move Elevator in Speed Mode until IR Sensor
+#   IN: [direction, speed_H, speed_L, acceleration] | OUT: [0x13, status, ...]
 # 0xFF: Power off - Move all to home position
 #   IN: None | OUT: None (moves all to home)
 
@@ -197,6 +199,13 @@ class ElevatorIn:
     # 0x12: Home All Axes (Gantry + Elevator)
     def home_all_axes(self):
         status = self.canbus.send_message(self.canbus_id, [0x12] + [0x00]*7)[0]
+        return status
+
+    # 0x13: Move Elevator in Speed Mode until IR Sensor
+    def move_elevator_until_sensor(self, direction, speed, acceleration):
+        speed_high = (speed >> 8) & 0xFF
+        speed_low = speed & 0xFF
+        status = self.canbus.send_message(self.canbus_id, [0x13, direction, speed_high, speed_low, acceleration, 0x00, 0x00, 0x00])[0]
         return status
 
     # 0xFF: Power off - Move all to home position
