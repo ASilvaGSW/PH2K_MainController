@@ -79,6 +79,20 @@
  * 0x15 - Reset Right Conveyor Movement Counter
  *   Response: [0x15, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
  * 
+ * 0x18 - Move Left Conveyor Until IR Sensor Activation
+ *   Parameters: [direction, speed_high, speed_low, acceleration]
+ *   Response: [0x18, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+ * 
+ * 0x19 - Move Right Conveyor Until IR Sensor Activation
+ *   Parameters: [direction, speed_high, speed_low, acceleration]
+ *   Response: [0x19, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+ * 
+ * 0x1A - Check Left IR Sensor Status
+ *   Response: [0x1A, 0x01, sensor_status, 0x00, 0x00, 0x00, 0x00, 0x00]
+ * 
+ * 0x1B - Check Right IR Sensor Status
+ *   Response: [0x1B, 0x01, sensor_status, 0x00, 0x00, 0x00, 0x00, 0x00]
+ * 
  * 0xFF - Power Off (Move All to Home Position)
  *   Description: Moves all actuators to home position and opens gripper
  *   Response: [0xFF, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
@@ -131,6 +145,10 @@ byte replyData[8];  // Buffer for CAN replies
 // Pins for the second CAN bus (MCP2515)
 #define CAN1_CS 26  // Changed from 15 to 26 to avoid upload issues
 #define CAN1_INT 25  // Changed from 2 to 25 to avoid boot issues
+
+// IR Sensor pins
+#define IR_SENSOR_LEFT_PIN 21   // GPIO21 - Left side IR sensor
+#define IR_SENSOR_RIGHT_PIN 22  // GPIO22 - Right side IR sensor
 
 // Instance of GripperDigital
 GripperDigital gripper(14, 16, 17);
@@ -286,6 +304,11 @@ void setup()
     Serial.println("Error initializing MCP2515");
     while (1);
   }
+
+  // Initialize IR sensors
+  pinMode(IR_SENSOR_LEFT_PIN, INPUT);
+  pinMode(IR_SENSOR_RIGHT_PIN, INPUT);
+  Serial.println("IR sensors initialized on pins 21 (left) and 22 (right)");
 
   // Create the task to listen on the TWAI bus on core 0
   xTaskCreatePinnedToCore(
@@ -879,6 +902,140 @@ void process_instruction(CanFrame instruction)
       send_twai_response(statusResponse);
       
 
+    }
+    break;
+
+    // ***************************** CASE 0x18 ***************************** //
+    // Move left conveyor until IR sensor is activated
+    case 0x18:
+    {
+      Serial.println("Case 0x18: Moving left conveyor until IR sensor activation");
+      
+      uint8_t dir = instruction.data[1];
+      uint16_t speed = (instruction.data[2] << 8) | instruction.data[3];
+      uint8_t acc = instruction.data[4];
+      
+      // Start conveyor movement
+      uint8_t payload[8] = {0};
+      conveyor_left.speed_mode(dir, speed, acc, payload);
+      
+      if (CAN1.sendMsgBuf(conveyor_left.motor_id, 0, 5, payload) != CAN_OK) {
+        Serial.println("Error sending conveyor command");
+        byte errorResponse[] = {0x18, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+        send_twai_response(errorResponse);
+        break;
+      }
+      
+      // Monitor IR sensor with timeout (30 seconds)
+      unsigned long startTime = millis();
+      const unsigned long timeout = 30000;
+      uint8_t sensorStatus = 0x03; // Default to timeout
+      
+      while (millis() - startTime < timeout) {
+        if (digitalRead(IR_SENSOR_LEFT_PIN) == LOW) { // Object detected
+          // Stop conveyor
+          uint8_t stopPayload[8] = {0};
+          conveyor_left.speed_mode(0, 0, 0, stopPayload);
+          CAN1.sendMsgBuf(conveyor_left.motor_id, 0, 5, stopPayload);
+          
+          sensorStatus = 0x01; // Success
+          incrementConveyorCounterL();
+          Serial.println("Left IR sensor activated - conveyor stopped");
+          break;
+        }
+        delay(10);
+      }
+      
+      if (sensorStatus == 0x03) {
+        // Timeout - stop conveyor
+        uint8_t stopPayload[8] = {0};
+        conveyor_left.speed_mode(0, 0, 0, stopPayload);
+        CAN1.sendMsgBuf(conveyor_left.motor_id, 0, 5, stopPayload);
+        Serial.println("Timeout - left conveyor stopped");
+      }
+      
+      byte response[] = {0x18, sensorStatus, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+    
+    // ***************************** CASE 0x19 ***************************** //
+    // Move right conveyor until IR sensor is activated
+    case 0x19:
+    {
+      Serial.println("Case 0x19: Moving right conveyor until IR sensor activation");
+      
+      uint8_t dir = instruction.data[1];
+      uint16_t speed = (instruction.data[2] << 8) | instruction.data[3];
+      uint8_t acc = instruction.data[4];
+      
+      // Start conveyor movement
+      uint8_t payload[8] = {0};
+      conveyor_right.speed_mode(dir, speed, acc, payload);
+      
+      if (CAN1.sendMsgBuf(conveyor_right.motor_id, 0, 5, payload) != CAN_OK) {
+        Serial.println("Error sending conveyor command");
+        byte errorResponse[] = {0x19, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+        send_twai_response(errorResponse);
+        break;
+      }
+      
+      // Monitor IR sensor with timeout (30 seconds)
+      unsigned long startTime = millis();
+      const unsigned long timeout = 30000;
+      uint8_t sensorStatus = 0x03; // Default to timeout
+      
+      while (millis() - startTime < timeout) {
+        if (digitalRead(IR_SENSOR_RIGHT_PIN) == LOW) { // Object detected
+          // Stop conveyor
+          uint8_t stopPayload[8] = {0};
+          conveyor_right.speed_mode(0, 0, 0, stopPayload);
+          CAN1.sendMsgBuf(conveyor_right.motor_id, 0, 5, stopPayload);
+          
+          sensorStatus = 0x01; // Success
+          incrementConveyorCounterR();
+          Serial.println("Right IR sensor activated - conveyor stopped");
+          break;
+        }
+        delay(10);
+      }
+      
+      if (sensorStatus == 0x03) {
+        // Timeout - stop conveyor
+        uint8_t stopPayload[8] = {0};
+        conveyor_right.speed_mode(0, 0, 0, stopPayload);
+        CAN1.sendMsgBuf(conveyor_right.motor_id, 0, 5, stopPayload);
+        Serial.println("Timeout - right conveyor stopped");
+      }
+      
+      byte response[] = {0x19, sensorStatus, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x1A ***************************** //
+    // Check left IR sensor status
+    case 0x1A:
+    {
+      Serial.println("Case 0x1A: Check left IR sensor status");
+      
+      uint8_t sensorStatus = digitalRead(IR_SENSOR_LEFT_PIN) == LOW ? 0x01 : 0x00;
+      
+      byte response[] = {0x1A, 0x01, sensorStatus, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x1B ***************************** //
+    // Check right IR sensor status
+    case 0x1B:
+    {
+      Serial.println("Case 0x1B: Check right IR sensor status");
+      
+      uint8_t sensorStatus = digitalRead(IR_SENSOR_RIGHT_PIN) == LOW ? 0x01 : 0x00;
+      
+      byte response[] = {0x1B, 0x01, sensorStatus, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
     }
     break;
 

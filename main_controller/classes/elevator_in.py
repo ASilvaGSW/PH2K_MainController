@@ -31,6 +31,8 @@
 #   IN: None | OUT: [0x12, status, ...]
 # 0x13: Move Elevator in Speed Mode until IR Sensor
 #   IN: [direction, speed_H, speed_L, acceleration] | OUT: [0x13, status, ...]
+# 0x14: Check IR Sensor Status
+#   IN: None | OUT: [0x14, 0x01, sensor_status, ...]
 # 0xFF: Power off - Move all to home position
 #   IN: None | OUT: None (moves all to home)
 
@@ -207,6 +209,14 @@ class ElevatorIn:
         speed_low = speed & 0xFF
         status = self.canbus.send_message(self.canbus_id, [0x13, direction, speed_high, speed_low, acceleration, 0x00, 0x00, 0x00])[0]
         return status
+
+    # 0x14: Check IR Sensor Status
+    def check_ir_sensor_status(self):
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x14] + [0x00]*7)
+        if status == 'success':
+            sensor_status = reply_data[2]  # Third byte contains sensor status (0x01=object detected, 0x00=no object)
+            return status, sensor_status
+        return status, None
 
     # 0xFF: Power off - Move all to home position
     def power_off(self):

@@ -47,6 +47,10 @@
 #   IN: [direction, speed_high, speed_low, acceleration] | OUT: [0x18, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
 # 0x19: Move Right Conveyor Until IR Sensor Activation
 #   IN: [direction, speed_high, speed_low, acceleration] | OUT: [0x19, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+# 0x1A: Check Left IR Sensor Status
+#   IN: None | OUT: [0x1A, 0x01, sensor_status, 0x00, 0x00, 0x00, 0x00, 0x00]
+# 0x1B: Check Right IR Sensor Status
+#   IN: None | OUT: [0x1B, 0x01, sensor_status, 0x00, 0x00, 0x00, 0x00, 0x00]
 # 0xFF: Power Off (Move All to Home Position)
 #   IN: None | OUT: [0xFF, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
 
@@ -224,6 +228,22 @@ class PickAndPlace:
         speed_low = speed & 0xFF
         status = self.canbus.send_message(self.canbus_id, [0x19, direction, speed_high, speed_low, acceleration, 0x00, 0x00, 0x00])[0]
         return status
+
+    # 0x1A: Check Left IR Sensor Status
+    def check_left_ir_sensor_status(self):
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x1A] + [0x00]*7)
+        if status == 'success':
+            sensor_status = reply_data[2]  # Third byte contains sensor status (0x01=object detected, 0x00=no object)
+            return status, sensor_status
+        return status, None
+
+    # 0x1B: Check Right IR Sensor Status
+    def check_right_ir_sensor_status(self):
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x1B] + [0x00]*7)
+        if status == 'success':
+            sensor_status = reply_data[2]  # Third byte contains sensor status (0x01=object detected, 0x00=no object)
+            return status, sensor_status
+        return status, None
 
     # 0xFF: Power Off (Move All to Home Position)
     def power_off(self):

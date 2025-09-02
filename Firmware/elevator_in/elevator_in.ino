@@ -31,6 +31,8 @@
 //   IN: None | OUT: [0x12, status, ...]
 // 0x13: Move Elevator in Speed Mode until IR Sensor
 //   IN: [direction, speed_H, speed_L, acceleration] | OUT: [0x13, status, ...]
+// 0x14: Check IR Sensor Status
+//   IN: None | OUT: [0x14, 0x01, sensor_status, ...] (sensor_status: 0x01=object detected, 0x00=no object)
 // 0xFF: Power off - Move all to home position
   //   IN: None | OUT: None (moves all to home)
 
@@ -728,6 +730,22 @@ void process_instruction(CanFrame instruction)
       saveElevatorZCounter();
       
       byte statusResponse[] = {0x13, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(statusResponse);
+    }
+    break;
+
+    // ***************************** CASE 0x14 ***************************** //
+    // Check IR Sensor Status
+    case 0x14:
+    {
+      Serial.println("Case 0x14: Check IR Sensor Status");
+      
+      uint8_t sensorStatus = digitalRead(IR_SENSOR_PIN);
+      
+      // Return sensor status: 0x01 if LOW (object detected), 0x00 if HIGH (no object)
+      uint8_t responseStatus = (sensorStatus == LOW) ? 0x01 : 0x00;
+      
+      byte statusResponse[] = {0x14, 0x01, responseStatus, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(statusResponse);
     }
     break;
