@@ -57,7 +57,7 @@ class Canbus:
             
             for cmd in commands:
                 try:
-                    print(f"Ejecutando: {cmd}")
+                    # print(f"Ejecutando: {cmd}")
                     result = subprocess.run(
                         cmd,
                         shell=True,

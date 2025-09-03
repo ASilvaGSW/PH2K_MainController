@@ -81,6 +81,7 @@ class LubricationFeeder:
         duration_high = (duration >> 8) & 0xFF
         duration_low = duration & 0xFF
         status = self.canbus.send_message(self.canbus_id, [0x03, duration_high, duration_low] + [0x00]*5)[0]
+        time.sleep(.5)
         return status
 
     # 0x04: Activate Valve 2 (Secondary lubrication valve)
@@ -88,6 +89,7 @@ class LubricationFeeder:
         duration_high = (duration >> 8) & 0xFF
         duration_low = duration & 0xFF
         status = self.canbus.send_message(self.canbus_id, [0x04, duration_high, duration_low] + [0x00]*5)[0]
+        time.sleep(.5)
         return status
 
     # 0x05: Move Feeder (Speed mode with direction & acceleration)
@@ -181,11 +183,11 @@ class LubricationFeeder:
 
     # 0x17: Open Hose Holder (Servo to 0 degrees)
     def open_hose_holder(self):
-        return self.set_hose_holder_angle(25)
+        return self.set_hose_holder_angle(10)
 
     # 0x18: Close Hose Holder (Servo to 0 degrees)
     def close_hose_holder(self):
-        return self.set_hose_holder_angle(35)
+        return self.set_hose_holder_angle(17)
 
     # 0x19: Attach Electromagnet (Activate electromagnet)
     def attach_electromagnet(self):
@@ -223,11 +225,11 @@ class LubricationFeeder:
     # Convenience methods for common operations
     def lubricate_joint(self, duration=1000):
         """Activate primary lubrication valve for specified duration"""
-        return self.activate_valve_1(duration)
+        return self.activate_valve_2(duration)
 
     def lubricate_nozzle(self, duration=1000):
         """Activate secondary lubrication valve for specified duration"""
-        return self.activate_valve_2(duration)
+        return self.activate_valve_1(duration)
 
     def feed_hose(self, speed=500, direction=0, duration=3):
         """Move main feeder at specified speed and direction for a duration, then stop"""
@@ -303,10 +305,11 @@ class LubricationFeeder:
         """
         if angle < 0 or angle > 180:
             print(f"Error: Angle {angle} out of range (0-180)")
-            return 2
+            return "failed"
             
         status, reply_data = self.canbus.send_message(
             self.canbus_id, 
-            [0x1E, angle, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+            [0x1E, angle, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
+            False
         )
         return status

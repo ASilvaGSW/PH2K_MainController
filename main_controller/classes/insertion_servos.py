@@ -16,7 +16,7 @@ class InsertionServos:
         self.canbus_id = canbus_id
 
         self.slider_joint_home_pos = 160
-        self.slider_joint_receive_pos = 152
+        self.slider_joint_receive_pos = 150
         self.slider_joint_insertion_pos = 5
 
         self.clamp_joint_open_pos = 20
