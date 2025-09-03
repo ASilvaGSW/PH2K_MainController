@@ -306,8 +306,8 @@ void setup()
   }
 
   // Initialize IR sensors
-  pinMode(IR_SENSOR_LEFT_PIN, INPUT);
-  pinMode(IR_SENSOR_RIGHT_PIN, INPUT);
+  pinMode(IR_SENSOR_LEFT_PIN, INPUT_PULLUP);
+  pinMode(IR_SENSOR_RIGHT_PIN, INPUT_PULLUP);
   Serial.println("IR sensors initialized on pins 21 (left) and 22 (right)");
 
   // Create the task to listen on the TWAI bus on core 0
