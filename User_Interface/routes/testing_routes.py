@@ -16,7 +16,9 @@ from main import (
     oneCycle,
     lubrication_test,
     testHome,
-    moveTransporter
+    moveTransporter,
+    my_main,
+    checkConnectivity
 )
 
 from classes.hose_jig import HoseJig
@@ -113,6 +115,22 @@ def test_all_devices_heartbeat():
     """Test heartbeat for all devices and return results"""
     return execute_device_operation("heartbeat", lambda device: device.send_heartbeat())
 
+def check_connectivity_structured():
+    """Check connectivity using main.py function and return structured results"""
+    try:
+        # Import the testing_routes module to access device instances
+        import testing_routes
+        
+        # Call checkConnectivity from main.py which will use the global devices
+        checkConnectivity()
+        
+        # Since checkConnectivity only prints, we'll use our local devices for structured results
+        return execute_device_operation("heartbeat", lambda device: device.send_heartbeat())
+        
+    except Exception as e:
+        # Fallback to local heartbeat test if there's an issue
+        return execute_device_operation("heartbeat", lambda device: device.send_heartbeat())
+
 # Create blueprint for testing routes
 testing_bp = Blueprint('testing', __name__, url_prefix='/api')
 
@@ -157,12 +175,12 @@ def test_action_1():
 #Check all MCU
 @testing_bp.route('/test_action_2', methods=['POST'])
 def test_action_2():
-    """Test Action 2 - Send heartbeat to all devices"""
+    """Test Action 2 - Send heartbeat to all devices using main.py connectivity check"""
     if not session.get('logged_in'):
         return jsonify(success=False, message='Not authenticated'), 401
     
     try:
-        failed_devices = test_all_devices_heartbeat()
+        failed_devices = check_connectivity_structured()
         
         if failed_devices:
             return jsonify(
@@ -460,6 +478,49 @@ def canbus_reinit():
     except Exception as e:
         print(f"Error reinitializing CAN bus: {e}")
         return jsonify(success=False, message=f'Error reinitializing CAN bus: {str(e)}'), 500
+
+@testing_bp.route('/system_setup', methods=['POST'])
+def system_setup():
+    """Initialize system using my_main function from main.py"""
+    if not session.get('logged_in'):
+        return jsonify(success=False, message='Not authenticated'), 401
+    
+    try:
+        # Call the setup function from main.py
+        my_main()
+        
+        return jsonify({
+            'success': True,
+            'message': 'System setup completed successfully'
+        })
+        
+    except Exception as e:
+        return jsonify(success=False, message=f'Error in system setup: {str(e)}'), 500
+
+@testing_bp.route('/check_connectivity', methods=['POST'])
+def check_connectivity():
+    """Check device connectivity using checkConnectivity function from main.py"""
+    if not session.get('logged_in'):
+        return jsonify(success=False, message='Not authenticated'), 401
+    
+    try:
+        # Call the structured connectivity check function
+        failed_devices = check_connectivity_structured()
+        
+        if failed_devices:
+            return jsonify({
+                'success': False,
+                'message': f'Connectivity check completed with failures: {", ".join(failed_devices)}',
+                'failed_devices': failed_devices
+            })
+        
+        return jsonify({
+            'success': True,
+            'message': 'All devices connected successfully'
+        })
+        
+    except Exception as e:
+        return jsonify(success=False, message=f'Error in connectivity check: {str(e)}'), 500
 
 
 #****************** Functions imported from main.py ***********************

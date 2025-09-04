@@ -76,6 +76,14 @@ def my_main():
     transporter_fuyus = TransporterFuyus(canbus, CANBUS_ID_TRANSPORTER_FUYUS)
     transporter_grippers = TransporterGrippers(canbus, CANBUS_ID_TRANSPORTER_GRIPPERS)
 
+    checkConnectivity()
+
+#Check connectivity
+def checkConnectivity():
+    
+    global canbus, hose_jig, hose_puller, puller_extension, insertion_jig, elevator_in, pick_and_place, insertion_servos
+    global lubrication_feeder, transporter_fuyus, transporter_grippers
+
     print("Hose Jig Connected") if hose_jig.send_heartbeat() == "success" else print("Hose Jig Not Connected")
     print("Hose Puller Connected") if hose_puller.send_heartbeat() == "success" else print("Hose Puller Not Connected")
     print("Puller Extension Connected") if puller_extension.send_heartbeat() == "success" else print("Puller Extension Not Connected")
@@ -86,6 +94,7 @@ def my_main():
     print("Lubrication Feeder Connected") if lubrication_feeder.send_heartbeat() == "success" else print("Lubrication Feeder Not Connected")
     print("Transporter Fuyus Connected") if transporter_fuyus.send_heartbeat() == "success" else print("Transporter Fuyus Not Connected")
     print("Transporter Grippers Connected") if transporter_grippers.send_heartbeat() == "success" else print("Transporter Grippers Not Connected")
+
 
 
 #Move Hose Puller
@@ -589,37 +598,28 @@ def oneCycle():
 
 #Test transporter and grippers
 def moveTransporter():
-    # Try to get transporter instances from the calling module if they exist
-    import sys
-    calling_module = sys.modules.get('routes.testing_routes')
-    if calling_module and hasattr(calling_module, 'transporter_fuyus') and hasattr(calling_module, 'transporter_grippers'):
-        local_transporter_fuyus = calling_module.transporter_fuyus
-        local_transporter_grippers = calling_module.transporter_grippers
-    else:
-        global transporter_fuyus, transporter_grippers
-        local_transporter_fuyus = transporter_fuyus
-        local_transporter_grippers = transporter_grippers
+    global transporter_fuyus, transporter_grippers
     
     # Test TransporterFuyus functionality
     print("\n--- Testing TransporterFuyus ---")
     
     # Home X axis
     print("Homing X axis...")
-    result = local_transporter_fuyus.home_x_axis()
+    result = transporter_fuyus.home_x_axis()
     print(f"Result: {result}")
     
     # Move X axis to different positions
     print("Moving X axis to position 100...")
-    result = local_transporter_fuyus.move_x_axis(100)
+    result = transporter_fuyus.move_x_axis(100)
     print(f"Result: {result}")
     
     print("Moving X axis to position -100...")
-    result = local_transporter_fuyus.move_x_axis(-100)
+    result = transporter_fuyus.move_x_axis(-100)
     print(f"Result: {result}")
     
     # Move all steppers
     print("Moving all steppers to position 1000...")
-    result = local_transporter_fuyus.move_all_steppers(0)
+    result = transporter_fuyus.move_all_steppers(0)
     print(f"Result: {result}")
     
     # Test TransporterGrippers functionality
@@ -627,13 +627,13 @@ def moveTransporter():
     
     # Open and close all grippers
     print("Opening all grippers...")
-    result = local_transporter_grippers.open_all_grippers()
+    result = transporter_grippers.open_all_grippers()
     print(f"Result: {result}")
     
     time.sleep(2)
     
     print("Closing all grippers...")
-    result = local_transporter_grippers.close_all_grippers()
+    result = transporter_grippers.close_all_grippers()
     print(f"Result: {result}")
     
   
