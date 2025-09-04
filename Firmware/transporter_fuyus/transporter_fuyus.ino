@@ -80,8 +80,8 @@ byte replyData[8];  // Buffer for CAN replies
 
 // Stepper Motor Configuration
 #define STEPS_PER_REVOLUTION 200  // Number of steps per revolution
-#define MAX_SPEED 1500000  // Maximum speed in steps per second
-#define ACCELERATION 1500000  // Acceleration in steps per second squared
+#define MAX_SPEED 1000  // Maximum speed in steps per second
+#define ACCELERATION 500  // Acceleration in steps per second squared
 
 // Device CAN ID (only process messages with this ID)
 #define DEVICE_CAN_ID 0x021
@@ -482,20 +482,54 @@ void process_instruction(CanFrame instruction)
       stepper2.moveTo(targetPosition);
       stepper3.moveTo(targetPosition);
       
-      // Move all steppers to their positions simultaneously
-      while (stepper1.distanceToGo() != 0 || stepper2.distanceToGo() != 0 || stepper3.distanceToGo() != 0) {
+      // Move all steppers to their positions simultaneously with timeout
+      unsigned long startTime = millis();
+      const unsigned long moveTimeout = 10000; // 10 second timeout
+      bool success = true;
+      
+      // Imprimir estado inicial
+      Serial.print("Posición inicial - Stepper1: "); Serial.print(stepper1.currentPosition());
+      Serial.print(", Stepper2: "); Serial.print(stepper2.currentPosition());
+      Serial.print(", Stepper3: "); Serial.println(stepper3.currentPosition());
+      
+      int debugCounter = 0;
+      while ((stepper1.distanceToGo() != 0 || stepper2.distanceToGo() != 0 || stepper3.distanceToGo() != 0) && 
+             (millis() - startTime < moveTimeout)) {
         stepper1.run();
         stepper2.run();
         stepper3.run();
+        
+        // Imprimir estado cada 500 iteraciones
+        if (++debugCounter >= 500) {
+          debugCounter = 0;
+          Serial.print("Moviendo - Stepper1: "); Serial.print(stepper1.currentPosition());
+          Serial.print("/"); Serial.print(stepper1.targetPosition());
+          Serial.print(", Stepper2: "); Serial.print(stepper2.currentPosition());
+          Serial.print("/"); Serial.print(stepper2.targetPosition());
+          Serial.print(", Stepper3: "); Serial.print(stepper3.currentPosition());
+          Serial.print("/"); Serial.println(stepper3.targetPosition());
+        }
+        
+        // Add a small delay to prevent watchdog issues
+        delay(1);
+      }
+      
+      // Check if we timed out
+      if (millis() - startTime >= moveTimeout) {
+        Serial.println("Stepper movement timed out!");
+        success = false;
       }
       
       delay(200);
       
-      // Increment all stepper counters
-      incrementStepperCounters();
+      // Solo incrementar contadores si el movimiento fue exitoso
+      if (success) {
+        // Increment all stepper counters
+        incrementStepperCounters();
+      }
       
       // Send response after movement is complete
-      byte response[] = {0x07, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      byte response[] = {0x07, success ? 0x01 : 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(response);
     }
     break;
@@ -554,14 +588,24 @@ void process_instruction(CanFrame instruction)
       stepper2.moveTo(0);
       stepper3.moveTo(0);
       
-      // Move all steppers to home simultaneously
-      while (stepper1.distanceToGo() != 0 || stepper2.distanceToGo() != 0 || stepper3.distanceToGo() != 0) {
+      // Move all steppers to home simultaneously with timeout
+      unsigned long startTime = millis();
+      const unsigned long moveTimeout = 10000; // 10 second timeout
+      
+      while ((stepper1.distanceToGo() != 0 || stepper2.distanceToGo() != 0 || stepper3.distanceToGo() != 0) && 
+             (millis() - startTime < moveTimeout)) {
         stepper1.run();
         stepper2.run();
         stepper3.run();
+        // Add a small delay to prevent watchdog issues
+        delay(1);
       }
       
-      Serial.println("All steppers homed");
+      if (millis() - startTime >= moveTimeout) {
+        Serial.println("Stepper homing timed out!");
+      } else {
+        Serial.println("All steppers homed successfully");
+      }
       
       // No response for power off command
     }

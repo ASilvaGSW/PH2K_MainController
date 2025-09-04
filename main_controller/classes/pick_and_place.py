@@ -51,6 +51,10 @@
 #   IN: None | OUT: [0x1A, 0x01, sensor_status, 0x00, 0x00, 0x00, 0x00, 0x00]
 # 0x1B: Check Right IR Sensor Status
 #   IN: None | OUT: [0x1B, 0x01, sensor_status, 0x00, 0x00, 0x00, 0x00, 0x00]
+# 0x1C: Move Actuator X to Absolute Position with Speed Control
+#   IN: [pos_high, pos_low, orientation, speed_high, speed_low] | OUT: [0x1C, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+# 0x1D: Move Actuator Z to Absolute Position with Speed Control
+#   IN: [pos_high, pos_low, orientation, speed_high, speed_low] | OUT: [0x1D, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
 # 0xFF: Power Off (Move All to Home Position)
 #   IN: None | OUT: [0xFF, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
 
@@ -244,6 +248,36 @@ class PickAndPlace:
             sensor_status = reply_data[2]  # Third byte contains sensor status (0x01=object detected, 0x00=no object)
             return status, sensor_status
         return status, None
+
+    # 0x1C: Move Actuator X to Absolute Position with Speed Control
+    def move_actuator_x_with_speed(self, position, speed, flag=True):
+        orientation = 0
+        if position < 0:
+            orientation = 1
+            position = abs(position)
+        
+        pos_high = (position >> 8) & 0xFF
+        pos_low = position & 0xFF
+        speed_high = (speed >> 8) & 0xFF
+        speed_low = speed & 0xFF
+        
+        status = self.canbus.send_message(self.canbus_id, [0x1C, pos_high, pos_low, orientation, speed_high, speed_low, 0x00, 0x00], flag)[0]
+        return status
+
+    # 0x1D: Move Actuator Z to Absolute Position with Speed Control
+    def move_actuator_z_with_speed(self, position, speed, flag=True):
+        orientation = 0
+        if position < 0:
+            orientation = 1
+            position = abs(position)
+        
+        pos_high = (position >> 8) & 0xFF
+        pos_low = position & 0xFF
+        speed_high = (speed >> 8) & 0xFF
+        speed_low = speed & 0xFF
+        
+        status = self.canbus.send_message(self.canbus_id, [0x1D, pos_high, pos_low, orientation, speed_high, speed_low, 0x00, 0x00], flag)[0]
+        return status
 
     # 0xFF: Power Off (Move All to Home Position)
     def power_off(self):

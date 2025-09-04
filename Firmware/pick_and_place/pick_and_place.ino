@@ -533,6 +533,8 @@ void process_instruction(CanFrame instruction)
       send_twai_response(statusResponse);
     }
     break;
+    
+
 
     // ***************************** CASE 0x06 ***************************** //
     // Read actuator movement counter Z
@@ -831,6 +833,88 @@ void process_instruction(CanFrame instruction)
       
       // Send response with status
       byte statusResponse[] = {0x17, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(statusResponse);
+    }
+    break;
+
+    // ***************************** CASE 0x18 ***************************** //
+    // Move actuator X to absolute position with speed control
+    case 0x1C:
+    {
+      Serial.println("Case 0x18: Moving actuator X to absolute position with speed control");
+
+      uint8_t pos_high = instruction.data[1];
+      uint8_t pos_low = instruction.data[2];
+      uint8_t orientation = instruction.data[3];
+      uint16_t speed = instruction.data[4] << 8 | instruction.data[5]; // Speed parameter
+
+      int16_t angle = (pos_high << 8) | pos_low;
+      if (orientation == 1)
+      {
+        angle = angle * -1;
+      }
+
+      uint8_t payload[8] = {0};  // Initialize buffer for CAN message
+      x_axis.abs_mode_with_speed_control(angle, speed, payload);  // Generate the CAN message with speed control
+
+      if (CAN1.sendMsgBuf(x_axis.motor_id, 0, 8, payload) != CAN_OK)
+      {
+        Serial.println("Error sending actuator command");
+        byte errorResponse[] = {0x18, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK
+        send_twai_response(errorResponse);
+        break;
+      }
+
+      // Wait for reply and get status
+      uint8_t status = waitForCanReply(x_axis.motor_id);
+
+      if (status == 0x01) {
+        incrementActuatorCounterX();
+      }
+
+      // Send response with status
+      byte statusResponse[] = {0x18, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(statusResponse);
+    }
+    break;
+
+    // ***************************** CASE 0x19 ***************************** //
+    // Move actuator Z to absolute position with speed control
+    case 0x1D:
+    {
+      Serial.println("Case 0x19: Moving actuator Z to absolute position with speed control");
+
+      uint8_t pos_high = instruction.data[1];
+      uint8_t pos_low = instruction.data[2];
+      uint8_t orientation = instruction.data[3];
+      uint16_t speed = instruction.data[4] << 8 | instruction.data[5]; // Speed parameter
+
+      int16_t angle = (pos_high << 8) | pos_low;
+      if (orientation == 1)
+      {
+        angle = angle * -1;
+      }
+
+      uint8_t payload[8] = {0};  // Initialize buffer for CAN message
+      z_axis.abs_mode_with_speed_control(angle, speed, payload);  // Generate the CAN message with speed control
+
+      if (CAN1.sendMsgBuf(z_axis.motor_id, 0, 8, payload) != CAN_OK)
+      {
+        Serial.println("Error sending actuator command");
+        byte errorResponse[] = {0x19, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK
+        send_twai_response(errorResponse);
+        break;
+      }
+
+      // Wait for reply and get status
+      uint8_t status = waitForCanReply(z_axis.motor_id);
+
+      if (status == 0x01) {
+        incrementActuatorCounterZ();
+      }   
+
+      // Send response with status
+      byte statusResponse[] = {0x19, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(statusResponse);
     }
     break;
