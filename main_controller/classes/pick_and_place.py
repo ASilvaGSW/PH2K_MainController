@@ -135,7 +135,7 @@ class PickAndPlace:
         status = self.canbus.send_message(self.canbus_id, [0x0A, direction, speed_high, speed_low, acceleration, 0x00, 0x00, 0x00])[0]
         return status
     
-    def start_left_conveyor(self,speed=500):
+    def start_left_conveyor(self,speed=1500):
         return self.move_left_conveyor(0, speed, 236)
 
     def stop_left_conveyor(self):
@@ -148,7 +148,7 @@ class PickAndPlace:
         status = self.canbus.send_message(self.canbus_id, [0x0B, direction, speed_high, speed_low, acceleration, 0x00, 0x00, 0x00])[0]
         return status
 
-    def start_right_conveyor(self,speed=500):
+    def start_right_conveyor(self,speed=1500):
         return self.move_right_conveyor(0, speed, 236)
 
     def stop_right_conveyor(self):
@@ -223,14 +223,14 @@ class PickAndPlace:
     def move_left_conveyor_until_sensor(self, direction, speed, acceleration=236):
         speed_high = (speed >> 8) & 0xFF
         speed_low = speed & 0xFF
-        status = self.canbus.send_message(self.canbus_id, [0x18, direction, speed_high, speed_low, acceleration, 0x00, 0x00, 0x00])[0]
+        status = self.canbus.send_message(self.canbus_id, [0x18, direction, speed_high, speed_low, acceleration, 0x00, 0x00, 0x00],max_retries=300)[0]
         return status
 
     # 0x19: Move Right Conveyor Until IR Sensor Activation
     def move_right_conveyor_until_sensor(self, direction, speed, acceleration=236):
         speed_high = (speed >> 8) & 0xFF
         speed_low = speed & 0xFF
-        status = self.canbus.send_message(self.canbus_id, [0x19, direction, speed_high, speed_low, acceleration, 0x00, 0x00, 0x00])[0]
+        status = self.canbus.send_message(self.canbus_id, [0x19, direction, speed_high, speed_low, acceleration, 0x00, 0x00, 0x00],max_retries=300)[0]
         return status
 
     # 0x1A: Check Left IR Sensor Status

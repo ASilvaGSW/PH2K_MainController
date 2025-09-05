@@ -183,7 +183,7 @@ class LubricationFeeder:
 
     # 0x17: Open Hose Holder (Servo to 0 degrees)
     def open_hose_holder(self):
-        return self.set_hose_holder_angle(10)
+        return self.set_hose_holder_angle(0)
 
     # 0x18: Close Hose Holder (Servo to 0 degrees)
     def close_hose_holder(self):

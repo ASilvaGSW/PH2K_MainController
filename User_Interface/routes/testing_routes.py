@@ -1063,6 +1063,8 @@ def testHome():
     
     print("\nAll homing tests completed!")
 
+    return "success"
+
 
 #Test lubrication
 def lubrication_test():

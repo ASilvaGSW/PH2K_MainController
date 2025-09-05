@@ -111,11 +111,11 @@ class Canbus:
                     if frame_type is not None and can_id is not None and can_id == search_can_id:
                         found_id = True
                         if len(can_data) > 1 and function_id == can_data[0]:
-                            if can_data[1] == 1 or can_data[1] == 3:
+                            if can_data[1] == 1:
                                 elapsed = time.time() - start_time
                                 print(f"Valid response (success) from CAN ID {search_can_id}: {can_data} (found after {elapsed:.3f}s)")
                                 return 'success', can_data
-                            elif can_data[1] == 2 or can_data[1] == 4:
+                            elif can_data[1] == 2 or can_data[1] == 4  or can_data[1] == 3:
                                 elapsed = time.time() - start_time
                                 print(f"Valid response (error) from CAN ID {search_can_id}: {can_data} (found after {elapsed:.3f}s)")
                                 return 'error', can_data

@@ -178,7 +178,7 @@ class ElevatorIn:
 
     # 0x10: Home Individual Actuator
     def home_individual_actuator(self, actuator_id):
-        status = self.canbus.send_message(self.canbus_id, [0x10, actuator_id] + [0x00]*6)[0]
+        status = self.canbus.send_message(self.canbus_id, [0x10, actuator_id] + [0x00]*6,max_retries=300)[0]
         return status
 
     def home_gantry_x(self):
