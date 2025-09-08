@@ -290,11 +290,11 @@ def moveElevatorIn():
     transportation_high = -500
 
     #left
-    pick_left = [-225,-315,-840]
+    pick_left = [-225,-315,-820]
     deliver_left = [-225,-1800,-500]
     
     #Right
-    pick_right = [-1358,-317,-860]
+    pick_right = [-1358,-317,-850]
     deliver_right = [-1353,-1800,-500]
 
 
@@ -302,10 +302,12 @@ def moveElevatorIn():
     # if elevator_in.home_gantry_z() != "success": return "error01"
     # if elevator_in.home_gantry_x() != "success": return "error02"
     # if elevator_in.home_gantry_y() != "success": return "error03"
-    # if elevator_in.home_elevator_z() != "success": return "error04"
+    if elevator_in.home_elevator_z() != "success": return "error04"
 
     #Alignment For 4 Cassettes, Will change by IR Sensor on Saturday
-    if elevator_in.move_elevator_z(-12500) != "success": return "error05"
+    # if elevator_in.move_elevator_z(-12500) != "success": return "error05"
+    if elevator_in.move_elevator_until_sensor(0, 200) != "success": return "error05"
+
 
     #Left Side
     if elevator_in.move_gantry_array(pick_left) != "success": return "error06"
@@ -330,11 +332,11 @@ def moveElevatorIn():
     #conveyors
     if pick_and_place.start_left_conveyor() != "success": return "error22"
     if pick_and_place.start_right_conveyor() != "success": return "error23"
-    time.sleep(10)
+    time.sleep(3)
     if pick_and_place.stop_left_conveyor() != "success": return "error24"
     if pick_and_place.stop_right_conveyor() != "success": return "error25"
 
-    alignCassette()
+    # alignCassette()
 
     return "success"
 
@@ -363,7 +365,7 @@ def mapNozzleCassette():
 
 
 #Move Pick and Place
-def movePickandPlace():
+def movePickandPlace(n=1):
     global pick_and_place, insertion_servos, insertion_jig
 
     receiving_x = -8500
@@ -381,19 +383,21 @@ def movePickandPlace():
     # if insertion_jig.move_x_axis(receiving_x) != "success": return "error05"
     # if pick_and_place.open_gripper() != "success": return "error06"
 
+
     #Nozzle Data
     nozzle_high = -1255
-    nozzle_x = [-617,-502]
+    nozzle_x = [-640,-502,-347,-220,-70]
     trans_nozzle_high = -1000
-    deliver_nozzle_x = -3902
+    deliver_nozzle_x = -3900
     deliver_nozzle_z = -1248
 
     # Joint Data
     joint_high = -1243
-    joint_x = [-1800,-1710]
+    joint_x = [-1800,-1715,-1635,-1555,-1475]
     trans_joint_high = -1000
     deliver_joint_x = -4190
     deliver_joint_z = -1262
+
 
     # Validate Home
 
@@ -402,9 +406,8 @@ def movePickandPlace():
 
 
     # Pick Nozzle
-    if pick_and_place.move_actuator_x(nozzle_x[1]) != "success": return "error09"
+    if pick_and_place.move_actuator_x(nozzle_x[n]) != "success": return "error09"
     if pick_and_place.move_actuator_z(nozzle_high) != "success": return "error10"
-
     if pick_and_place.close_gripper() != "success": return "error11"
 
 
@@ -430,7 +433,7 @@ def movePickandPlace():
     if pick_and_place.move_actuator_x(0) != "success": return "error19"
 
     # Pick Joint
-    if pick_and_place.move_actuator_x(joint_x[1]) != "success": return "error21"
+    if pick_and_place.move_actuator_x(joint_x[n]) != "success": return "error21"
     if pick_and_place.move_actuator_z(joint_high) != "success": return "error22"
     if pick_and_place.close_gripper() != "success": return "error23"
 
@@ -738,13 +741,22 @@ def alignCassette():
 
     if pick_and_place.move_left_conveyor_until_sensor(0,1000) != "success" : return "error01"
     if pick_and_place.move_right_conveyor_until_sensor(0,1000) != "success" : return "error02"
+    # #
+    # # pick_and_place.move_left_conveyor(0, 50, 236)
+    # # pick_and_place.move_left_conveyor(0, 0, 236)
     #
-    # pick_and_place.move_left_conveyor(0, 50, 236)
-    # pick_and_place.move_left_conveyor(0, 0, 236)
-    #
-    # pick_and_place.move_right_conveyor(0, 50, 236)
-    # time.sleep(1)
-    # pick_and_place.move_right_conveyor(0, 0, 236)
+    pick_and_place.move_right_conveyor(0, 50, 236)
+    time.sleep(1.3)
+    pick_and_place.move_right_conveyor(0, 0, 236)
+
+def testIR():
+    global elevator_in
+
+    # print(elevator_in.check_ir_sensor_status())
+
+    # print("Testing home_elevator_z...")
+    # result = elevator_in.home_elevator_z()
+    # print(f"Result: {result}")
 
 
 
@@ -754,9 +766,9 @@ if __name__ == "__main__":
     #
     # result = moveElevatorIn()
     # print(f"moveElevatorIn result: {result}")
-    # # #
-    # result = movePickandPlace()
-    # print(f"movePickandPlace result: {result}")
+    # #
+    result = movePickandPlace(4)
+    print(f"movePickandPlace result: {result}")
 
     # result = insertionRoutine()
     # print(f"insertionRoutine result: {result}")
@@ -779,6 +791,7 @@ if __name__ == "__main__":
 
     # alignCassette()
 
+    # testIR()
 
     canbus.close_canbus()
 
