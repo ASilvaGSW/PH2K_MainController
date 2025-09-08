@@ -12,7 +12,7 @@
 // 0x07: Reset Actuator Counter
 //   IN: [actuator_id] | OUT: [0x07, 0x01, ...] (ID: 1=X_axis, 2=stepper1, 3=stepper2, 4=stepper3)
 // 0x08: Move All Steppers to Same Position
-//   IN: [pos_H, pos_L, direction] | OUT: [0x08, status, ...]
+//   IN: [pos_H, pos_M, pos_L, direction] | OUT: [0x08, status, ...]
 // 0x09: Home X Axis
 //   IN: None | OUT: [0x09, status, ...]
 // 0xFF: Power off - Move X axis to home position
@@ -82,8 +82,8 @@ byte replyData[8];  // Buffer for CAN replies
 
 // Stepper Motor Configuration
 #define STEPS_PER_REVOLUTION 200  // Number of steps per revolution
-#define MAX_SPEED 1000  // Maximum speed in steps per second
-#define ACCELERATION 500  // Acceleration in steps per second squared
+#define MAX_SPEED 100000  // Maximum speed in steps per second (para 100mm en 2 segundos)
+#define ACCELERATION 100000  // Acceleration in steps per second squared (aceleración instantánea)
 
 // Device CAN ID (only process messages with this ID)
 #define DEVICE_CAN_ID 0x021
@@ -204,21 +204,18 @@ void setup()
   stepper1.setMaxSpeed(MAX_SPEED);
   stepper1.setAcceleration(ACCELERATION);
   stepper1.setEnablePin(STEPPER1_ENABLE_PIN);
-  stepper1.setPinsInverted(false, false, true);  // Invert enable pin
   stepper1.enableOutputs();
   stepper1.moveTo(0);
 
   stepper2.setMaxSpeed(MAX_SPEED);
   stepper2.setAcceleration(ACCELERATION);
   stepper2.setEnablePin(STEPPER2_ENABLE_PIN);
-  stepper2.setPinsInverted(false, false, true);  // Invert enable pin
   stepper2.enableOutputs();
   stepper2.moveTo(0);
 
   stepper3.setMaxSpeed(MAX_SPEED);
   stepper3.setAcceleration(ACCELERATION);
   stepper3.setEnablePin(STEPPER3_ENABLE_PIN);
-  stepper3.setPinsInverted(false, false, true);  // Invert enable pin
   stepper3.enableOutputs();
   stepper3.moveTo(0);
 
@@ -506,11 +503,11 @@ void process_instruction(CanFrame instruction)
     {
       Serial.println("Case 0x08: Move All Steppers to Same Position");
       
-      // Extract target position from the CAN message (only use first position for all steppers)
-      long targetPosition = ((uint8_t)instruction.data[1] << 8) | ((uint8_t)instruction.data[2]);
+      // Extract target position from the CAN message (3 bytes for position)
+      long targetPosition = ((uint32_t)instruction.data[1] << 16) | ((uint32_t)instruction.data[2] << 8) | ((uint32_t)instruction.data[3]);
       
-      // Get direction from byte 3 (0 = negative, 1 = positive)
-      int direction = instruction.data[3];
+      // Get direction from byte 4 (0 = positive, 1 = negative)
+      int direction = instruction.data[4];
       
       // Apply direction
       if (direction == 1) {
@@ -529,7 +526,7 @@ void process_instruction(CanFrame instruction)
       
       // Move all steppers to their positions simultaneously with timeout
       unsigned long startTime = millis();
-      const unsigned long moveTimeout = 10000; // 10 second timeout
+      const unsigned long moveTimeout = 100000; // 10 second timeout
       bool success = true;
       
       // Imprimir estado inicial
@@ -538,25 +535,11 @@ void process_instruction(CanFrame instruction)
       Serial.print(", Stepper3: "); Serial.println(stepper3.currentPosition());
       
       int debugCounter = 0;
-      while ((stepper1.distanceToGo() != 0 || stepper2.distanceToGo() != 0 || stepper3.distanceToGo() != 0) && 
-             (millis() - startTime < moveTimeout)) {
+      while ((stepper1.distanceToGo() != 0 || stepper2.distanceToGo() != 0 || stepper3.distanceToGo() != 0) && (millis() - startTime < moveTimeout))
+      {
         stepper1.run();
         stepper2.run();
-        stepper3.run();
-        
-        // Imprimir estado cada 500 iteraciones
-        if (++debugCounter >= 500) {
-          debugCounter = 0;
-          Serial.print("Moviendo - Stepper1: "); Serial.print(stepper1.currentPosition());
-          Serial.print("/"); Serial.print(stepper1.targetPosition());
-          Serial.print(", Stepper2: "); Serial.print(stepper2.currentPosition());
-          Serial.print("/"); Serial.print(stepper2.targetPosition());
-          Serial.print(", Stepper3: "); Serial.print(stepper3.currentPosition());
-          Serial.print("/"); Serial.println(stepper3.targetPosition());
-        }
-        
-        // Add a small delay to prevent watchdog issues
-        delay(1);
+        stepper3.run();       
       }
       
       // Check if we timed out
@@ -565,7 +548,7 @@ void process_instruction(CanFrame instruction)
         success = false;
       }
       
-      delay(200);
+      delay(100);
       
       // Solo incrementar contadores si el movimiento fue exitoso
       if (success) {

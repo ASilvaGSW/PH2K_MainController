@@ -50,7 +50,7 @@ class TransporterFuyus:
         return status
 
     # 0x05: Move X Axis with Speed Control (dual motors)
-    def move_x_axis_with_speed(self, angle, speed):
+    def move_x_axis_with_speed(self, angle, speed=1000):
         """
         Move X axis with dual motors and speed control
         :param angle: Target angle (can be positive or negative)
@@ -93,12 +93,13 @@ class TransporterFuyus:
     def move_all_steppers(self, position, direction=0):
         """
         Move all three steppers to the same position
-        :param position: Target position (0-65535)
+        :param position: Target position (0-16777215) - 3 bytes
         :param direction: 0 = positive, 1 = negative
         """
-        position_high = (position >> 8) & 0xFF
-        position_low = position & 0xFF
-        status, reply_data = self.canbus.send_message(self.canbus_id, [0x08, position_high, position_low, direction] + [0x00]*4)
+        position_byte2 = (position >> 16) & 0xFF  # Most significant byte
+        position_byte1 = (position >> 8) & 0xFF   # Middle byte
+        position_byte0 = position & 0xFF          # Least significant byte
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x08, position_byte2, position_byte1, position_byte0, direction] + [0x00]*3,300)
         return status
 
     # 0x09: Home X Axis
@@ -135,3 +136,16 @@ class TransporterFuyus:
 
     def reset_stepper3_counter(self):
         return self.reset_actuator_counter(4)
+
+    def moveToTapingHoseJig(self):
+        return self.move_x_axis_with_speed(-265,100)
+
+    def moveToStamperHoseJig(self):
+        return self.move_x_axis_with_speed(-3530,100)
+    
+    def moveToReceivingPosition(self):
+        return self.move_x_axis_with_speed(-5300,100)
+    
+    def moveToDeliverPosition(self):
+        return self.move_x_axis_with_speed(350,100)
+    

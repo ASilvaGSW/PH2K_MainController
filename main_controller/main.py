@@ -94,7 +94,7 @@ def checkConnectivity():
     # print("Insertion Servos Connected") if insertion_servos.send_heartbeat() == "success" else print("Insertion Servos Not Connected")
     # print("Lubrication Feeder Connected") if lubrication_feeder.send_heartbeat() == "success" else print("Lubrication Feeder Not Connected")
     print("Transporter Fuyus Connected") if transporter_fuyus.send_heartbeat() == "success" else print("Transporter Fuyus Not Connected")
-    # print("Transporter Grippers Connected") if transporter_grippers.send_heartbeat() == "success" else print("Transporter Grippers Not Connected")
+    print("Transporter Grippers Connected") if transporter_grippers.send_heartbeat() == "success" else print("Transporter Grippers Not Connected")
 
 
 #Move Hose Puller
@@ -615,18 +615,26 @@ def moveTransporter():
     # print(f"Result: {result}")
     
     # Move X axis to different positions
-    # print("Moving X axis to position -1000...")
-    # result = transporter_fuyus.move_x_axis(-300)
-    # print(f"Result: {result}")
-    
-    # print("Moving X axis to position 0...")
-    # result = transporter_fuyus.move_x_axis(0)
+    # print("Moving X axis to Taping Hose Jig ")
+    # result = transporter_fuyus.moveToTapingHoseJig()
     # print(f"Result: {result}")
 
+    # print("Moving X axis to Stamper Hose Jig ")
+    # result = transporter_fuyus.moveToStamperHoseJig()
+    # print(f"Result: {result}")
+
+    # print("Moving X axis to Deliver ")
+    # result = transporter_fuyus.moveToDeliverPosition()
+    # print(f"Result: {result}")
+
+    # print("Moving X axis to Receiving ")
+    # result = transporter_fuyus.moveToReceivingPosition()
+    # print(f"Result: {result}")
+    
     
     # Move all steppers
     print("Moving all steppers to position 1000...")
-    result = transporter_fuyus.move_all_steppers(0,0)
+    result = transporter_fuyus.move_all_steppers(150000,1)
     print(f"Result: {result}")
     
     # # Test TransporterGrippers functionality
@@ -767,8 +775,8 @@ if __name__ == "__main__":
     # result = moveElevatorIn()
     # print(f"moveElevatorIn result: {result}")
     # #
-    result = movePickandPlace(4)
-    print(f"movePickandPlace result: {result}")
+    # result = movePickandPlace(4)
+    # print(f"movePickandPlace result: {result}")
 
     # result = insertionRoutine()
     # print(f"insertionRoutine result: {result}")
