@@ -650,7 +650,7 @@ void process_instruction(CanFrame instruction)
 uint8_t waitForCanReply(uint16_t expectedId)
 {
   unsigned long startTime = millis();
-  const unsigned long timeout = 5000; // 5 second timeout
+  const unsigned long timeout = 11000; // 5 second timeout
   
   while (millis() - startTime < timeout) {
     if (CAN1.checkReceive() == CAN_MSGAVAIL) {
@@ -683,7 +683,7 @@ uint8_t waitForCanReplyMultiple(uint16_t expectedId1, uint16_t expectedId2)
 
   memset(replyData, 0, sizeof(replyData)); // Clear the buffer before waiting
   unsigned long startTime = millis();
-  const unsigned long timeout = 6000;  // 6 second timeout
+  const unsigned long timeout = 11000;  // 6 second timeout
   
   while (millis() - startTime < timeout)
   {

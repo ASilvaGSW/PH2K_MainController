@@ -85,14 +85,14 @@ def checkConnectivity():
     global canbus, hose_jig, hose_puller, puller_extension, insertion_jig, elevator_in, pick_and_place, insertion_servos
     global lubrication_feeder, transporter_fuyus, transporter_grippers
 
-    # print("Hose Jig Connected") if hose_jig.send_heartbeat() == "success" else print("Hose Jig Not Connected")
-    # print("Hose Puller Connected") if hose_puller.send_heartbeat() == "success" else print("Hose Puller Not Connected")
-    # print("Puller Extension Connected") if puller_extension.send_heartbeat() == "success" else print("Puller Extension Not Connected")
-    # print("Pick and Place Connected") if pick_and_place.send_heartbeat() == "success" else print("Pick and Place Not Connected")
-    # print("Insertion Jig Connected") if insertion_jig.send_heartbeat() == "success" else print("Insertion Jig Not Connected")
-    # print("Elevator In Connected") if elevator_in.send_heartbeat() == "success" else print("Elevator In Not Connected")
-    # print("Insertion Servos Connected") if insertion_servos.send_heartbeat() == "success" else print("Insertion Servos Not Connected")
-    # print("Lubrication Feeder Connected") if lubrication_feeder.send_heartbeat() == "success" else print("Lubrication Feeder Not Connected")
+    print("Hose Jig Connected") if hose_jig.send_heartbeat() == "success" else print("Hose Jig Not Connected")
+    print("Hose Puller Connected") if hose_puller.send_heartbeat() == "success" else print("Hose Puller Not Connected")
+    print("Puller Extension Connected") if puller_extension.send_heartbeat() == "success" else print("Puller Extension Not Connected")
+    print("Pick and Place Connected") if pick_and_place.send_heartbeat() == "success" else print("Pick and Place Not Connected")
+    print("Insertion Jig Connected") if insertion_jig.send_heartbeat() == "success" else print("Insertion Jig Not Connected")
+    print("Elevator In Connected") if elevator_in.send_heartbeat() == "success" else print("Elevator In Not Connected")
+    print("Insertion Servos Connected") if insertion_servos.send_heartbeat() == "success" else print("Insertion Servos Not Connected")
+    print("Lubrication Feeder Connected") if lubrication_feeder.send_heartbeat() == "success" else print("Lubrication Feeder Not Connected")
     print("Transporter Fuyus Connected") if transporter_fuyus.send_heartbeat() == "success" else print("Transporter Fuyus Not Connected")
     print("Transporter Grippers Connected") if transporter_grippers.send_heartbeat() == "success" else print("Transporter Grippers Not Connected")
 
@@ -261,6 +261,8 @@ def insertionRoutine():
 def insertionServosOpen():
     global insertion_servos
 
+    insertion_servos.slider_joint_home()
+    insertion_servos.slider_nozzle_home()
     insertion_servos.clamp_nozzle_open()
     insertion_servos.clamp_joint_open()
     insertion_servos.cutter_open()
@@ -302,7 +304,7 @@ def moveElevatorIn():
     # if elevator_in.home_gantry_z() != "success": return "error01"
     # if elevator_in.home_gantry_x() != "success": return "error02"
     # if elevator_in.home_gantry_y() != "success": return "error03"
-    if elevator_in.home_elevator_z() != "success": return "error04"
+    # if elevator_in.home_elevator_z() != "success": return "error04"
 
     #Alignment For 4 Cassettes, Will change by IR Sensor on Saturday
     # if elevator_in.move_elevator_z(-12500) != "success": return "error05"
@@ -336,7 +338,7 @@ def moveElevatorIn():
     if pick_and_place.stop_left_conveyor() != "success": return "error24"
     if pick_and_place.stop_right_conveyor() != "success": return "error25"
 
-    # alignCassette()
+    alignCassette()
 
     return "success"
 
@@ -377,11 +379,11 @@ def movePickandPlace(n=1):
     # if pick_and_place.home_x_axis() != "success": return "error02"
 
     # Homing Insertion Jig
-    # if insertion_servos.slider_joint_receive() != "success": return "error03"
-    # if insertion_servos.slider_nozzle_receive() != "success": return "error3.1"
-    # if insertion_jig.move_z_axis(receiving_y) != "success": return "error04"
-    # if insertion_jig.move_x_axis(receiving_x) != "success": return "error05"
-    # if pick_and_place.open_gripper() != "success": return "error06"
+    if insertion_servos.slider_joint_receive() != "success": return "error03"
+    if insertion_servos.slider_nozzle_receive() != "success": return "error3.1"
+    if insertion_jig.move_z_axis(receiving_y) != "success": return "error04"
+    if insertion_jig.move_x_axis(receiving_x) != "success": return "error05"
+    if pick_and_place.open_gripper() != "success": return "error06"
 
 
     #Nozzle Data
@@ -455,6 +457,7 @@ def oneCycle():
 
     global insertion_jig, insertion_servos, hose_puller, hose_jig
     global puller_extension,pick_and_place,lubrication_feeder
+
 
     #****************************** Insertion Jig Data ******************************
 
@@ -532,8 +535,8 @@ def oneCycle():
 
     # Go to Down Position for Hose Puller
     if insertion_jig.move_z_axis(4000) != "success" : return "error13"
-
-    # Starting Prefeeder
+    #
+    # # Starting Prefeeder
     if lubrication_feeder.move_pre_feeder(50) != "success" : return "error04"
 
     # Preparing Hose Puller and Hose Jig
@@ -597,14 +600,17 @@ def oneCycle():
     if puller_extension.open_gripper() != "success" : return "error16"
     if hose_puller.move_z_actuator(safe_position) != "success" : return "error17"
     if hose_jig.deliver_position() != "success" : return "error18"
-    if hose_jig.gripper_open() != "success" : return "error19"
+    # if hose_jig.gripper_open() != "success" : return "error19"
     if hose_puller.move_z_actuator(0) != "success" : return "error20"
 
     return "success"
 
+
 #Test transporter and grippers
 def moveTransporter():
-    global transporter_fuyus, transporter_grippers
+    global transporter_fuyus, transporter_grippers,hose_jig
+
+    # print(hose_jig.read_deliver())
     
     # Test TransporterFuyus functionality
     # print("\n--- Testing TransporterFuyus ---")
@@ -630,18 +636,24 @@ def moveTransporter():
     # print("Moving X axis to Receiving ")
     # result = transporter_fuyus.moveToReceivingPosition()
     # print(f"Result: {result}")
-    
+
     
     # Move all steppers
-    print("Moving all steppers to position 1000...")
-    result = transporter_fuyus.move_all_steppers(150000,1)
-    print(f"Result: {result}")
-    
+    # print("Moving all steppers to position 1000...")
+    # result = transporter_fuyus.move_all_steppers(150000,1)
+    # print(f"Result: {result}")
+
+    # result = transporter_fuyus.pickHoseFromFirstStation()
+    # print(f"Result: {result}")
+
+    # result = transporter_fuyus.pickHome()
+    # print(f"Result: {result}")
+
     # # Test TransporterGrippers functionality
     # print("\n--- Testing TransporterGrippers ---")
     
     # Open and close all grippers
-    
+
     # print("Closing all grippers...")
     # result = transporter_grippers.close_all_grippers()
     # print(f"Result: {result}")
@@ -652,11 +664,36 @@ def moveTransporter():
     # result = transporter_grippers.open_all_grippers()
     # print(f"Result: {result}")
     
-  
+
+def pickUpHose():
+    global transporter_fuyus, transporter_grippers, hose_jig
+
+    if hose_jig.gripper_close() != "success" : return "001"
+
+    if transporter_fuyus.pickHome() != "success" : return "01"
+    # if transporter_fuyus.moveToStamperHoseJig() != "success" : return "02"
+    if transporter_fuyus.moveToReceivingPosition() != "success" : return "03"
+
+    if transporter_fuyus.pickHoseFromFirstStation() != "success" : return "04"
+    if transporter_grippers.close_all_grippers() != "success" : return "05"
+
+    time.sleep(1)
+
+    if hose_jig.gripper_open() != "success" : return "06"
+
+    if transporter_fuyus.pickHome() != "success": return "07"
+
+    if transporter_fuyus.moveToDeliverPosition() != "success": return "03"
+
+    if transporter_grippers.open_all_grippers() != "success": return "05"
+
+    return "success"
+
+
 #Test all home functions
 def testHome():
     # """Test function for new go home methods"""
-    global elevator_in, pick_and_place, hose_puller, hose_jig, insertion_jig, insertion_servos
+    global elevator_in, pick_and_place, hose_puller, hose_jig, insertion_jig, insertion_servos,transporter_fuyus
 
     insertion_servos.slider_joint_home()
     
@@ -685,14 +722,15 @@ def testHome():
     
     # Test PickAndPlace homing functions
     print("\n--- Testing PickAndPlace homing functions ---")
-    
+
+    result = pick_and_place.home_z_axis()
+    print(f"Result: {result}")
+
     print("Testing home_x_axis...")
     result = pick_and_place.home_x_axis()
     print(f"Result: {result}")
     
     print("Testing home_z_axis...")
-    result = pick_and_place.home_z_axis()
-    print(f"Result: {result}")
 
     # input("Continue")
 
@@ -729,6 +767,14 @@ def testHome():
     print("Testing home_z_axis...")
     result = insertion_jig.home_z_axis_go_home()
     print(f"Result: {result}")
+
+    # Test Transporter homing functions
+    print("\n--- Testing Transporter homing functions ---")
+
+    print("Testing home_x_axis...")
+    result = transporter_fuyus.home_x_axis()
+    print(f"Result: {result}")
+
     
     print("\nAll homing tests completed!")
 
@@ -737,8 +783,8 @@ def testHome():
 def lubrication_test():
     global lubrication_feeder,insertion_servos
 
-    # if lubrication_feeder.lubricate_nozzle(duration=7) != "success": return "error01"
-    if lubrication_feeder.lubricate_joint(duration=7) != "success": return "error02"
+    if lubrication_feeder.lubricate_nozzle(duration=5) != "success": return "error01"
+    if lubrication_feeder.lubricate_joint(duration=5) != "success": return "error02"
 
     return "success"
 
@@ -746,6 +792,8 @@ def lubrication_test():
 #Align Cassette:
 def alignCassette():
     global pick_and_place
+
+
 
     if pick_and_place.move_left_conveyor_until_sensor(0,1000) != "success" : return "error01"
     if pick_and_place.move_right_conveyor_until_sensor(0,1000) != "success" : return "error02"
@@ -771,28 +819,36 @@ def testIR():
 if __name__ == "__main__":
    
     my_main()
-    #
+
+    # insertionServosOpen()
+
     # result = moveElevatorIn()
     # print(f"moveElevatorIn result: {result}")
-    # #
-    # result = movePickandPlace(4)
+    #
+    # result = movePickandPlace(2)
     # print(f"movePickandPlace result: {result}")
+    #
+    result = oneCycle()
+    print(f"oneCycle result: {result}")
+    #
+    result = pickUpHose()
+    print(f"pickUpHose result: {result}")
+
+
+    #For Testing
 
     # result = insertionRoutine()
     # print(f"insertionRoutine result: {result}")
 
-    result = moveTransporter()
-    print(f"moveTransporter result: {result}")
-    #
+    # result = moveTransporter()
+    # print(f"moveTransporter result: {result}")
+
     # result = moveHosepuller()
     # print(f"moveHosepuller result: {result}")
     
     # testHome()
 
     # insertionServosOpen()
-    #
-    # result = oneCycle()
-    # print(f"oneCycle result: {result}")
 
     # result = lubrication_test()
     # print(f"lubrication_test result: {result}")
@@ -800,6 +856,7 @@ if __name__ == "__main__":
     # alignCassette()
 
     # testIR()
+
 
     canbus.close_canbus()
 
