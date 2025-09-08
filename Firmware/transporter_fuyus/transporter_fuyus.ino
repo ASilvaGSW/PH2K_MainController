@@ -5,14 +5,16 @@
 //   IN: None | OUT: [0x02, 0x01, ...]
 // 0x04: Move X Axis (dual motors)
 //   IN: [x_H, x_L, orientation] | OUT: [0x04, status, ...]
-// 0x05: Get Actuator Counter
-//   IN: [actuator_id] | OUT: [0x05, counter_H, counter_L, ...] (ID: 1=X_axis, 2=stepper1, 3=stepper2, 4=stepper3)
-// 0x06: Reset Actuator Counter
-//   IN: [actuator_id] | OUT: [0x06, 0x01, ...] (ID: 1=X_axis, 2=stepper1, 3=stepper2, 4=stepper3)
-// 0x07: Move All Steppers to Same Position
-//   IN: [pos_H, pos_L, direction] | OUT: [0x07, status, ...]
-// 0x11: Home X Axis
-//   IN: None | OUT: [0x11, status, ...]
+// 0x05: Move X Axis with Speed Control (dual motors)
+//   IN: [x_H, x_L, orientation, speed_H, speed_L] | OUT: [0x05, status, ...]
+// 0x06: Get Actuator Counter
+//   IN: [actuator_id] | OUT: [0x06, counter_H, counter_L, ...] (ID: 1=X_axis, 2=stepper1, 3=stepper2, 4=stepper3)
+// 0x07: Reset Actuator Counter
+//   IN: [actuator_id] | OUT: [0x07, 0x01, ...] (ID: 1=X_axis, 2=stepper1, 3=stepper2, 4=stepper3)
+// 0x08: Move All Steppers to Same Position
+//   IN: [pos_H, pos_L, direction] | OUT: [0x08, status, ...]
+// 0x09: Home X Axis
+//   IN: None | OUT: [0x09, status, ...]
 // 0xFF: Power off - Move X axis to home position
 //   IN: None | OUT: None (moves X axis to home)
 
@@ -390,11 +392,54 @@ void process_instruction(CanFrame instruction)
     }
     break;
 
+    // ***************************** CASE 0x05 ***************************** //
+    // Move X Axis with Speed Control
+    case 0x05:
+    {
+      Serial.println("Case 0x05: Move X Axis with Speed Control");
+
+      uint16_t x_angle = instruction.data[1] << 8 | instruction.data[2];
+      uint8_t orientation = instruction.data[3];
+      uint16_t local_speed = instruction.data[4] << 8 | instruction.data[5];
+      
+      int ori1 = 0;
+      
+      if (orientation & 0x01) ori1 = 1;
+
+      // Move X axis (dual motors) with speed control
+      uint8_t payload[8] = {0};
+      uint8_t payload2[8] = {0};
+      
+      fuyuX.abs_mode_with_speed_control(x_angle * (ori1 ? -1 : 1), local_speed, payload);
+      fuyuX2.abs_mode_with_speed_control(x_angle * (ori1 ? -1 : 1), local_speed, payload2);
+      
+      if (CAN1.sendMsgBuf(fuyuX.motor_id, 0, 8, payload) != CAN_OK ||
+          CAN1.sendMsgBuf(fuyuX2.motor_id, 0, 8, payload2) != CAN_OK) {
+        byte errorResponse[] = {0x05, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}; // NO LOCAL NETWORK
+        send_twai_response(errorResponse);
+        break;
+      }
+      
+      uint8_t status = waitForCanReplyMultiple(fuyuX.motor_id, fuyuX2.motor_id);
+      if (status != 0x01)
+      {
+        byte errorResponse[] = {0x05, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+        send_twai_response(errorResponse);
+        break;
+      }
+      
+      SaveActuatorCounter(1);
+
+      byte statusResponse[] = {0x05, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(statusResponse);
+    }
+    break;
+
     // ***************************** CASE 0x0B ***************************** //
     // Get Actuator Counter
-    case 0x0B:
+    case 0x06:
     {
-      Serial.println("Case 0x0B: Get Actuator Counter");
+      Serial.println("Case 0x06: Get Actuator Counter");
 
       uint8_t actuator_id = instruction.data[1];
 
@@ -412,14 +457,14 @@ void process_instruction(CanFrame instruction)
       uint8_t counter_high = counter >> 8;
       uint8_t counter_low = counter & 0xFF;
 
-      byte response[] = {0x0B, counter_high, counter_low, 0x00, 0x00, 0x00, 0x00, 0x00};
+      byte response[] = {0x06, counter_high, counter_low, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(response);
     }
     break;
 
     // ***************************** CASE 0x0C ***************************** //
     // Reset Actuator Counter
-    case 0x0C:
+    case 0x07:
     {
       Serial.println("Case 0x0C: Reset Actuator Counter");
 
@@ -450,16 +495,16 @@ void process_instruction(CanFrame instruction)
         default: break;
       }
       
-      byte statusResponse[] = {0x0C, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      byte statusResponse[] = {0x07, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(statusResponse);
     }
     break;
 
     // ***************************** CASE 0x07 ***************************** //
     // Move All Steppers to Same Position
-    case 0x07:
+    case 0x08:
     {
-      Serial.println("Case 0x07: Move All Steppers to Same Position");
+      Serial.println("Case 0x08: Move All Steppers to Same Position");
       
       // Extract target position from the CAN message (only use first position for all steppers)
       long targetPosition = ((uint8_t)instruction.data[1] << 8) | ((uint8_t)instruction.data[2]);
@@ -529,14 +574,14 @@ void process_instruction(CanFrame instruction)
       }
       
       // Send response after movement is complete
-      byte response[] = {0x07, success ? 0x01 : 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      byte response[] = {0x08, success ? 0x01 : 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(response);
     }
     break;
 
     // ***************************** CASE 0x11 ***************************** //
     // Home X Axis
-    case 0x11:
+    case 0x09:
     {
       Serial.println("Case 0x11: Home X Axis");
       
@@ -561,7 +606,7 @@ void process_instruction(CanFrame instruction)
         }
       }
       
-      byte statusResponse[] = {0x11, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      byte statusResponse[] = {0x09, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(statusResponse);
     }
     break;

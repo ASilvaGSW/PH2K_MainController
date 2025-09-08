@@ -708,7 +708,7 @@ void process_instruction(CanFrame instruction)
             // Stop the elevator by sending a stop command (speed = 0)
             uint8_t stopPayload[8] = {0};
             elevatorZ.speed_mode(direction, 0, acceleration, stopPayload);
-            CAN1.sendMsgBuf(elevatorZ.motor_id, 0, 8, stopPayload);
+            CAN1.sendMsgBuf(elevatorZ.motor_id, 0, 5, stopPayload);
             
             status = 0x01; // Success
             break;

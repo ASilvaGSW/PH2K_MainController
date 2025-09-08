@@ -5,14 +5,16 @@
 #   IN: None | OUT: [0x02, 0x01, ...]
 # 0x04: Move X Axis (dual motors)
 #   IN: [x_H, x_L, orientation] | OUT: [0x04, status, ...]
-# 0x05: Get Actuator Counter
-#   IN: [actuator_id] | OUT: [0x05, counter_H, counter_L, ...] (ID: 1=X_axis, 2=stepper1, 3=stepper2, 4=stepper3)
-# 0x06: Reset Actuator Counter
-#   IN: [actuator_id] | OUT: [0x06, 0x01, ...] (ID: 1=X_axis, 2=stepper1, 3=stepper2, 4=stepper3)
-# 0x07: Move All Steppers to Same Position
-#   IN: [pos_H, pos_L, direction] | OUT: [0x07, status, ...]
-# 0x11: Home X Axis
-#   IN: None | OUT: [0x11, status, ...]
+# 0x05: Move X Axis with Speed Control (dual motors)
+#   IN: [x_H, x_L, orientation, speed_H, speed_L] | OUT: [0x05, status, ...]
+# 0x06: Get Actuator Counter
+#   IN: [actuator_id] | OUT: [0x06, counter_H, counter_L, ...] (ID: 1=X_axis, 2=stepper1, 3=stepper2, 4=stepper3)
+# 0x07: Reset Actuator Counter
+#   IN: [actuator_id] | OUT: [0x07, 0x01, ...] (ID: 1=X_axis, 2=stepper1, 3=stepper2, 4=stepper3)
+# 0x08: Move All Steppers to Same Position
+#   IN: [pos_H, pos_L, direction] | OUT: [0x08, status, ...]
+# 0x09: Home X Axis
+#   IN: None | OUT: [0x09, status, ...]
 # 0xFF: Power off - Move X axis to home position
 #   IN: None | OUT: None (moves X axis to home)
 
@@ -47,28 +49,47 @@ class TransporterFuyus:
         status, reply_data = self.canbus.send_message(self.canbus_id, [0x04, angle_high, angle_low, orientation] + [0x00]*4)
         return status
 
-    # 0x05: Get Actuator Counter
+    # 0x05: Move X Axis with Speed Control (dual motors)
+    def move_x_axis_with_speed(self, angle, speed):
+        """
+        Move X axis with dual motors and speed control
+        :param angle: Target angle (can be positive or negative)
+        :param speed: Speed value (0-65535)
+        """
+        # Automatically calculate orientation based on angle sign
+        orientation = 1 if angle < 0 else 0
+        # Always use absolute value of angle
+        abs_angle = abs(angle)
+        
+        angle_high = (abs_angle >> 8) & 0xFF
+        angle_low = abs_angle & 0xFF
+        speed_high = (speed >> 8) & 0xFF
+        speed_low = speed & 0xFF
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x05, angle_high, angle_low, orientation, speed_high, speed_low] + [0x00]*2)
+        return status
+
+    # 0x06: Get Actuator Counter
     def get_actuator_counter(self, actuator_id):
         """
         Get counter for specific actuator
         :param actuator_id: 1=X_axis, 2=stepper1, 3=stepper2, 4=stepper3
         """
-        status, reply_data = self.canbus.send_message(self.canbus_id, [0x05, actuator_id] + [0x00]*6)
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x06, actuator_id] + [0x00]*6)
         if status == 1 and len(reply_data) >= 4:
             counter = (reply_data[1] << 8) | reply_data[2]
             return status, counter
         return status, 0
 
-    # 0x06: Reset Actuator Counter
+    # 0x07: Reset Actuator Counter
     def reset_actuator_counter(self, actuator_id):
         """
         Reset counter for specific actuator
         :param actuator_id: 1=X_axis, 2=stepper1, 3=stepper2, 4=stepper3
         """
-        status, reply_data = self.canbus.send_message(self.canbus_id, [0x06, actuator_id] + [0x00]*6)
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x07, actuator_id] + [0x00]*6)
         return status
 
-    # 0x07: Move All Steppers to Same Position
+    # 0x08: Move All Steppers to Same Position
     def move_all_steppers(self, position, direction=0):
         """
         Move all three steppers to the same position
@@ -77,12 +98,12 @@ class TransporterFuyus:
         """
         position_high = (position >> 8) & 0xFF
         position_low = position & 0xFF
-        status, reply_data = self.canbus.send_message(self.canbus_id, [0x07, position_high, position_low, direction] + [0x00]*4)
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x08, position_high, position_low, direction] + [0x00]*4)
         return status
 
-    # 0x11: Home X Axis
+    # 0x09: Home X Axis
     def home_x_axis(self):
-        status, reply_data = self.canbus.send_message(self.canbus_id, [0x11] + [0x00]*7)
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x09] + [0x00]*7)
         return status
 
     # 0xFF: Power off - Move X axis to home position

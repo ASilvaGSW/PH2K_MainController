@@ -85,15 +85,15 @@ def checkConnectivity():
     global canbus, hose_jig, hose_puller, puller_extension, insertion_jig, elevator_in, pick_and_place, insertion_servos
     global lubrication_feeder, transporter_fuyus, transporter_grippers
 
-    print("Hose Jig Connected") if hose_jig.send_heartbeat() == "success" else print("Hose Jig Not Connected")
-    print("Hose Puller Connected") if hose_puller.send_heartbeat() == "success" else print("Hose Puller Not Connected")
-    print("Puller Extension Connected") if puller_extension.send_heartbeat() == "success" else print("Puller Extension Not Connected")
-    print("Pick and Place Connected") if pick_and_place.send_heartbeat() == "success" else print("Pick and Place Not Connected")
-    print("Insertion Jig Connected") if insertion_jig.send_heartbeat() == "success" else print("Insertion Jig Not Connected")
-    print("Elevator In Connected") if elevator_in.send_heartbeat() == "success" else print("Elevator In Not Connected")
-    print("Insertion Servos Connected") if insertion_servos.send_heartbeat() == "success" else print("Insertion Servos Not Connected")
-    print("Lubrication Feeder Connected") if lubrication_feeder.send_heartbeat() == "success" else print("Lubrication Feeder Not Connected")
-    # print("Transporter Fuyus Connected") if transporter_fuyus.send_heartbeat() == "success" else print("Transporter Fuyus Not Connected")
+    # print("Hose Jig Connected") if hose_jig.send_heartbeat() == "success" else print("Hose Jig Not Connected")
+    # print("Hose Puller Connected") if hose_puller.send_heartbeat() == "success" else print("Hose Puller Not Connected")
+    # print("Puller Extension Connected") if puller_extension.send_heartbeat() == "success" else print("Puller Extension Not Connected")
+    # print("Pick and Place Connected") if pick_and_place.send_heartbeat() == "success" else print("Pick and Place Not Connected")
+    # print("Insertion Jig Connected") if insertion_jig.send_heartbeat() == "success" else print("Insertion Jig Not Connected")
+    # print("Elevator In Connected") if elevator_in.send_heartbeat() == "success" else print("Elevator In Not Connected")
+    # print("Insertion Servos Connected") if insertion_servos.send_heartbeat() == "success" else print("Insertion Servos Not Connected")
+    # print("Lubrication Feeder Connected") if lubrication_feeder.send_heartbeat() == "success" else print("Lubrication Feeder Not Connected")
+    print("Transporter Fuyus Connected") if transporter_fuyus.send_heartbeat() == "success" else print("Transporter Fuyus Not Connected")
     # print("Transporter Grippers Connected") if transporter_grippers.send_heartbeat() == "success" else print("Transporter Grippers Not Connected")
 
 
@@ -604,40 +604,42 @@ def moveTransporter():
     global transporter_fuyus, transporter_grippers
     
     # Test TransporterFuyus functionality
-    print("\n--- Testing TransporterFuyus ---")
+    # print("\n--- Testing TransporterFuyus ---")
     
     # Home X axis
-    print("Homing X axis...")
-    result = transporter_fuyus.home_x_axis()
-    print(f"Result: {result}")
+    # print("Homing X axis...")
+    # result = transporter_fuyus.home_x_axis()
+    # print(f"Result: {result}")
     
     # Move X axis to different positions
-    print("Moving X axis to position 100...")
-    result = transporter_fuyus.move_x_axis(100)
-    print(f"Result: {result}")
+    # print("Moving X axis to position -1000...")
+    # result = transporter_fuyus.move_x_axis(-300)
+    # print(f"Result: {result}")
     
-    print("Moving X axis to position -100...")
-    result = transporter_fuyus.move_x_axis(-100)
-    print(f"Result: {result}")
+    # print("Moving X axis to position 0...")
+    # result = transporter_fuyus.move_x_axis(0)
+    # print(f"Result: {result}")
+
     
     # Move all steppers
     print("Moving all steppers to position 1000...")
-    result = transporter_fuyus.move_all_steppers(0)
+    result = transporter_fuyus.move_all_steppers(0,0)
     print(f"Result: {result}")
     
-    # Test TransporterGrippers functionality
-    print("\n--- Testing TransporterGrippers ---")
+    # # Test TransporterGrippers functionality
+    # print("\n--- Testing TransporterGrippers ---")
     
     # Open and close all grippers
-    print("Opening all grippers...")
-    result = transporter_grippers.open_all_grippers()
-    print(f"Result: {result}")
     
-    time.sleep(2)
-    
-    print("Closing all grippers...")
-    result = transporter_grippers.close_all_grippers()
-    print(f"Result: {result}")
+    # print("Closing all grippers...")
+    # result = transporter_grippers.close_all_grippers()
+    # print(f"Result: {result}")
+
+    # time.sleep(2)
+
+    # print("Opening all grippers...")
+    # result = transporter_grippers.open_all_grippers()
+    # print(f"Result: {result}")
     
   
 #Test all home functions
@@ -759,8 +761,8 @@ if __name__ == "__main__":
     # result = insertionRoutine()
     # print(f"insertionRoutine result: {result}")
 
-    # result = moveTransporter()
-    # print(f"moveTransporter result: {result}")
+    result = moveTransporter()
+    print(f"moveTransporter result: {result}")
     #
     # result = moveHosepuller()
     # print(f"moveHosepuller result: {result}")
@@ -769,13 +771,14 @@ if __name__ == "__main__":
 
     # insertionServosOpen()
     #
-    result = oneCycle()
-    print(f"oneCycle result: {result}")
+    # result = oneCycle()
+    # print(f"oneCycle result: {result}")
 
     # result = lubrication_test()
     # print(f"lubrication_test result: {result}")
 
     # alignCassette()
+
 
     canbus.close_canbus()
 

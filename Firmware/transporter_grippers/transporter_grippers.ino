@@ -21,21 +21,21 @@
  * COMMANDS (CAN):
  *   - 0x01: Reset microcontroller
  *   - 0x02: Heartbeat
- *   - 0x0D: Open all grippers
- *   - 0x0E: Close all grippers
- *   - 0x0F: Set all grippers force
- *   - 0x10: Read gripper 1 movement counter
- *   - 0x11: Read gripper 2 movement counter
- *   - 0x12: Read gripper 3 movement counter
- *   - 0x13: Reset gripper 1 movement counter
- *   - 0x14: Reset gripper 2 movement counter
- *   - 0x15: Reset gripper 3 movement counter
- *   - 0x16: Open gripper 1
- *   - 0x17: Close gripper 1
- *   - 0x18: Open gripper 2
- *   - 0x19: Close gripper 2
- *   - 0x1A: Open gripper 3
- *   - 0x1B: Close gripper 3
+ *   - 0x03: Open all grippers
+ *   - 0x04: Close all grippers
+ *   - 0x05: Set all grippers force
+ *   - 0x06: Read gripper 1 movement counter
+ *   - 0x07: Read gripper 2 movement counter
+ *   - 0x08: Read gripper 3 movement counter
+ *   - 0x09: Reset gripper 1 movement counter
+ *   - 0x0A: Reset gripper 2 movement counter
+ *   - 0x0B: Reset gripper 3 movement counter
+ *   - 0x0C: Open gripper 1
+ *   - 0x0D: Close gripper 1
+ *   - 0x0E: Open gripper 2
+ *   - 0x0F: Close gripper 2
+ *   - 0x10: Open gripper 3
+ *   - 0x11: Close gripper 3
  *   - 0xFF: Power off, open all grippers
  *
  * DEPENDENCIES:
@@ -328,11 +328,11 @@ void process_instruction(CanFrame instruction)
     }
     break;
 
-    // ***************************** CASE 0x0D ***************************** //
+    // ***************************** CASE 0x03 ***************************** //
     // Open all grippers
-    case 0x0D:
+    case 0x03:
     {
-      Serial.println("Case 0x0D: Opening all grippers");
+      Serial.println("Case 0x03: Opening all grippers");
       
       gripper1.open();
       gripper2.open();
@@ -341,6 +341,146 @@ void process_instruction(CanFrame instruction)
       incrementGripper1Counter();
       incrementGripper2Counter();
       incrementGripper3Counter();
+      
+      delay(500);
+      byte response[] = {0x03, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x04 ***************************** //
+    // Close all grippers
+    case 0x04:
+    {
+      Serial.println("Case 0x04: Closing all grippers");
+
+      gripper1.close();
+      gripper2.close();
+      gripper3.close();
+
+      incrementGripper1Counter();
+      incrementGripper2Counter();
+      incrementGripper3Counter();
+      
+      delay(500);
+      byte response[] = {0x04, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x05 ***************************** //
+    // Set all grippers force
+    case 0x05:
+    {
+      Serial.println("Case 0x05: Setting all grippers force");
+      
+      gripper1.setFuerza(instruction.data[1]);
+      gripper2.setFuerza(instruction.data[1]);
+      gripper3.setFuerza(instruction.data[1]);
+      
+      byte response[] = {0x05, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x06 ***************************** //
+    // Read gripper 1 movement counter
+    case 0x06:
+    {
+      Serial.println("Case 0x06: Reading gripper 1 movement counter");
+      byte counter_high = (gripper1MoveCounter >> 8) & 0xFF;
+      byte counter_low = gripper1MoveCounter & 0xFF;
+      byte response[] = {0x06, 0x01, counter_high, counter_low, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x07 ***************************** //
+    // Read gripper 2 movement counter
+    case 0x07:
+    {
+      Serial.println("Case 0x07: Reading gripper 2 movement counter");
+      byte counter_high = (gripper2MoveCounter >> 8) & 0xFF;
+      byte counter_low = gripper2MoveCounter & 0xFF;
+      byte response[] = {0x07, 0x01, counter_high, counter_low, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x08 ***************************** //
+    // Read gripper 3 movement counter
+    case 0x08:
+    {
+      Serial.println("Case 0x08: Reading gripper 3 movement counter");
+      byte counter_high = (gripper3MoveCounter >> 8) & 0xFF;
+      byte counter_low = gripper3MoveCounter & 0xFF;
+      byte response[] = {0x08, 0x01, counter_high, counter_low, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x09 ***************************** //
+    // Reset gripper 1 movement counter
+    case 0x09:
+    {
+      Serial.println("Case 0x09: Resetting gripper 1 movement counter");
+      gripper1MoveCounter = 0;
+      saveGripper1Counter();
+      delay(500);
+      byte response[] = {0x09, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x0A ***************************** //
+    // Reset gripper 2 movement counter
+    case 0x0A:
+    {
+      Serial.println("Case 0x0A: Resetting gripper 2 movement counter");
+      gripper2MoveCounter = 0;
+      saveGripper2Counter();
+      delay(500);
+      byte response[] = {0x0A, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x0B ***************************** //
+    // Reset gripper 3 movement counter
+    case 0x0B:
+    {
+      Serial.println("Case 0x0B: Resetting gripper 3 movement counter");
+      gripper3MoveCounter = 0;
+      saveGripper3Counter();
+      delay(500);
+      byte response[] = {0x0B, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x0C ***************************** //
+    // Open gripper 1
+    case 0x0C:
+    {
+      Serial.println("Case 0x0C: Opening gripper 1");
+      
+      gripper1.open();
+      incrementGripper1Counter();
+      
+      delay(500);
+      byte response[] = {0x0C, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x0D ***************************** //
+    // Close gripper 1
+    case 0x0D:
+    {
+      Serial.println("Case 0x0D: Closing gripper 1");
+
+      gripper1.close();
+      incrementGripper1Counter();
       
       delay(500);
       byte response[] = {0x0D, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
@@ -349,18 +489,13 @@ void process_instruction(CanFrame instruction)
     break;
 
     // ***************************** CASE 0x0E ***************************** //
-    // Close all grippers
+    // Open gripper 2
     case 0x0E:
     {
-      Serial.println("Case 0x0E: Closing all grippers");
-
-      gripper1.close();
-      gripper2.close();
-      gripper3.close();
-
-      incrementGripper1Counter();
+      Serial.println("Case 0x0E: Opening gripper 2");
+      
+      gripper2.open();
       incrementGripper2Counter();
-      incrementGripper3Counter();
       
       delay(500);
       byte response[] = {0x0E, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
@@ -369,181 +504,46 @@ void process_instruction(CanFrame instruction)
     break;
 
     // ***************************** CASE 0x0F ***************************** //
-    // Set all grippers force
+    // Close gripper 2
     case 0x0F:
     {
-      Serial.println("Case 0x0F: Setting all grippers force");
+      Serial.println("Case 0x0F: Closing gripper 2");
+
+      gripper2.close();
+      incrementGripper2Counter();
       
-      gripper1.setFuerza(instruction.data[1]);
-      gripper2.setFuerza(instruction.data[1]);
-      gripper3.setFuerza(instruction.data[1]);
-      
+      delay(500);
       byte response[] = {0x0F, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(response);
     }
     break;
 
     // ***************************** CASE 0x10 ***************************** //
-    // Read gripper 1 movement counter
+    // Open gripper 3
     case 0x10:
     {
-      Serial.println("Case 0x10: Reading gripper 1 movement counter");
-      byte counter_high = (gripper1MoveCounter >> 8) & 0xFF;
-      byte counter_low = gripper1MoveCounter & 0xFF;
-      byte response[] = {0x10, 0x01, counter_high, counter_low, 0x00, 0x00, 0x00, 0x00};
-      send_twai_response(response);
-    }
-    break;
-
-    // ***************************** CASE 0x11 ***************************** //
-    // Read gripper 2 movement counter
-    case 0x11:
-    {
-      Serial.println("Case 0x11: Reading gripper 2 movement counter");
-      byte counter_high = (gripper2MoveCounter >> 8) & 0xFF;
-      byte counter_low = gripper2MoveCounter & 0xFF;
-      byte response[] = {0x11, 0x01, counter_high, counter_low, 0x00, 0x00, 0x00, 0x00};
-      send_twai_response(response);
-    }
-    break;
-
-    // ***************************** CASE 0x12 ***************************** //
-    // Read gripper 3 movement counter
-    case 0x12:
-    {
-      Serial.println("Case 0x12: Reading gripper 3 movement counter");
-      byte counter_high = (gripper3MoveCounter >> 8) & 0xFF;
-      byte counter_low = gripper3MoveCounter & 0xFF;
-      byte response[] = {0x12, 0x01, counter_high, counter_low, 0x00, 0x00, 0x00, 0x00};
-      send_twai_response(response);
-    }
-    break;
-
-    // ***************************** CASE 0x13 ***************************** //
-    // Reset gripper 1 movement counter
-    case 0x13:
-    {
-      Serial.println("Case 0x13: Resetting gripper 1 movement counter");
-      gripper1MoveCounter = 0;
-      saveGripper1Counter();
-      delay(500);
-      byte response[] = {0x13, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-      send_twai_response(response);
-    }
-    break;
-
-    // ***************************** CASE 0x14 ***************************** //
-    // Reset gripper 2 movement counter
-    case 0x14:
-    {
-      Serial.println("Case 0x14: Resetting gripper 2 movement counter");
-      gripper2MoveCounter = 0;
-      saveGripper2Counter();
-      delay(500);
-      byte response[] = {0x14, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-      send_twai_response(response);
-    }
-    break;
-
-    // ***************************** CASE 0x15 ***************************** //
-    // Reset gripper 3 movement counter
-    case 0x15:
-    {
-      Serial.println("Case 0x15: Resetting gripper 3 movement counter");
-      gripper3MoveCounter = 0;
-      saveGripper3Counter();
-      delay(500);
-      byte response[] = {0x15, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-      send_twai_response(response);
-    }
-    break;
-
-    // ***************************** CASE 0x16 ***************************** //
-    // Open gripper 1
-    case 0x16:
-    {
-      Serial.println("Case 0x16: Opening gripper 1");
-      
-      gripper1.open();
-      incrementGripper1Counter();
-      
-      delay(500);
-      byte response[] = {0x16, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-      send_twai_response(response);
-    }
-    break;
-
-    // ***************************** CASE 0x17 ***************************** //
-    // Close gripper 1
-    case 0x17:
-    {
-      Serial.println("Case 0x17: Closing gripper 1");
-
-      gripper1.close();
-      incrementGripper1Counter();
-      
-      delay(500);
-      byte response[] = {0x17, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-      send_twai_response(response);
-    }
-    break;
-
-    // ***************************** CASE 0x18 ***************************** //
-    // Open gripper 2
-    case 0x18:
-    {
-      Serial.println("Case 0x18: Opening gripper 2");
-      
-      gripper2.open();
-      incrementGripper2Counter();
-      
-      delay(500);
-      byte response[] = {0x18, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-      send_twai_response(response);
-    }
-    break;
-
-    // ***************************** CASE 0x19 ***************************** //
-    // Close gripper 2
-    case 0x19:
-    {
-      Serial.println("Case 0x19: Closing gripper 2");
-
-      gripper2.close();
-      incrementGripper2Counter();
-      
-      delay(500);
-      byte response[] = {0x19, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-      send_twai_response(response);
-    }
-    break;
-
-    // ***************************** CASE 0x1A ***************************** //
-    // Open gripper 3
-    case 0x1A:
-    {
-      Serial.println("Case 0x1A: Opening gripper 3");
+      Serial.println("Case 0x10: Opening gripper 3");
       
       gripper3.open();
       incrementGripper3Counter();
       
       delay(500);
-      byte response[] = {0x1A, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      byte response[] = {0x10, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(response);
     }
     break;
 
-    // ***************************** CASE 0x1B ***************************** //
+    // ***************************** CASE 0x11 ***************************** //
     // Close gripper 3
-    case 0x1B:
+    case 0x11:
     {
-      Serial.println("Case 0x1B: Closing gripper 3");
+      Serial.println("Case 0x11: Closing gripper 3");
 
       gripper3.close();
       incrementGripper3Counter();
       
       delay(500);
-      byte response[] = {0x1B, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      byte response[] = {0x11, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(response);
     }
     break;

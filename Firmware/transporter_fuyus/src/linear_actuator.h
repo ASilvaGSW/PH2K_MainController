@@ -19,6 +19,8 @@ public:
     void update_id(uint16_t new_id, uint8_t* payload);
     void speed_mode(bool dir, uint16_t speed, uint8_t acc, uint8_t* payload);
     void go_home(uint8_t* payload);
+    void abs_mode_with_speed_control(float angle, uint16_t local_speed, uint8_t* payload);
+
 };
 
 #endif // LINEAR_ACTUATOR_H
