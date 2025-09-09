@@ -804,14 +804,15 @@ def alignCassette():
     time.sleep(1.3)
     pick_and_place.move_right_conveyor(0, 0, 236)
 
+
 def testIR():
     global elevator_in
 
-    # print(elevator_in.check_ir_sensor_status())
+    print(elevator_in.check_ir_sensor_status())
 
-    # print("Testing home_elevator_z...")
-    # result = elevator_in.home_elevator_z()
-    # print(f"Result: {result}")
+    print("Testing home_elevator_z...")
+    result = elevator_in.home_elevator_z()
+    print(f"Result: {result}")
 
 
 
@@ -823,15 +824,15 @@ if __name__ == "__main__":
 
     # result = moveElevatorIn()
     # print(f"moveElevatorIn result: {result}")
-    #
+    
     # result = movePickandPlace(2)
     # print(f"movePickandPlace result: {result}")
-    #
-    result = oneCycle()
-    print(f"oneCycle result: {result}")
-    #
-    result = pickUpHose()
-    print(f"pickUpHose result: {result}")
+    
+    # result = oneCycle()
+    # print(f"oneCycle result: {result}")
+    
+    # result = pickUpHose()
+    # print(f"pickUpHose result: {result}")
 
 
     #For Testing

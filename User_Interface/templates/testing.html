@@ -47,7 +47,7 @@
             
             <!-- Action Buttons Grid -->
             <div class="row g-2">
-                <!-- Test Button 1 -->
+                <!-- Test Button 1: Check Canbus -->
                 <div class="col">
                     <button class="btn w-100 h-100" onclick="testAction1()" style="min-height: 100px;">
                         <div class="menu-card">
@@ -59,7 +59,7 @@
                     </button>
                 </div>
                 
-                <!-- Test Button 2 -->
+                <!-- Test Button 2: Validate MCU -->
                 <div class="col">
                     <button class="btn w-100 h-100" onclick="testAction2()" style="min-height: 100px;">
                         <div class="menu-card">
@@ -71,21 +71,45 @@
                     </button>
                 </div>
                 
-                <!-- Test Button 3 -->
+                <!-- Test Button 3: Test Home -->
                 <div class="col">
                     <button class="btn w-100 h-100" onclick="testAction3()" style="min-height: 100px;">
                         <div class="menu-card">
                             <div class="icon-container mb-2">
-                                <i class="bi bi-arrow-clockwise"></i>
+                                <i class="bi bi-house"></i>
                             </div>
-                            <div class="card-title lang-text" data-en="Feed Material" data-es="Alimentar Material" data-jp="材料供給" style="font-size: 0.85rem;">Feed Material</div>
+                            <div class="card-title lang-text" data-en="Test Home" data-es="Prueba Inicio" data-jp="テストホーム" style="font-size: 0.85rem;">Test Home</div>
                         </div>
                     </button>
                 </div>
                 
-                <!-- Test Button 4 -->
+                <!-- Test Button 4: Feed Cassette -->
                 <div class="col">
                     <button class="btn w-100 h-100" onclick="testAction4()" style="min-height: 100px;">
+                        <div class="menu-card">
+                            <div class="icon-container mb-2">
+                                <i class="bi bi-arrow-clockwise"></i>
+                            </div>
+                            <div class="card-title lang-text" data-en="Feed Cassette" data-es="Alimentar Casete" data-jp="カセット供給" style="font-size: 0.85rem;">Feed Cassette</div>
+                        </div>
+                    </button>
+                </div>
+                
+                <!-- Test Button 5: Align Cassette -->
+                <div class="col">
+                    <button class="btn w-100 h-100" onclick="testAction5()" style="min-height: 100px;">
+                        <div class="menu-card">
+                            <div class="icon-container mb-2">
+                                <i class="bi bi-arrow-left-right"></i>
+                            </div>
+                            <div class="card-title lang-text" data-en="Align Cassette" data-es="Alinear Casete" data-jp="カセット整列" style="font-size: 0.85rem;">Align Cassette</div>
+                        </div>
+                    </button>
+                </div>
+                
+                <!-- Test Button 6: Pick and Place -->
+                <div class="col">
+                    <button class="btn w-100 h-100" onclick="testAction6()" style="min-height: 100px;">
                         <div class="menu-card">
                             <div class="icon-container mb-2">
                                 <i class="bi bi-box-arrow-in-down"></i>
@@ -95,43 +119,19 @@
                     </button>
                 </div>
                 
-                <!-- Test Button 5 -->
-                <div class="col">
-                    <button class="btn w-100 h-100" onclick="testAction5()" style="min-height: 100px;">
-                        <div class="menu-card">
-                            <div class="icon-container mb-2">
-                                <i class="bi bi-arrow-down-circle"></i>
-                            </div>
-                            <div class="card-title lang-text" data-en="Insertion" data-es="Inserción" data-jp="挿入" style="font-size: 0.85rem;">Insertion</div>
-                        </div>
-                    </button>
-                </div>
-                
-                <!-- Test Button 6 -->
-                <div class="col">
-                    <button class="btn w-100 h-100" onclick="testAction6()" style="min-height: 100px;">
-                        <div class="menu-card">
-                            <div class="icon-container mb-2">
-                                <i class="bi bi-arrow-left-right"></i>
-                            </div>
-                            <div class="card-title lang-text" data-en="Hose Pulling" data-es="Tirar Manguera" data-jp="ホース引き" style="font-size: 0.85rem;">Hose Pulling</div>
-                        </div>
-                    </button>
-                </div>
-                
-                <!-- Test Button 7 -->
+                <!-- Test Button 7: Lubrication Test -->
                 <div class="col">
                     <button class="btn w-100 h-100" onclick="testAction7()" style="min-height: 100px;">
                         <div class="menu-card">
                             <div class="icon-container mb-2">
-                                <i class="bi bi-list-check"></i>
+                                <i class="bi bi-droplet"></i>
                             </div>
-                            <div class="card-title lang-text" data-en="Full Routine" data-es="Rutina Completa" data-jp="フルルーチン" style="font-size: 0.85rem;">Full Routine</div>
+                            <div class="card-title lang-text" data-en="Lubrication Test" data-es="Prueba de Lubricación" data-jp="潤滑テスト" style="font-size: 0.85rem;">Lubrication Test</div>
                         </div>
                     </button>
                 </div>
                 
-                <!-- Test Button 8 -->
+                <!-- Test Button 8: Insertion Full Cycle -->
                 <div class="col">
                     <button class="btn w-100 h-100" onclick="testAction8()" style="min-height: 100px;">
                         <div class="menu-card">
@@ -143,26 +143,26 @@
                     </button>
                 </div>
                 
-                <!-- Test Button 9 -->
+                <!-- Test Button 9: Deliver Hose -->
                 <div class="col">
                     <button class="btn w-100 h-100" onclick="testAction9()" style="min-height: 100px;">
                         <div class="menu-card">
                             <div class="icon-container mb-2">
-                                <i class="bi bi-house"></i>
+                                <i class="bi bi-arrow-down-circle"></i>
                             </div>
-                            <div class="card-title lang-text" data-en="Test Home" data-es="Prueba Inicio" data-jp="テストホーム" style="font-size: 0.85rem;">Test Home</div>
+                            <div class="card-title lang-text" data-en="Deliver Hose" data-es="Entregar Manguera" data-jp="ホース配送" style="font-size: 0.85rem;">Deliver Hose</div>
                         </div>
                     </button>
                 </div>
                 
-                <!-- Test Button 10 -->
+                <!-- Test Button 10: Full Routine -->
                 <div class="col">
                     <button class="btn w-100 h-100" onclick="testAction10()" style="min-height: 100px;">
                         <div class="menu-card">
                             <div class="icon-container mb-2">
-                                <i class="bi bi-droplet"></i>
+                                <i class="bi bi-list-check"></i>
                             </div>
-                            <div class="card-title lang-text" data-en="Lubrication Test" data-es="Prueba de Lubricación" data-jp="潤滑テスト" style="font-size: 0.85rem;">Lubrication Test</div>
+                            <div class="card-title lang-text" data-en="Full Routine" data-es="Rutina Completa" data-jp="フルルーチン" style="font-size: 0.85rem;">Full Routine</div>
                         </div>
                     </button>
                 </div>
@@ -395,14 +395,14 @@
                     const buttonContents = {
                         1: '<div class="menu-card"><div class="icon-container mb-2"><i class="bi bi-play-circle"></i></div><div class="card-title lang-text" data-en="Check Canbus" data-es="Comprobar Canbus" data-jp="キャンバスを確認" style="font-size: 0.85rem;">Check Canbus</div></div>',
                         2: '<div class="menu-card"><div class="icon-container mb-2"><i class="bi bi-stop-circle"></i></div><div class="card-title lang-text" data-en="Validate MCU" data-es="Validar MCU" data-jp="MCUを検証" style="font-size: 0.85rem;">Validate MCU</div></div>',
-                        3: '<div class="menu-card"><div class="icon-container mb-2"><i class="bi bi-arrow-clockwise"></i></div><div class="card-title lang-text" data-en="Feed Material" data-es="Alimentar Material" data-jp="材料供給" style="font-size: 0.85rem;">Feed Material</div></div>',
-                        4: '<div class="menu-card"><div class="icon-container mb-2"><i class="bi bi-box-arrow-in-down"></i></div><div class="card-title lang-text" data-en="Pick and Place" data-es="Recoger y Colocar" data-jp="ピックアンドプレース" style="font-size: 0.85rem;">Pick and Place</div></div>',
-                        5: '<div class="menu-card"><div class="icon-container mb-2"><i class="bi bi-arrow-down-circle"></i></div><div class="card-title lang-text" data-en="Insertion" data-es="Inserción" data-jp="挿入" style="font-size: 0.85rem;">Insertion</div></div>',
-                        6: '<div class="menu-card"><div class="icon-container mb-2"><i class="bi bi-arrow-left-right"></i></div><div class="card-title lang-text" data-en="Hose Pulling" data-es="Tirar Manguera" data-jp="ホース引き" style="font-size: 0.85rem;">Hose Pulling</div></div>',
-                        7: '<div class="menu-card"><div class="icon-container mb-2"><i class="bi bi-list-check"></i></div><div class="card-title lang-text" data-en="Full Routine" data-es="Rutina Completa" data-jp="フルルーチン" style="font-size: 0.85rem;">Full Routine</div></div>',
+                        3: '<div class="menu-card"><div class="icon-container mb-2"><i class="bi bi-house"></i></div><div class="card-title lang-text" data-en="Test Home" data-es="Prueba Inicio" data-jp="テストホーム" style="font-size: 0.85rem;">Test Home</div></div>',
+                        4: '<div class="menu-card"><div class="icon-container mb-2"><i class="bi bi-arrow-clockwise"></i></div><div class="card-title lang-text" data-en="Feed Cassette" data-es="Alimentar Casete" data-jp="カセット供給" style="font-size: 0.85rem;">Feed Cassette</div></div>',
+                        5: '<div class="menu-card"><div class="icon-container mb-2"><i class="bi bi-arrow-left-right"></i></div><div class="card-title lang-text" data-en="Align Cassette" data-es="Alinear Casete" data-jp="カセット整列" style="font-size: 0.85rem;">Align Cassette</div></div>',
+                        6: '<div class="menu-card"><div class="icon-container mb-2"><i class="bi bi-box-arrow-in-down"></i></div><div class="card-title lang-text" data-en="Pick and Place" data-es="Recoger y Colocar" data-jp="ピックアンドプレース" style="font-size: 0.85rem;">Pick and Place</div></div>',
+                        7: '<div class="menu-card"><div class="icon-container mb-2"><i class="bi bi-droplet"></i></div><div class="card-title lang-text" data-en="Lubrication Test" data-es="Prueba de Lubricación" data-jp="潤滑テスト" style="font-size: 0.85rem;">Lubrication Test</div></div>',
                         8: '<div class="menu-card"><div class="icon-container mb-2"><i class="bi bi-database"></i></div><div class="card-title lang-text" data-en="Insertion Full Cycle" data-es="Ciclo Completo de Inserción" data-jp="挿入フルサイクル" style="font-size: 0.85rem;">Insertion Full Cycle</div></div>',
-                        9: '<div class="menu-card"><div class="icon-container mb-2"><i class="bi bi-house"></i></div><div class="card-title lang-text" data-en="Test Home" data-es="Prueba Inicio" data-jp="テストホーム" style="font-size: 0.85rem;">Test Home</div></div>',
-                        10: '<div class="menu-card"><div class="icon-container mb-2"><i class="bi bi-droplet"></i></div><div class="card-title lang-text" data-en="Lubrication Test" data-es="Prueba de Lubricación" data-jp="潤滑テスト" style="font-size: 0.85rem;">Lubrication Test</div></div>'
+                        9: '<div class="menu-card"><div class="icon-container mb-2"><i class="bi bi-arrow-down-circle"></i></div><div class="card-title lang-text" data-en="Deliver Hose" data-es="Entregar Manguera" data-jp="ホース配送" style="font-size: 0.85rem;">Deliver Hose</div></div>',
+                        10: '<div class="menu-card"><div class="icon-container mb-2"><i class="bi bi-list-check"></i></div><div class="card-title lang-text" data-en="Full Routine" data-es="Rutina Completa" data-jp="フルルーチン" style="font-size: 0.85rem;">Full Routine</div></div>'
                     };
                     button.innerHTML = buttonContents[actionNumber] || `Action ${actionNumber}`;
                 }
