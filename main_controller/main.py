@@ -639,6 +639,7 @@ def moveTransporter():
 
     
     # Move all steppers
+    # Move all steppers
     # print("Moving all steppers to position 1000...")
     # result = transporter_fuyus.move_all_steppers(150000,1)
     # print(f"Result: {result}")
@@ -647,8 +648,6 @@ def moveTransporter():
     # print(f"Result: {result}")
 
     # result = transporter_fuyus.pickHome()
-    # print(f"Result: {result}")
-
     # # Test TransporterGrippers functionality
     # print("\n--- Testing TransporterGrippers ---")
     
