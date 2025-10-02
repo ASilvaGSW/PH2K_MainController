@@ -162,7 +162,8 @@ bool get_solenoid_state(int solenoid_number);
 void toggle_solenoid(int solenoid_number);
 void close_all_solenoids();
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
   Serial.println("Starting Clean Template System...");
 
@@ -264,7 +265,8 @@ void twai_listener_task(void *parameter) {
   }
 }
 
-void process_instruction(CANInstruction instruction) {
+void process_instruction(CANInstruction instruction)
+{
   byte command = instruction.data[0];
   
   Serial.print("Processing command: 0x");
@@ -297,7 +299,7 @@ void process_instruction(CANInstruction instruction) {
       break;
       
     // Level sensor commands
-    case 0x30: // Read individual level sensor
+    case 0x03: // Read individual level sensor
       {
         byte sensor_number = instruction.data[1];
         Serial.print("Reading level sensor ");
@@ -320,29 +322,29 @@ void process_instruction(CANInstruction instruction) {
       }
       break;
       
-    case 0x31: // Read all level sensors
+    case 0x04: // Read all level sensors
       {
         Serial.println("Reading all level sensors");
         bool levels[3];
         get_all_level_sensors(levels);
         
         replyData[1] = 0x01; // OK
-        replyData[2] = levels[0] ? 0x01 : 0x00; // Low level sensor
-        replyData[3] = levels[1] ? 0x01 : 0x00; // Medium level sensor
-        replyData[4] = levels[2] ? 0x01 : 0x00; // High level sensor
+        replyData[2] = levels[0] ? 0x01 : 0x00; // Tank 1 sensor
+        replyData[3] = levels[1] ? 0x01 : 0x00; // Tank 2 sensor
+        replyData[4] = levels[2] ? 0x01 : 0x00; // Tank 3 sensor
         
-        Serial.print("Level sensors - Low: ");
+        Serial.print("Level sensors - Tank 1: ");
         Serial.print(levels[0] ? "DETECTED" : "NOT DETECTED");
-        Serial.print(", Medium: ");
+        Serial.print(", Tank 2: ");
         Serial.print(levels[1] ? "DETECTED" : "NOT DETECTED");
-        Serial.print(", High: ");
+        Serial.print(", Tank 3: ");
         Serial.println(levels[2] ? "DETECTED" : "NOT DETECTED");
         
         send_twai_response(replyData);
       }
       break;
       
-    case 0x32: // Read flow meter rate (L/min)
+    case 0x05: // Read flow meter rate (L/min)
       {
         byte meter_number = instruction.data[1];
         Serial.print("Reading flow meter ");
@@ -378,7 +380,7 @@ void process_instruction(CANInstruction instruction) {
       }
       break;
       
-    case 0x33: // Read flow meter total pulses
+    case 0x06: // Read flow meter total pulses
       {
         byte meter_number = instruction.data[1];
         Serial.print("Reading flow meter ");
@@ -407,7 +409,7 @@ void process_instruction(CANInstruction instruction) {
       }
       break;
       
-    case 0x34: // Reset flow meter
+    case 0x07: // Reset flow meter
       {
         byte meter_number = instruction.data[1];
         Serial.print("Resetting flow meter ");
@@ -430,7 +432,7 @@ void process_instruction(CANInstruction instruction) {
       }
       break;
       
-    case 0x35: // Read all flow meter rates
+    case 0x08: // Read all flow meter rates
       {
         Serial.println("Reading all flow meter rates");
         
@@ -464,7 +466,7 @@ void process_instruction(CANInstruction instruction) {
       }
       break;
       
-    case 0x36: // Set solenoid valve state
+    case 0x09: // Set solenoid valve state
       {
         byte solenoid_number = instruction.data[1];
         byte state = instruction.data[2]; // 0 = close, 1 = open
@@ -490,7 +492,7 @@ void process_instruction(CANInstruction instruction) {
       }
       break;
       
-    case 0x37: // Get solenoid valve state
+    case 0x0A: // Get solenoid valve state
       {
         byte solenoid_number = instruction.data[1];
         Serial.print("Reading solenoid ");
@@ -514,7 +516,7 @@ void process_instruction(CANInstruction instruction) {
       }
       break;
       
-    case 0x38: // Toggle solenoid valve
+    case 0x0B: // Toggle solenoid valve
       {
         byte solenoid_number = instruction.data[1];
         Serial.print("Toggling solenoid ");
@@ -542,7 +544,7 @@ void process_instruction(CANInstruction instruction) {
       }
       break;
       
-    case 0x39: // Get all solenoid states
+    case 0x0C: // Get all solenoid states
       {
         Serial.println("Reading all solenoid states");
         
@@ -566,7 +568,7 @@ void process_instruction(CANInstruction instruction) {
       }
       break;
       
-    case 0x3A: // Emergency close all solenoids
+    case 0x0D: // Emergency close all solenoids
       {
         Serial.println("Emergency close all solenoids");
         close_all_solenoids();
