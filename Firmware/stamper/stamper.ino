@@ -152,8 +152,8 @@ byte replyData[8];  // Buffer for CAN replies
 GripperDigital gripper(2, 12, 0);  // GPIO2, GPIO12, GPIO0 for gripper control
 
 // Device CAN ID (only process messages with this ID)
-#define DEVICE_CAN_ID 0x192
-#define RESPONSE_CAN_ID 0x592
+#define DEVICE_CAN_ID 0x005
+#define RESPONSE_CAN_ID 0x405
 
 // Stepper Motor Configuration
 #define STEPS_PER_REVOLUTION 200  // Number of steps per revolution for your stepper motor

@@ -128,7 +128,7 @@ unsigned long solenoid3LastToggleTime = 0;  // For timing control if needed
 #define SOLENOID_3_PIN 19  // GPIO19 - Solenoid valve 3 (Process 3: Level sensor 3 + Flow meter 3)
 
 // Device CAN ID (only process messages with this ID)
-#define DEVICE_CAN_ID 0x192
+#define DEVICE_CAN_ID 0x004
 
 // CAN instances
 CanFrame rxFrame, txFrame;
@@ -602,7 +602,7 @@ void process_instruction(CANInstruction instruction)
 }
 
 void send_twai_response(byte response[8]) {
-  txFrame.identifier = DEVICE_CAN_ID;
+  txFrame.identifier = DEVICE_CAN_ID + 0x400;
   txFrame.data_length_code = 8;
   memcpy(txFrame.data, response, 8);
   
