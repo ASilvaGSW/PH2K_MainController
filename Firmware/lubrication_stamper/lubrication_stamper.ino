@@ -147,7 +147,6 @@ struct CANInstruction {
 void twai_listener_task(void *parameter);
 void process_instruction(CANInstruction instruction);
 void send_twai_response(byte response[8]);
-bool wait_for_twai_reply(unsigned long timeout_ms = 5000);
 bool read_level_sensor(int sensor_number);
 void get_all_level_sensors(bool levels[3]);
 void IRAM_ATTR flowMeter1ISR();
@@ -613,20 +612,7 @@ void send_twai_response(byte response[8]) {
   }
 }
 
-bool wait_for_twai_reply(unsigned long timeout_ms) {
-  unsigned long start_time = millis();
-  
-  while (millis() - start_time < timeout_ms) {
-    if (ESP32Can.readFrame(rxFrame, 10)) {
-      if (rxFrame.identifier == DEVICE_CAN_ID) {
-        return true;
-      }
-    }
-    delay(1);
-  }
-  
-  return false;
-}
+
 
 // Level sensor functions
 bool read_level_sensor(int sensor_number) {
