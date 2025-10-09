@@ -16,8 +16,8 @@ class InsertionServos:
         self.canbus_id = canbus_id
 
         self.slider_joint_home_pos = 160
-        self.slider_joint_receive_pos = 160
-        self.slider_joint_insertion_pos = 7
+        self.slider_joint_receive_pos = 150
+        self.slider_joint_insertion_pos = 10
 
         self.clamp_joint_open_pos = 20
         self.clamp_joint_close_pos = 108
@@ -29,10 +29,10 @@ class InsertionServos:
 
         self.slider_nozzle_home_pos = 125
         self.slider_nozzle_receive_pos = 120
-        self.slider_nozzle_insertion_pos = 3
+        self.slider_nozzle_insertion_pos = 0
 
         self.clamp_nozzle_open_pos = 130
-        self.clamp_nozzle_close_pos = 49
+        self.clamp_nozzle_close_pos = 45
 
         self.cutter_open_pos = 0
         self.cutter_close_pos = 80

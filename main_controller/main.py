@@ -2,6 +2,8 @@ import time
 import platform
 import sys
 
+
+
 # Detectar sistema operativo para usar la clase Canbus adecuada
 if platform.system() == 'Linux':
     # En Jetson Orin Nano (Linux) usamos la implementación con python-can
@@ -93,8 +95,8 @@ def checkConnectivity():
     print("Elevator In Connected") if elevator_in.send_heartbeat() == "success" else print("Elevator In Not Connected")
     print("Insertion Servos Connected") if insertion_servos.send_heartbeat() == "success" else print("Insertion Servos Not Connected")
     print("Lubrication Feeder Connected") if lubrication_feeder.send_heartbeat() == "success" else print("Lubrication Feeder Not Connected")
-    print("Transporter Fuyus Connected") if transporter_fuyus.send_heartbeat() == "success" else print("Transporter Fuyus Not Connected")
-    print("Transporter Grippers Connected") if transporter_grippers.send_heartbeat() == "success" else print("Transporter Grippers Not Connected")
+    # print("Transporter Fuyus Connected") if transporter_fuyus.send_heartbeat() == "success" else print("Transporter Fuyus Not Connected")
+    # print("Transporter Grippers Connected") if transporter_grippers.send_heartbeat() == "success" else print("Transporter Grippers Not Connected")
 
 
 #Move Hose Puller
@@ -385,6 +387,8 @@ def movePickandPlace(n=1):
     if insertion_jig.move_x_axis(receiving_x) != "success": return "error05"
     if pick_and_place.open_gripper() != "success": return "error06"
 
+    gap = 15
+    zgap = 0
 
     #Nozzle Data
     nozzle_high = -1255
@@ -406,17 +410,17 @@ def movePickandPlace(n=1):
     if pick_and_place.move_actuator_z(0) != "success": return "error07"
     if pick_and_place.move_actuator_x(0) != "success": return "error08"
 
-
+    #
     # Pick Nozzle
-    if pick_and_place.move_actuator_x(nozzle_x[n]) != "success": return "error09"
-    if pick_and_place.move_actuator_z(nozzle_high) != "success": return "error10"
+    if pick_and_place.move_actuator_x(nozzle_x[n]- gap) != "success": return "error09"
+    if pick_and_place.move_actuator_z(nozzle_high+zgap) != "success": return "error10"
     if pick_and_place.close_gripper() != "success": return "error11"
 
 
     # Deliver Nozzle
     if pick_and_place.move_actuator_z(trans_nozzle_high) != "success": return "error12"
-    if pick_and_place.move_actuator_x(deliver_nozzle_x) != "success": return "error13"
-    if pick_and_place.move_actuator_z(deliver_nozzle_z) != "success": return "error14"
+    if pick_and_place.move_actuator_x(deliver_nozzle_x - gap) != "success": return "error13"
+    if pick_and_place.move_actuator_z(deliver_nozzle_z+zgap) != "success": return "error14"
     if pick_and_place.open_gripper() != "success": return "error15"
     time.sleep(.5)
 
@@ -435,14 +439,14 @@ def movePickandPlace(n=1):
     if pick_and_place.move_actuator_x(0) != "success": return "error19"
 
     # Pick Joint
-    if pick_and_place.move_actuator_x(joint_x[n]) != "success": return "error21"
-    if pick_and_place.move_actuator_z(joint_high) != "success": return "error22"
+    if pick_and_place.move_actuator_x(joint_x[n]-gap) != "success": return "error21"
+    if pick_and_place.move_actuator_z(joint_high+zgap) != "success": return "error22"
     if pick_and_place.close_gripper() != "success": return "error23"
 
     # Deliver Joint
     if pick_and_place.move_actuator_z(trans_joint_high) != "success": return "error24"
-    if pick_and_place.move_actuator_x(deliver_joint_x) != "success": return "error25"
-    if pick_and_place.move_actuator_z(deliver_joint_z) != "success": return "error26"
+    if pick_and_place.move_actuator_x(deliver_joint_x-gap) != "success": return "error25"
+    if pick_and_place.move_actuator_z(deliver_joint_z+zgap) != "success": return "error26"
     if pick_and_place.open_gripper() != "success": return "error27"
 
     # Go Back to Home
@@ -470,7 +474,7 @@ def oneCycle():
     lubrication_position_z = 520 + offset_z
     lubricate_nozzle = -5080 + offset_x
 
-    insertion_position_z = 490 + offset_z
+    insertion_position_z = 498 + offset_z
     insert_nozzle = -6570 + offset_x
 
     librication_position_joint_z = 530 + offset_z
@@ -548,11 +552,11 @@ def oneCycle():
     if hose_puller.move_y_actuator(pickup_y+15) != "success" : return "error06"
     if hose_puller.move_z_actuator(z_home+5) != "success" : return "error07"
     if puller_extension.close_gripper() != "success" : return "error08"
-    if hose_puller.move_y_actuator(pickup_y-500) != "success" : return "error09"
+    if hose_puller.move_y_actuator_with_speed(pickup_y-500,200) != "success" : return "error09"
     if hose_puller.move_z_actuator(safe_position) != "success" : return "error10"
-    if hose_puller.move_y_actuator(wait_y+1900) != "success" : return "error11"
+    if hose_puller.move_y_actuator_with_speed(wait_y+1900,200) != "success" : return "error11"
     if hose_puller.move_z_actuator(safe_position+42) != "success" : return "error10"
-    if hose_puller.move_y_actuator(wait_y) != "success" : return "error11"
+    if hose_puller.move_y_actuator_with_speed(wait_y,200) != "success" : return "error11"
 
     # Cutting Hose
     if lubrication_feeder.close_hose_holder() != "success" : return "error01"
@@ -662,7 +666,8 @@ def moveTransporter():
     # print("Opening all grippers...")
     # result = transporter_grippers.open_all_grippers()
     # print(f"Result: {result}")
-    
+
+
 
 def pickUpHose():
     global transporter_fuyus, transporter_grippers, hose_jig
@@ -700,7 +705,11 @@ def testHome():
     
     # Test ElevatorIn homing functions
     print("\n--- Testing ElevatorIn homing functions ---")
-    
+
+    print("Testing home_gantry_z...")
+    result = elevator_in.home_gantry_z()
+    print(f"Result: {result}")
+
     print("Testing home_gantry_x...")
     result = elevator_in.home_gantry_x()
     print(f"Result: {result}")
@@ -708,10 +717,7 @@ def testHome():
     print("Testing home_gantry_y...")
     result = elevator_in.home_gantry_y()
     print(f"Result: {result}")
-    
-    print("Testing home_gantry_z...")
-    result = elevator_in.home_gantry_z()
-    print(f"Result: {result}")
+
     
     print("Testing home_elevator_z...")
     result = elevator_in.home_elevator_z()
@@ -777,13 +783,21 @@ def testHome():
     
     print("\nAll homing tests completed!")
 
-
 #Test lubrication
 def lubrication_test():
-    global lubrication_feeder,insertion_servos
+    global lubrication_feeder,insertion_servos,hose_puller
 
-    if lubrication_feeder.lubricate_nozzle(duration=5) != "success": return "error01"
-    if lubrication_feeder.lubricate_joint(duration=5) != "success": return "error02"
+    # if lubrication_feeder.lubricate_nozzle(duration=5) != "success": return "error01"
+    # if lubrication_feeder.lubricate_joint(duration=5) != "success": return "error02"
+
+    hose_puller.move_y_actuator_with_speed(5,100)
+
+    # if lubrication_feeder.set_hose_holder_angle(20) != "success": return "error01"
+    # if lubrication_feeder.feed_hose(speed=1500,direction=0,duration=16) != "success": return "error01"
+    # if lubrication_feeder.set_hose_holder_angle(0) != "success": return "error01"
+
+    # if insertion_servos.activate_cutter() != "success": return "error02"
+
 
     return "success"
 
@@ -824,25 +838,21 @@ if __name__ == "__main__":
 
     # result = moveElevatorIn()
     # print(f"moveElevatorIn result: {result}")
-    
-    # result = movePickandPlace(2)
+
+
+    # result = movePickandPlace(1)
     # print(f"movePickandPlace result: {result}")
-    
+    # #
     # result = oneCycle()
     # print(f"oneCycle result: {result}")
-    
+    # #
     # result = pickUpHose()
     # print(f"pickUpHose result: {result}")
-
-
-    #For Testing
-
     # result = insertionRoutine()
     # print(f"insertionRoutine result: {result}")
 
     # result = moveTransporter()
     # print(f"moveTransporter result: {result}")
-
     # result = moveHosepuller()
     # print(f"moveHosepuller result: {result}")
     
@@ -850,12 +860,14 @@ if __name__ == "__main__":
 
     # insertionServosOpen()
 
-    # result = lubrication_test()
-    # print(f"lubrication_test result: {result}")
+    result = lubrication_test()
+    print(f"lubrication_test result: {result}")
 
     # alignCassette()
 
     # testIR()
+
+
 
 
     canbus.close_canbus()

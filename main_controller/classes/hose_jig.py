@@ -97,8 +97,8 @@ class HoseJig:
         return status
 
     #Case 0x0C: Move actuator to deliver position
-    def deliver_position(self):
-        status, reply_data = self.canbus.send_message(self.canbus_id, [0x0C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+    def deliver_position(self,flag = True):
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x0C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],flag)
         return status
 
     #Case 0x0D: Read actuator movement counter
