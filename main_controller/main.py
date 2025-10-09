@@ -165,92 +165,92 @@ def insertionRoutine():
     insertion_position_joint_z = 600 + offset_z
     insert_joint = -8950 + offset_x
 
-    # #****************************** Routine ******************************
-    #
-    # # Homing Devices
-    #
-    # if insertion_servos.slider_joint_home() != "success": return "error04"
-    # if insertion_servos.slider_nozzle_home() != "success": return "error05"
-    #
-    # if insertion_jig.home_x_axis_go_home() != "success": return "error06"
-    # if insertion_jig.home_z_axis_go_home() != "success": return "error07"
-    #
-    # if insertion_servos.clamp_nozzle_open() != "success": return "error09"
-    # if insertion_servos.clamp_joint_open() != "success": return "error10"
-    # if insertion_servos.cutter_open() != "success": return "error11"
-    # if insertion_servos.holder_hose_joint_open() != "success": return "error12"
-    # if insertion_servos.holder_hose_nozzle_open() != "success": return "error13"
-    #
-    # # Feed Hose
-    #
-    # if lubrication_feeder.close_hose_holder() != "success": return "error01"
-    # if lubrication_feeder.feed_hose(duration=3.15) != "success": return "error02"
-    # time.sleep(1)
-    # if insertion_servos.holder_hose_nozzle_close() != "success": return "error08"
-    # if lubrication_feeder.open_hose_holder() != "success": return "error03"
-    #
-    #
-    # # Align Nozzle Position
-    #
-    #
-    # if insertion_jig.move_z_axis(home_position_z) != "success": return "error14"
-    # if insertion_jig.move_x_axis(home_position_x) != "success": return "error15"
-    #
-    # # Lubricate Hose Nozzle Area
-    #
-    # if insertion_servos.holder_hose_nozzle_close() != "success": return "error16"
-    #
-    # if insertion_jig.move_x_axis(lubricate_nozzle) != "success": return "error17"
-    # if insertion_jig.move_z_axis(lubrication_position_z) != "success": return "error18"
-    #
-    # if lubrication_feeder.lubricate_nozzle(5) != "success": return "error19"
-    #
-    # # Insert Nozzle
-    #
-    # if insertion_jig.move_z_axis(insertion_position_z) != "success": return "error20"
-    # if insertion_jig.move_x_axis(insert_nozzle) != "success": return "error21"
-    #
-    # if insertion_servos.holder_hose_nozzle_close() != "success": return "error22"
-    # if insertion_servos.clamp_nozzle_close() != "success": return "error23"
-    # time.sleep(.5)
-    # if insertion_servos.slider_nozzle_insertion() != "success": return "error24"
-    # time.sleep(1)
-    # if insertion_servos.holder_hose_nozzle_open() != "success": return "error25"
-    # if insertion_servos.clamp_nozzle_open() != "success": return "error26"
-    # time.sleep(.5)
-    # if insertion_servos.slider_nozzle_home() != "success": return "error27"
-    #
-    #
-    # # Safe Position
-    #
-    #
-    # if insertion_servos.clamp_joint_close() != "success": return "error28"
-    # if insertion_jig.move_z_axis(home_position_z) != "success": return "error29"
-    #
-    # # Lubricate Hose Joint Area
-    #
-    # if insertion_jig.move_x_axis(lubricate_joint) != "success": return "error30"
-    # if insertion_jig.move_z_axis(librication_position_joint_z) != "success": return "error31"
-    # if lubrication_feeder.lubricate_joint(5) != "success": return "error32"
-    #
-    # #Insert Joint
-    #
-    # if insertion_jig.move_z_axis(insertion_position_joint_z) != "success": return "error33"
-    # if insertion_jig.move_x_axis(insert_joint) != "success": return "error34"
-    # if insertion_servos.holder_hose_joint_close() != "success": return "error35"
-    # if insertion_servos.clamp_joint_close() != "success": return "error36"
-    # time.sleep(0.5)
-    # if insertion_servos.slider_joint_insertion() != "success": return "error37"
-    # time.sleep(1)
-    # if insertion_servos.holder_hose_joint_open() != "success": return "error38"
-    # if insertion_servos.clamp_joint_open() != "success": return "error39"
-    # time.sleep(0.5)
-    # if insertion_servos.slider_joint_home() != "success": return "error40"
-    #
-    # # Back to Home
-    #
-    # if insertion_jig.move_z_axis(0) != "success": return "error41"
-    # if insertion_jig.move_x_axis(0) != "success": return "error42"
+    #****************************** Routine ******************************
+    
+    # Homing Devices
+    
+    if insertion_servos.slider_joint_home() != "success": return "error04"
+    if insertion_servos.slider_nozzle_home() != "success": return "error05"
+    
+    if insertion_jig.home_x_axis_go_home() != "success": return "error06"
+    if insertion_jig.home_z_axis_go_home() != "success": return "error07"
+    
+    if insertion_servos.clamp_nozzle_open() != "success": return "error09"
+    if insertion_servos.clamp_joint_open() != "success": return "error10"
+    if insertion_servos.cutter_open() != "success": return "error11"
+    if insertion_servos.holder_hose_joint_open() != "success": return "error12"
+    if insertion_servos.holder_hose_nozzle_open() != "success": return "error13"
+    
+    # Feed Hose
+    
+    if lubrication_feeder.close_hose_holder() != "success": return "error01"
+    if lubrication_feeder.feed_hose(duration=3.15) != "success": return "error02"
+    time.sleep(1)
+    if insertion_servos.holder_hose_nozzle_close() != "success": return "error08"
+    if lubrication_feeder.open_hose_holder() != "success": return "error03"
+    
+    
+    # Align Nozzle Position
+    
+    
+    if insertion_jig.move_z_axis(home_position_z) != "success": return "error14"
+    if insertion_jig.move_x_axis(home_position_x) != "success": return "error15"
+    
+    # Lubricate Hose Nozzle Area
+    
+    if insertion_servos.holder_hose_nozzle_close() != "success": return "error16"
+    
+    if insertion_jig.move_x_axis(lubricate_nozzle) != "success": return "error17"
+    if insertion_jig.move_z_axis(lubrication_position_z) != "success": return "error18"
+    
+    if lubrication_feeder.lubricate_nozzle(5) != "success": return "error19"
+    
+    # Insert Nozzle
+    
+    if insertion_jig.move_z_axis(insertion_position_z) != "success": return "error20"
+    if insertion_jig.move_x_axis(insert_nozzle) != "success": return "error21"
+    
+    if insertion_servos.holder_hose_nozzle_close() != "success": return "error22"
+    if insertion_servos.clamp_nozzle_close() != "success": return "error23"
+    time.sleep(.5)
+    if insertion_servos.slider_nozzle_insertion() != "success": return "error24"
+    time.sleep(1)
+    if insertion_servos.holder_hose_nozzle_open() != "success": return "error25"
+    if insertion_servos.clamp_nozzle_open() != "success": return "error26"
+    time.sleep(.5)
+    if insertion_servos.slider_nozzle_home() != "success": return "error27"
+    
+    
+    # Safe Position
+    
+    
+    if insertion_servos.clamp_joint_close() != "success": return "error28"
+    if insertion_jig.move_z_axis(home_position_z) != "success": return "error29"
+    
+    # Lubricate Hose Joint Area
+    
+    if insertion_jig.move_x_axis(lubricate_joint) != "success": return "error30"
+    if insertion_jig.move_z_axis(librication_position_joint_z) != "success": return "error31"
+    if lubrication_feeder.lubricate_joint(5) != "success": return "error32"
+    
+    #Insert Joint
+    
+    if insertion_jig.move_z_axis(insertion_position_joint_z) != "success": return "error33"
+    if insertion_jig.move_x_axis(insert_joint) != "success": return "error34"
+    if insertion_servos.holder_hose_joint_close() != "success": return "error35"
+    if insertion_servos.clamp_joint_close() != "success": return "error36"
+    time.sleep(0.5)
+    if insertion_servos.slider_joint_insertion() != "success": return "error37"
+    time.sleep(1)
+    if insertion_servos.holder_hose_joint_open() != "success": return "error38"
+    if insertion_servos.clamp_joint_open() != "success": return "error39"
+    time.sleep(0.5)
+    if insertion_servos.slider_joint_home() != "success": return "error40"
+    
+    # Back to Home
+    
+    if insertion_jig.move_z_axis(0) != "success": return "error41"
+    if insertion_jig.move_x_axis(0) != "success": return "error42"
 
     if insertion_servos.activate_cutter() != "success": return "error43"
 
