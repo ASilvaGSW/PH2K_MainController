@@ -1584,14 +1584,10 @@ void process_instruction(CanFrame instruction)
       // Select the appropriate stepper motor
       switch(stepperSelection) {
         case 1:
-          selectedStepper = &x_axis_stepper;
-          Serial.println("Selected X-axis stepper");
-          break;
-        case 2:
           selectedStepper = &y_axis_stepper;
           Serial.println("Selected Y-axis stepper");
           break;
-        case 3:
+        case 2:
           selectedStepper = &z_axis_stepper;
           Serial.println("Selected Z-axis stepper");
           break;
