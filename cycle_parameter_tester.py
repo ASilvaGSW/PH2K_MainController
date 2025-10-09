@@ -410,16 +410,24 @@ class CycleParameterTester:
             
             # Initialize CAN bus
             self.canbus = Canbus()
-            if self.canbus.initialize_canbus() != "success":
+            start_result = self.canbus.start_canbus()
+            if not start_result:
                 raise Exception("Error al inicializar CAN bus")
             
-            # Initialize hardware classes
-            self.insertion_jig = InsertionJig(self.canbus)
-            self.insertion_servos = InsertionServos(self.canbus)
-            self.hose_puller = HosePuller(self.canbus)
-            self.hose_jig = HoseJig(self.canbus)
-            self.puller_extension = PullerExtension(self.canbus)
-            self.lubrication_feeder = LubricationFeeder(self.canbus)
+            # Initialize hardware classes with CAN bus IDs
+            CANBUS_ID_JIG = 0x0CA
+            CANBUS_ID_PULLER = 0x192
+            CANBUS_ID_EXTENSION = 0x193
+            CANBUS_ID_INSERTION = 0x0C9
+            CANBUS_ID_INSERTION_SERVOS = 0x002
+            CANBUS_ID_LUBRICATION_FEEDER = 0x019
+            
+            self.insertion_jig = InsertionJig(self.canbus, CANBUS_ID_INSERTION)
+            self.insertion_servos = InsertionServos(self.canbus, CANBUS_ID_INSERTION_SERVOS)
+            self.hose_puller = HosePuller(self.canbus, CANBUS_ID_PULLER)
+            self.hose_jig = HoseJig(self.canbus, CANBUS_ID_JIG)
+            self.puller_extension = PullerExtension(self.canbus, CANBUS_ID_EXTENSION)
+            self.lubrication_feeder = LubricationFeeder(self.canbus, CANBUS_ID_LUBRICATION_FEEDER)
             
             self.connection_status.set("Conectado")
             self.log_message("Hardware conectado exitosamente")
