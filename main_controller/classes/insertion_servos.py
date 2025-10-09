@@ -104,8 +104,10 @@ class InsertionServos:
         time.sleep(0.5)
         return self.cutter(1)
 
-    def slider_joint_insertion(self):
-        return self.slider_joint(self.slider_joint_insertion_pos)
+    def slider_joint_insertion(self, position=None):
+        if position is None:
+            position = self.slider_joint_insertion_pos
+        return self.slider_joint(position)
     
     def slider_joint_home(self):
         return self.slider_joint(self.slider_joint_home_pos)
@@ -134,8 +136,10 @@ class InsertionServos:
     def holder_hose_joint_close(self):
         return self.holder_hose_joint(self.holder_hose_close_pos)
 
-    def slider_nozzle_insertion(self):
-        return self.slider_nozzle(self.slider_nozzle_insertion_pos)
+    def slider_nozzle_insertion(self, position=None):
+        if position is None:
+            position = self.slider_nozzle_insertion_pos
+        return self.slider_nozzle(position)
     
     def slider_nozzle_home(self):
         return self.slider_nozzle(self.slider_nozzle_home_pos)
