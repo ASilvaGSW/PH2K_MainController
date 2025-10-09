@@ -224,12 +224,28 @@ class LubricationFeeder:
 
     # Convenience methods for common operations
     def lubricate_joint(self, duration=1000):
-        """Activate primary lubrication valve for specified duration"""
-        return self.activate_valve_2(duration)
+        """Activate primary lubrication valve for specified duration
+        Args:
+            duration: Duration in seconds (float) or milliseconds (int)
+        """
+        # Convert seconds to milliseconds if float value is provided
+        if isinstance(duration, float):
+            duration_ms = int(duration * 1000)
+        else:
+            duration_ms = int(duration)
+        return self.activate_valve_2(duration_ms)
 
     def lubricate_nozzle(self, duration=1000):
-        """Activate secondary lubrication valve for specified duration"""
-        return self.activate_valve_1(duration)
+        """Activate secondary lubrication valve for specified duration
+        Args:
+            duration: Duration in seconds (float) or milliseconds (int)
+        """
+        # Convert seconds to milliseconds if float value is provided
+        if isinstance(duration, float):
+            duration_ms = int(duration * 1000)
+        else:
+            duration_ms = int(duration)
+        return self.activate_valve_1(duration_ms)
 
     def feed_hose(self, speed=500, direction=0, duration=3):
         """Move main feeder at specified speed and direction for a duration, then stop"""
