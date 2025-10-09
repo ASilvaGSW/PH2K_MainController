@@ -8,7 +8,7 @@ PyMySQL==1.1.0
 
 # CAN Bus and Serial Communication
 # candle_driver  # Uncomment if CAN hardware is available
-candle_driver
+python-can
 pyserial==3.5
 
 # Additional utilities
