@@ -5,7 +5,7 @@
  *
  * FEATURES:
  *   - Dual CAN bus support: ESP32 TWAI (integrated) and MCP2515 (external) for communication with general and local networks.
- *   - Controls two linear actuators (Y and Z axes) and a digital gripper for stamping operations.
+ *   - Controls two linear actuators (Y and Z axes) for stamping operations.
  *   - Controls three pump linear actuators (pump1, pump2, pump3) with speed mode and timer functionality.
  *   - Controls two servo motors (servo_cover, servo_stamper) with angle positioning and movement tracking.
  *   - Controls two optical sensors (optical_sensor_1, optical_sensor_2) for position detection and activation counting.
@@ -14,13 +14,13 @@
  *   - Implements FreeRTOS for multitasking, using queues for instruction dispatch.
  *   - Stores and manages actuator movement counters in non-volatile EEPROM memory.
  *   - Robust command processing with status reporting and error handling via CAN.
- *   - Modular design using custom classes for actuators and gripper.
+ *   - Modular design using custom classes for actuators.
  *
  * ARCHITECTURE OVERVIEW:
  *   - setup(): Initializes peripherals, CAN buses, EEPROM, and FreeRTOS tasks.
  *   - loop(): Main event loop, processes queued CAN instructions and manages Y-axis and Z-axis steppers.
  *   - twai_listener_task(): Listens for incoming CAN instructions and queues them for processing.
- *   - process_instruction(): Decodes and executes commands from CAN, dispatches to actuators, Y-axis stepper, Z-axis stepper, pumps, servos, optical sensors, or gripper as needed.
+ *   - process_instruction(): Decodes and executes commands from CAN, dispatches to actuators, Y-axis stepper, Z-axis stepper, pumps, servos, or optical sensors as needed.
  *   - Helper functions for EEPROM, CAN reply waiting, and CAN response sending.
  *
  * COMMANDS (CAN):
@@ -36,14 +36,9 @@
  *   - 0x0A: Read Y-axis stepper movement counter
  *   - 0x0B: Move Y-axis stepper to position
  *   - 0x0C: Home Y-axis stepper
- *   - 0x0D: Open gripper
- *   - 0x0E: Close gripper
- *   - 0x0F: Set gripper force
- *   - 0x10: Read gripper movement counter
- *   - 0x11: Reset gripper movement counter
  *   - 0x12: Reset Y-axis stepper movement counter
  *   - 0x13: Home Y axis using go_home function
- *   - 0x14: (Reserved)
+ *   - 0x14: Home Z axis using go_home function
  *   - 0x15: Move Y actuator to absolute position with speed control
  *   - 0x16: Read Z-axis stepper movement counter
  *   - 0x17: Move Z-axis stepper to position
@@ -68,7 +63,7 @@
  *   - AccelStepper
  *   - FreeRTOS (ESP32)
  *   - EEPROM (ESP32)
- *   - Custom: src/linear_actuator.h, src/gripper_digital.h
+ *   - Custom: src/linear_actuator.h
  *
  * AUTHOR: Alan Silva
  * DATE: 2025-07-25
@@ -82,7 +77,6 @@
 #include <mcp_can.h>
 #include <SPI.h>
 #include "src/linear_actuator.h"
-#include "src/gripper_digital.h"
 #include <ESP32Servo.h>
 #include <AccelStepper.h>
 
@@ -93,26 +87,24 @@
 #include <EEPROM.h>  // For flash memory storage
 
 // EEPROM Configuration
-#define EEPROM_SIZE 52  // 4 bytes for each counter (servos + actuator + steppers + pumps + optical sensors)
+#define EEPROM_SIZE 48  // 4 bytes for each counter (servos + actuator + steppers + pumps + optical sensors)
 #define ACTUATOR_COUNTER_ADDR 4  // Address in EEPROM to store the actuator counter
 #define ACTUATOR_COUNTER_ADDR2 8 // Address in EEPROM to store the actuator counter
 #define STEPPER_COUNTER_ADDR 12 // Address in EEPROM to store the Y-axis stepper counter
 #define Z_STEPPER_COUNTER_ADDR 16 // Address in EEPROM to store the Z-axis stepper counter
-#define GRIPPER_COUNTER_ADDR 20 // Address in EEPROM to store the gripper counter
-#define PUMP1_COUNTER_ADDR 24 // Address in EEPROM to store the pump1 counter
-#define PUMP2_COUNTER_ADDR 28 // Address in EEPROM to store the pump2 counter
-#define PUMP3_COUNTER_ADDR 32 // Address in EEPROM to store the pump3 counter
-#define SERVO_COVER_COUNTER_ADDR 36 // Address in EEPROM to store the servo cover counter
-#define SERVO_STAMPER_COUNTER_ADDR 40 // Address in EEPROM to store the servo stamper counter
-#define OPTICAL_SENSOR_1_COUNTER_ADDR 44 // Address in EEPROM to store the optical sensor 1 counter
-#define OPTICAL_SENSOR_2_COUNTER_ADDR 48 // Address in EEPROM to store the optical sensor 2 counter
+#define PUMP1_COUNTER_ADDR 20 // Address in EEPROM to store the pump1 counter
+#define PUMP2_COUNTER_ADDR 24 // Address in EEPROM to store the pump2 counter
+#define PUMP3_COUNTER_ADDR 28 // Address in EEPROM to store the pump3 counter
+#define SERVO_COVER_COUNTER_ADDR 32 // Address in EEPROM to store the servo cover counter
+#define SERVO_STAMPER_COUNTER_ADDR 36 // Address in EEPROM to store the servo stamper counter
+#define OPTICAL_SENSOR_1_COUNTER_ADDR 40 // Address in EEPROM to store the optical sensor 1 counter
+#define OPTICAL_SENSOR_2_COUNTER_ADDR 44 // Address in EEPROM to store the optical sensor 2 counter
 
 // Global variables
 unsigned long actuatorMoveCounterY = 0;
 unsigned long actuatorMoveCounterZ = 0;
 unsigned long stepperMoveCounter = 0;  // Y-axis stepper counter
 unsigned long zStepperMoveCounter = 0; // Z-axis stepper counter
-unsigned long gripperMoveCounter = 0;
 unsigned long pump1MoveCounter = 0;    // Pump1 counter
 unsigned long pump2MoveCounter = 0;    // Pump2 counter
 unsigned long pump3MoveCounter = 0;    // Pump3 counter
@@ -148,9 +140,6 @@ byte replyData[8];  // Buffer for CAN replies
 #define OPTICAL_SENSOR_1_PIN 13  // GPIO13 - Digital input for optical sensor 1 (Y-axis)
 #define OPTICAL_SENSOR_2_PIN 33  // GPIO33 - Digital input for optical sensor 2 (Z-axis)
 
-// Instance of GripperDigital (using available GPIO pins)
-GripperDigital gripper(2, 12, 0);  // GPIO2, GPIO12, GPIO0 for gripper control
-
 // Device CAN ID (only process messages with this ID)
 #define DEVICE_CAN_ID 0x005
 #define RESPONSE_CAN_ID 0x405
@@ -175,13 +164,13 @@ Servo servo_stamper;
 MCP_CAN CAN1(CAN1_CS);
 
 // Instance of LinearActuator
-LinearActuator y_axis(0x2CB);
-LinearActuator z_axis(0x2CC);
+LinearActuator y_axis(0x001);
+LinearActuator z_axis(0x002);
 
 // Pump LinearActuator instances
-LinearActuator pump1(0x2CD);
-LinearActuator pump2(0x2CE);
-LinearActuator pump3(0x2CF);
+LinearActuator pump1(0x003);
+LinearActuator pump2(0x004);
+LinearActuator pump3(0x005);
 
 const int ACTUATOR_HOME_POSITION = 0;
 
@@ -231,14 +220,6 @@ void saveZStepperCounter()
   EEPROM.commit();
   Serial.print("Z-axis stepper counter saved: ");
   Serial.println(zStepperMoveCounter);
-}
-
-void saveGripperCounter()
-{
-  EEPROM.writeULong(GRIPPER_COUNTER_ADDR, gripperMoveCounter);
-  EEPROM.commit();
-  Serial.print("Gripper counter saved: ");
-  Serial.println(gripperMoveCounter);
 }
 
 void savePump1Counter()
@@ -326,12 +307,6 @@ void incrementZStepperCounter()
   saveZStepperCounter();
 }
 
-void incrementGripperCounter()
-{
-  gripperMoveCounter++;
-  saveGripperCounter();
-}
-
 void incrementPump1Counter()
 {
   pump1MoveCounter++;
@@ -396,7 +371,6 @@ void setup()
   y_axis_stepper.setMaxSpeed(MAX_SPEED);
   y_axis_stepper.setAcceleration(ACCELERATION);
   y_axis_stepper.setEnablePin(Y_AXIS_STEPPER_ENABLE_PIN);
-  y_axis_stepper.setPinsInverted(false, false, true);  // Invert enable pin
   y_axis_stepper.enableOutputs();
   y_axis_stepper.moveTo(0);  // Set initial position
 
@@ -404,9 +378,15 @@ void setup()
   z_axis_stepper.setMaxSpeed(MAX_SPEED);
   z_axis_stepper.setAcceleration(ACCELERATION);
   z_axis_stepper.setEnablePin(Z_AXIS_STEPPER_ENABLE_PIN);
-  z_axis_stepper.setPinsInverted(false, false, true);  // Invert enable pin
   z_axis_stepper.enableOutputs();
   z_axis_stepper.moveTo(0);  // Set initial position
+
+
+  // Set enable pins as outputs and enable steppers
+  pinMode(Y_AXIS_STEPPER_ENABLE_PIN, OUTPUT);
+  pinMode(Z_AXIS_STEPPER_ENABLE_PIN, OUTPUT);
+  digitalWrite(Y_AXIS_STEPPER_ENABLE_PIN, HIGH);
+  digitalWrite(Z_AXIS_STEPPER_ENABLE_PIN, HIGH);
 
   // Initialize servo motors
   servo_cover.attach(SERVO_COVER_PIN);
@@ -426,7 +406,6 @@ void setup()
   actuatorMoveCounterZ = EEPROM.readULong(ACTUATOR_COUNTER_ADDR2);
   stepperMoveCounter = EEPROM.readULong(STEPPER_COUNTER_ADDR);
   zStepperMoveCounter = EEPROM.readULong(Z_STEPPER_COUNTER_ADDR);
-  gripperMoveCounter = EEPROM.readULong(GRIPPER_COUNTER_ADDR);
   pump1MoveCounter = EEPROM.readULong(PUMP1_COUNTER_ADDR);
   pump2MoveCounter = EEPROM.readULong(PUMP2_COUNTER_ADDR);
   pump3MoveCounter = EEPROM.readULong(PUMP3_COUNTER_ADDR);
@@ -442,8 +421,6 @@ void setup()
   Serial.println(stepperMoveCounter);
   Serial.print("Loaded Z-axis stepper move counter from EEPROM: ");
   Serial.println(zStepperMoveCounter);
-  Serial.print("Loaded gripper move counter from EEPROM: ");
-  Serial.println(gripperMoveCounter);
   Serial.print("Loaded pump1 move counter from EEPROM: ");
   Serial.println(pump1MoveCounter);
   Serial.print("Loaded pump2 move counter from EEPROM: ");
@@ -574,9 +551,9 @@ void loop()
  * ----------------------------------------
  * Decodes and executes CAN instructions received from the queue.
  * - Each case in the switch statement corresponds to a command (see command list above).
- * - Handles actuator moves, stepper moves, gripper control, counter reads/resets, and power-off.
+ * - Handles actuator moves, stepper moves, pump control, servo control, optical sensor operations, counter reads/resets, and power-off.
  * - Sends appropriate CAN responses for each command, including error/status codes.
- * - Uses helper functions for actuator/gripper actions and CAN communication.
+ * - Uses helper functions for actuator actions and CAN communication.
  *
  * PARAMS:
  *   instruction: CanFrame containing the received CAN message, including identifier and data payload.
@@ -584,7 +561,7 @@ void loop()
  * NOTES:
  *   - Many actions are non-blocking; responses may be sent before motion completes.
  *   - Error handling is robust: failures in CAN communication or timeouts are reported via response codes.
- *   - For actuator/stepper/gripper details, see respective class documentation in src/.
+ *   - For actuator/stepper details, see respective class documentation in src/.
  */
 void process_instruction(CanFrame instruction)
 {
@@ -871,79 +848,6 @@ void process_instruction(CanFrame instruction)
     }
     break;
 
-    // ***************************** CASE 0x0D ***************************** //
-    // Open gripper
-    case 0x0D:
-    {
-      Serial.println("Case 0x0D: Opening gripper");
-      
-      gripper.open();
-
-      incrementGripperCounter();
-      
-      delay(500);
-      byte response[] = {0x0D, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-      send_twai_response(response);
-    }
-    break;
-
-  
-    // ***************************** CASE 0x0E ***************************** //
-    // Close gripper
-    case 0x0E:
-    {
-      Serial.println("Case 0x0E: Closing gripper");
-
-      gripper.close();
-
-      incrementGripperCounter();
-      
-      delay(500);
-      byte response[] = {0x0E, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-      send_twai_response(response);
-    }
-    break;
-
-    // ***************************** CASE 0x0F ***************************** //
-    // Set gripper force
-    case 0x0F:
-    {
-      Serial.println("Case 0x0F: Setting gripper force");
-
-      gripper.setFuerza(instruction.data[1]);
-      
-      // Send immediate response
-      byte response[] = {0x0F, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-      send_twai_response(response);
-    }
-    break;  
-
-    // ***************************** CASE 0x10 ***************************** //
-    // Read gripper movement counter
-    case 0x10:
-    {
-      Serial.println("Case 0x10: Reading gripper movement counter");
-
-      byte counter_high = (gripperMoveCounter >> 8) & 0xFF;
-      byte counter_low = gripperMoveCounter & 0xFF;
-      byte response[] = {0x10, 0x01, counter_high, counter_low, 0x00, 0x00, 0x00, 0x00};
-      send_twai_response(response);
-    }
-    break;
-
-    // ***************************** CASE 0x11 ***************************** //
-    // Reset gripper movement counter
-    case 0x11:
-    {
-      Serial.println("Case 0x11: Resetting gripper movement counter");
-      gripperMoveCounter = 0;
-      saveGripperCounter();
-      delay(500);
-      byte response[] = {0x11, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-      send_twai_response(response);
-    }
-    break;
-
   
     // ***************************** CASE 0x12 ***************************** //
     // Reset Y-axis stepper movement counter
@@ -1213,10 +1117,6 @@ void process_instruction(CanFrame instruction)
       // Homing Z-axis Stepper
        z_axis_stepper.moveTo(0);
 
-      // Open gripper
-      gripper.open();
-
-
       // Send response with status
       byte statusResponse[] = {0xFF, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(statusResponse);
@@ -1429,10 +1329,10 @@ void process_instruction(CanFrame instruction)
       Serial.println("Case 0x1D: Controlling servo motors");
       
       // Extract servo selection and angle from CAN data
-      // Byte 0: servo selection (1=servo_cover, 2=servo_stamper)
-      // Bytes 1-2: angle (0-180 degrees, little-endian)
-      uint8_t servoSelection = instruction.data[0];
-      uint16_t angle = instruction.data[1] | (instruction.data[2] << 8);
+      // Byte 1: servo selection (1=servo_cover, 2=servo_stamper)
+      // Bytes 2: angle (0-180 degrees, little-endian)
+      uint8_t servoSelection = instruction.data[1];
+      uint8_t angle = instruction.data[2];
       
       // Validate angle range (0-180 degrees)
       if (angle > 180) {

@@ -30,6 +30,8 @@ from classes.elevator_in import ElevatorIn
 from classes.pick_and_place import PickAndPlace
 from classes.insertion_servos import InsertionServos
 from classes.lubrication_feeder import LubricationFeeder
+from classes.lubrication_stamper import LubricationStamper
+from classes.stamper import Stamper
 from classes.transporter_fuyus import TransporterFuyus
 from classes.transporter_grippers import TransporterGrippers
 
@@ -43,13 +45,20 @@ elevator_in = None
 pick_and_place = None
 insertion_servos = None
 lubrication_feeder = None
+lubrication_stamper = None
+stamper = None
 transporter_fuyus = None
 transporter_grippers = None
+
+# Connectivity flags for different stations
+CHECK_FIRST_STATION = True
+CHECK_SECOND_STATION = True
+CHECK_ALL_DEVICES = False  # When True, checks all devices regardless of station flags
 
 #Initialize and setup CANbus and devices
 def my_main():
     global canbus, hose_jig, hose_puller, puller_extension, insertion_jig, elevator_in, pick_and_place, insertion_servos
-    global lubrication_feeder, transporter_fuyus, transporter_grippers
+    global lubrication_feeder, lubrication_stamper, stamper, transporter_fuyus, transporter_grippers
     
     # Example CAN IDs (these should be configured according to your hardware setup)
     CANBUS_ID_JIG = 0x0CA
@@ -60,6 +69,8 @@ def my_main():
     CANBUS_ID_PICK_AND_PLACE = 0x191
     CANBUS_ID_INSERTION_SERVOS = 0x002
     CANBUS_ID_LUBRICATION_FEEDER = 0x019
+    CANBUS_ID_LUBRICATION_STAMPER = 0x004
+    CANBUS_ID_STAMPER = 0x005
     CANBUS_ID_TRANSPORTER_FUYUS = 0x021
     CANBUS_ID_TRANSPORTER_GRIPPERS = 0x020
 
@@ -75,6 +86,8 @@ def my_main():
     pick_and_place = PickAndPlace(canbus, CANBUS_ID_PICK_AND_PLACE)
     insertion_servos = InsertionServos(canbus, CANBUS_ID_INSERTION_SERVOS)
     lubrication_feeder = LubricationFeeder(canbus, CANBUS_ID_LUBRICATION_FEEDER)
+    lubrication_stamper = LubricationStamper(canbus, CANBUS_ID_LUBRICATION_STAMPER)
+    stamper = Stamper(canbus, CANBUS_ID_STAMPER)
     transporter_fuyus = TransporterFuyus(canbus, CANBUS_ID_TRANSPORTER_FUYUS)
     transporter_grippers = TransporterGrippers(canbus, CANBUS_ID_TRANSPORTER_GRIPPERS)
 
@@ -85,18 +98,37 @@ def my_main():
 def checkConnectivity():
     
     global canbus, hose_jig, hose_puller, puller_extension, insertion_jig, elevator_in, pick_and_place, insertion_servos
-    global lubrication_feeder, transporter_fuyus, transporter_grippers
+    global lubrication_feeder, lubrication_stamper, stamper, transporter_fuyus, transporter_grippers
+    global CHECK_FIRST_STATION, CHECK_SECOND_STATION, CHECK_ALL_DEVICES
 
-    print("Hose Jig Connected") if hose_jig.send_heartbeat() == "success" else print("Hose Jig Not Connected")
-    print("Hose Puller Connected") if hose_puller.send_heartbeat() == "success" else print("Hose Puller Not Connected")
-    print("Puller Extension Connected") if puller_extension.send_heartbeat() == "success" else print("Puller Extension Not Connected")
-    print("Pick and Place Connected") if pick_and_place.send_heartbeat() == "success" else print("Pick and Place Not Connected")
-    print("Insertion Jig Connected") if insertion_jig.send_heartbeat() == "success" else print("Insertion Jig Not Connected")
-    print("Elevator In Connected") if elevator_in.send_heartbeat() == "success" else print("Elevator In Not Connected")
-    print("Insertion Servos Connected") if insertion_servos.send_heartbeat() == "success" else print("Insertion Servos Not Connected")
-    print("Lubrication Feeder Connected") if lubrication_feeder.send_heartbeat() == "success" else print("Lubrication Feeder Not Connected")
-    # print("Transporter Fuyus Connected") if transporter_fuyus.send_heartbeat() == "success" else print("Transporter Fuyus Not Connected")
-    # print("Transporter Grippers Connected") if transporter_grippers.send_heartbeat() == "success" else print("Transporter Grippers Not Connected")
+    # First Station - Check only if flag is enabled or CHECK_ALL_DEVICES is True
+    if CHECK_FIRST_STATION or CHECK_ALL_DEVICES:
+        print("=== CHECKING FIRST STATION ===")
+        print("Hose Jig Connected") if hose_jig.send_heartbeat() == "success" else print("Hose Jig Not Connected")
+        print("Hose Puller Connected") if hose_puller.send_heartbeat() == "success" else print("Hose Puller Not Connected")
+        print("Puller Extension Connected") if puller_extension.send_heartbeat() == "success" else print("Puller Extension Not Connected")
+        print("Pick and Place Connected") if pick_and_place.send_heartbeat() == "success" else print("Pick and Place Not Connected")
+        print("Insertion Jig Connected") if insertion_jig.send_heartbeat() == "success" else print("Insertion Jig Not Connected")
+        print("Elevator In Connected") if elevator_in.send_heartbeat() == "success" else print("Elevator In Not Connected")
+        print("Insertion Servos Connected") if insertion_servos.send_heartbeat() == "success" else print("Insertion Servos Not Connected")
+        print("Lubrication Feeder Connected") if lubrication_feeder.send_heartbeat() == "success" else print("Lubrication Feeder Not Connected")
+    
+    # Second Station - Check only if flag is enabled or CHECK_ALL_DEVICES is True
+    if CHECK_SECOND_STATION or CHECK_ALL_DEVICES:
+        print("=== CHECKING SECOND STATION ===")
+        print("Lubrication Stamper Connected") if lubrication_stamper.send_heartbeat() == "success" else print("Lubrication Stamper Not Connected")
+        print("Stamper Connected") if stamper.send_heartbeat() == "success" else print("Stamper Not Connected")
+        print("Transporter Fuyus Connected") if transporter_fuyus.send_heartbeat() == "success" else print("Transporter Fuyus Not Connected")
+        print("Transporter Grippers Connected") if transporter_grippers.send_heartbeat() == "success" else print("Transporter Grippers Not Connected")
+
+    # Show current connectivity check configuration
+    if not CHECK_ALL_DEVICES:
+        print(f"\n=== CONNECTIVITY CHECK CONFIG ===")
+        print(f"First Station: {'ENABLED' if CHECK_FIRST_STATION else 'DISABLED'}")
+        print(f"Second Station: {'ENABLED' if CHECK_SECOND_STATION else 'DISABLED'}")
+    else:
+        print(f"\n=== CONNECTIVITY CHECK CONFIG ===")
+        print("Checking ALL DEVICES (station flags ignored)")
 
 
 #Move Hose Puller
@@ -843,6 +875,85 @@ def testIR():
     print(f"Result: {result}")
 
 
+# Helper functions to control connectivity flags
+def set_connectivity_mode(first_station=None, second_station=None, all_devices=None):
+    """
+    Set connectivity check modes
+    Args:
+        first_station (bool): Enable/disable first station checking
+        second_station (bool): Enable/disable second station checking  
+        all_devices (bool): Enable/disable checking all devices (overrides station flags)
+    """
+    global CHECK_FIRST_STATION, CHECK_SECOND_STATION, CHECK_ALL_DEVICES
+    
+    if first_station is not None:
+        CHECK_FIRST_STATION = first_station
+    if second_station is not None:
+        CHECK_SECOND_STATION = second_station
+    if all_devices is not None:
+        CHECK_ALL_DEVICES = all_devices
+    
+    print(f"Connectivity mode updated:")
+    print(f"  First Station: {'ENABLED' if CHECK_FIRST_STATION else 'DISABLED'}")
+    print(f"  Second Station: {'ENABLED' if CHECK_SECOND_STATION else 'DISABLED'}")
+    print(f"  All Devices: {'ENABLED' if CHECK_ALL_DEVICES else 'DISABLED'}")
+
+
+def enable_first_station_only():
+    """Enable connectivity check for first station only"""
+    set_connectivity_mode(first_station=True, second_station=False, all_devices=False)
+
+
+def enable_second_station_only():
+    """Enable connectivity check for second station only"""
+    set_connectivity_mode(first_station=False, second_station=True, all_devices=False)
+
+
+def enable_all_stations():
+    """Enable connectivity check for all stations"""
+    set_connectivity_mode(first_station=True, second_station=True, all_devices=False)
+
+
+def enable_all_devices():
+    """Enable connectivity check for all devices (ignores station flags)"""
+    set_connectivity_mode(all_devices=True)
+
+
+def disable_connectivity_checks():
+    """Disable all connectivity checks"""
+    set_connectivity_mode(first_station=False, second_station=False, all_devices=False)
+
+
+def get_connectivity_status():
+    """Get current connectivity check configuration"""
+    global CHECK_FIRST_STATION, CHECK_SECOND_STATION, CHECK_ALL_DEVICES
+    
+    return {
+        'first_station': CHECK_FIRST_STATION,
+        'second_station': CHECK_SECOND_STATION,
+        'all_devices': CHECK_ALL_DEVICES
+    }
+
+
+def stampertest():
+    global stamper
+
+    # while True:
+
+    # stamper.move_y_actuator(-500)
+    # stamper.move_y_actuator(0)
+
+    # stamper.move_z_actuator(500)
+    # stamper.move_z_actuator(0)
+
+    stamper.control_servo(1,100)
+    # stamper.control_servo(2,100)
+
+    # stamper.move_y_stepper(100)
+    # stamper.move_z_stepper(100)
+
+    # stamper.control_pump(1,0,100,1000)
+
 
 if __name__ == "__main__":
    
@@ -880,7 +991,7 @@ if __name__ == "__main__":
 
     # testIR()
 
-
+    stampertest()
 
 
     canbus.close_canbus()

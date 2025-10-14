@@ -129,6 +129,7 @@ unsigned long solenoid3LastToggleTime = 0;  // For timing control if needed
 
 // Device CAN ID (only process messages with this ID)
 #define DEVICE_CAN_ID 0x004
+#define RESPONSE_CAN_ID 0x404
 
 // CAN instances
 CanFrame rxFrame, txFrame;
@@ -168,7 +169,7 @@ void setup()
 
   // Initialize CAN0 (ESP32 TWAI)
   ESP32Can.setPins(CAN0_TX, CAN0_RX);
-  ESP32Can.setSpeed(ESP32Can.convertSpeed(500));
+  ESP32Can.setSpeed(ESP32Can.convertSpeed(125));
   if (ESP32Can.begin()) {
     Serial.println("CAN0 (TWAI) initialized successfully");
   } else {
@@ -277,25 +278,31 @@ void process_instruction(CANInstruction instruction)
   
   switch (command) {
     case 0x01: // Reset microcontroller
-      Serial.println("Reset command received");
-      replyData[1] = 0x01; // OK
-      send_twai_response(replyData);
+    {
+      Serial.println("Case 0x01: Reset microcontroller");
+      byte response[] = {0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
       delay(100);
       ESP.restart();
-      break;
+    }
+    break;
       
     case 0x02: // Heartbeat
-      Serial.println("Heartbeat received");
-      replyData[1] = 0x01; // OK - System alive
-      send_twai_response(replyData);
-      break;
+    {
+      Serial.println("Case 0x02: Send Heartbeat");
+      byte response[] = {0x02, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
       
     case 0xFF: // Power off
-      Serial.println("Power off command received");
-      replyData[1] = 0x01; // OK
-      send_twai_response(replyData);
+    {
+      Serial.println("Case 0xFF: Power off");
+      byte response[] = {0xFF, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
       // Add your power off logic here
-      break;
+    }
+    break;
       
     // Level sensor commands
     case 0x03: // Read individual level sensor
@@ -601,7 +608,7 @@ void process_instruction(CANInstruction instruction)
 }
 
 void send_twai_response(byte response[8]) {
-  txFrame.identifier = DEVICE_CAN_ID + 0x400;
+  txFrame.identifier = RESPONSE_CAN_ID;  // Use fixed response ID
   txFrame.data_length_code = 8;
   memcpy(txFrame.data, response, 8);
   
