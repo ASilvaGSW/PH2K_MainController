@@ -12,6 +12,7 @@
 # 0x13: Home Y axis using go_home function
 # 0x14: Home Z axis using go_home function
 # 0x15: Move Y actuator to absolute position with speed control
+# 0x16: Move Y axis with speed mode until hose presence sensor detects no hose
 # 0xFF: Power off, home all axes.
 
 class HosePuller:
@@ -99,6 +100,31 @@ class HosePuller:
         speed_low = speed & 0xFF
         status = self.canbus.send_message(self.canbus_id, [0x15, position_high, position_low, orientation, speed_high, speed_low, 0x00, 0x00])[0]
         return status
+
+    # Case 0x16: Move Y axis with speed mode until hose presence sensor detects no hose
+    def move_y_axis_until_no_hose(self, speed, direction=0, acceleration=236):
+        """
+        Move Y axis in speed mode until hose presence sensor detects no hose.
+        
+        Args:
+            speed (int): Speed value (0-65535)
+            direction (int): Direction (0 = positive, 1 = negative)
+            acceleration (int): Acceleration parameter (0-255)
+            
+        Returns:
+            tuple: (status, hose_detected) where:
+                - status: 'success', 'fail', 'timeout', or 'no_local_network'
+                - hose_detected: True if hose still detected, False if no hose detected
+        """
+        speed_high = speed >> 8
+        speed_low = speed & 0xFF
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x16, speed_high, speed_low, direction, acceleration, 0x00, 0x00, 0x00])
+        
+        if status == 'success' and reply_data:
+            # reply_data[2] contains sensor state: 1 = no hose detected, 0 = hose still detected
+            hose_detected = not bool(reply_data[2])
+            return status, hose_detected
+        return status, None
 
     
 

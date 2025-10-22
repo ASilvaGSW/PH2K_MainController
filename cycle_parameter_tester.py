@@ -69,6 +69,9 @@ from classes.puller_extension import PullerExtension
 from classes.insertion_jig import InsertionJig
 from classes.insertion_servos import InsertionServos
 from classes.lubrication_feeder import LubricationFeeder
+from classes.elevator_in import ElevatorIn
+from classes.pick_and_place import PickAndPlace
+from classes.transporter_fuyus import TransporterFuyus
 
 class CycleParameterTester:
     def __init__(self, root):
@@ -84,6 +87,9 @@ class CycleParameterTester:
         self.hose_jig = None
         self.puller_extension = None
         self.lubrication_feeder = None
+        self.elevator_in = None
+        self.pick_and_place = None
+        self.transporter_fuyus = None
         
         # Default parameters
         self.default_params = {
@@ -281,6 +287,7 @@ class CycleParameterTester:
         
         ttk.Button(test_frame, text="Ejecutar Ciclo Completo", command=self.run_full_cycle, state=tk.DISABLED).pack(side=tk.LEFT, padx=5)
         ttk.Button(test_frame, text="Probar Movimientos Individuales", command=self.test_individual_movements, state=tk.DISABLED).pack(side=tk.LEFT, padx=5)
+        ttk.Button(test_frame, text="Enviar Todo a Home", command=self.send_all_to_home, state=tk.DISABLED).pack(side=tk.LEFT, padx=5)
         ttk.Button(test_frame, text="Detener Prueba", command=self.stop_test, state=tk.DISABLED).pack(side=tk.LEFT, padx=5)
         
         # Log frame
@@ -421,6 +428,9 @@ class CycleParameterTester:
             CANBUS_ID_INSERTION = 0x0C9
             CANBUS_ID_INSERTION_SERVOS = 0x002
             CANBUS_ID_LUBRICATION_FEEDER = 0x019
+            CANBUS_ID_ELEVATOR_IN = 0x189
+            CANBUS_ID_PICK_AND_PLACE = 0x191
+            CANBUS_ID_TRANSPORTER_FUYUS = 0x021
             
             self.insertion_jig = InsertionJig(self.canbus, CANBUS_ID_INSERTION)
             self.insertion_servos = InsertionServos(self.canbus, CANBUS_ID_INSERTION_SERVOS)
@@ -428,6 +438,9 @@ class CycleParameterTester:
             self.hose_jig = HoseJig(self.canbus, CANBUS_ID_JIG)
             self.puller_extension = PullerExtension(self.canbus, CANBUS_ID_EXTENSION)
             self.lubrication_feeder = LubricationFeeder(self.canbus, CANBUS_ID_LUBRICATION_FEEDER)
+            self.elevator_in = ElevatorIn(self.canbus, CANBUS_ID_ELEVATOR_IN)
+            self.pick_and_place = PickAndPlace(self.canbus, CANBUS_ID_PICK_AND_PLACE)
+            self.transporter_fuyus = TransporterFuyus(self.canbus, CANBUS_ID_TRANSPORTER_FUYUS)
             
             self.connection_status.set("Conectado")
             self.log_message("Hardware conectado exitosamente")
@@ -973,6 +986,17 @@ class CycleParameterTester:
         ttk.Button(y_frame, text="Mover Y", command=lambda: self.test_move_y(y_pos_var.get())).pack(side=tk.LEFT, padx=5)
         ttk.Button(y_frame, text="Mover Y con Velocidad", command=lambda: self.test_move_y_speed(y_pos_var.get(), y_speed_var.get())).pack(side=tk.LEFT, padx=5)
         
+        # Hose Sensor Test frame
+        sensor_frame = ttk.LabelFrame(parent, text="Sensor de Manguera", padding=10)
+        sensor_frame.pack(fill=tk.X, padx=10, pady=5)
+        
+        # Speed input for sensor test
+        self.hose_sensor_speed_var = tk.StringVar(value="200")
+        ttk.Label(sensor_frame, text="Velocidad:").pack(side=tk.LEFT, padx=5)
+        ttk.Entry(sensor_frame, textvariable=self.hose_sensor_speed_var, width=10).pack(side=tk.LEFT, padx=5)
+        ttk.Button(sensor_frame, text="Mover Y hasta No Detectar Manguera", 
+                  command=self.test_move_y_until_no_hose).pack(side=tk.LEFT, padx=5)
+        
         # Z Axis controls
         z_frame = ttk.LabelFrame(parent, text="Actuador Z", padding=10)
         z_frame.pack(fill=tk.X, padx=10, pady=5)
@@ -1157,6 +1181,29 @@ class CycleParameterTester:
             self.log_message(f"Mover Y a {pos} con velocidad {spd}: {result}")
         except ValueError:
             self.log_message("Error: Posición Y o velocidad inválida")
+    
+    def test_move_y_until_no_hose(self):
+        """Test method for moving Y axis until no hose is detected"""
+        try:
+            speed = int(self.hose_sensor_speed_var.get())
+            direction = 0  # Default direction (forward)
+            acceleration = 236  # Default acceleration
+            
+            self.log_message(f"Iniciando movimiento Y hasta no detectar manguera - Velocidad: {speed}")
+            result = self.hose_puller.move_y_axis_until_no_hose(speed, direction, acceleration)
+            
+            if result:
+                status, hose_detected = result
+                status_msg = "Éxito" if status == 1 else "Error"
+                hose_msg = "Detectada" if hose_detected == 1 else "No detectada"
+                self.log_message(f"Resultado: Estado={status_msg}, Manguera={hose_msg}")
+            else:
+                self.log_message("Error: No se recibió respuesta del comando")
+                
+        except ValueError:
+            self.log_message("Error: Velocidad debe ser un número entero")
+        except Exception as e:
+            self.log_message(f"Error al ejecutar movimiento Y hasta no detectar manguera: {e}")
             
     def test_puller_move_z(self, position):
         try:
@@ -1309,6 +1356,85 @@ class CycleParameterTester:
     def stop_test(self):
         """Stop current test"""
         self.log_message("=== PRUEBA DETENIDA POR USUARIO ===")
+    
+    def send_all_to_home(self):
+        """Send all hardware components to their home positions"""
+        if not self.canbus:
+            messagebox.showerror("Error", "Hardware no conectado")
+            return
+        
+        try:
+            self.log_message("=== INICIANDO SECUENCIA DE ENVÍO A POSICIONES HOME ===")
+            
+            # Send insertion servos to home first
+            if self.insertion_servos:
+                self.log_message("Enviando servos de inserción a home...")
+                result = self.insertion_servos.slider_joint_home()
+                self.log_message(f"Slider joint home: {result}")
+                
+                result = self.insertion_servos.slider_nozzle_home()
+                self.log_message(f"Slider nozzle home: {result}")
+            
+            # Send ElevatorIn to home positions
+            if self.elevator_in:
+                self.log_message("Enviando Elevator In a home...")
+                result = self.elevator_in.home_gantry_z()
+                self.log_message(f"Elevator In Gantry Z home: {result}")
+                
+                result = self.elevator_in.home_gantry_x()
+                self.log_message(f"Elevator In Gantry X home: {result}")
+                
+                result = self.elevator_in.home_gantry_y()
+                self.log_message(f"Elevator In Gantry Y home: {result}")
+                
+                result = self.elevator_in.home_elevator_z()
+                self.log_message(f"Elevator In Elevator Z home: {result}")
+            
+            # Send PickAndPlace to home positions
+            if self.pick_and_place:
+                self.log_message("Enviando Pick and Place a home...")
+                result = self.pick_and_place.home_z_axis()
+                self.log_message(f"Pick and Place Z home: {result}")
+                
+                result = self.pick_and_place.home_x_axis()
+                self.log_message(f"Pick and Place X home: {result}")
+            
+            # Send HoseJig to home
+            if self.hose_jig:
+                self.log_message("Enviando Hose Jig a home...")
+                result = self.hose_jig.go_home()
+                self.log_message(f"Hose Jig home: {result}")
+            
+            # Send HosePuller to home positions
+            if self.hose_puller:
+                self.log_message("Enviando Hose Puller a home...")
+                result = self.hose_puller.home_y_axis()
+                self.log_message(f"Hose Puller Y home: {result}")
+                
+                result = self.hose_puller.home_z_axis()
+                self.log_message(f"Hose Puller Z home: {result}")
+            
+            # Send InsertionJig to home positions
+            if self.insertion_jig:
+                self.log_message("Enviando Insertion Jig a home...")
+                result = self.insertion_jig.home_x_axis_go_home()
+                self.log_message(f"Insertion Jig X home: {result}")
+                
+                result = self.insertion_jig.home_z_axis_go_home()
+                self.log_message(f"Insertion Jig Z home: {result}")
+            
+            # # Send TransporterFuyus to home position
+            # if self.transporter_fuyus:
+            #     self.log_message("Enviando Transporter Fuyus a home...")
+            #     result = self.transporter_fuyus.home_x_axis()
+            #     self.log_message(f"Transporter Fuyus X home: {result}")
+            
+            self.log_message("=== SECUENCIA DE ENVÍO A HOME COMPLETADA EXITOSAMENTE ===")
+            
+        except Exception as e:
+            error_msg = f"Error durante la secuencia de home: {str(e)}"
+            self.log_message(error_msg)
+            messagebox.showerror("Error", error_msg)
 
 def main():
     root = tk.Tk()
