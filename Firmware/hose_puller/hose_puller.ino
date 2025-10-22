@@ -7,6 +7,7 @@
  *   - Dual CAN bus support: ESP32 TWAI (integrated) and MCP2515 (external) for communication with general and local networks.
  *   - Controls two linear actuators (Y and Z axes) and a digital gripper for hose manipulation.
  *   - Controls a stepper motor for additional axis movement.
+ *   - Hose presence sensor on pin 31 (HIGH = hose present, LOW = no hose).
  *   - Implements FreeRTOS for multitasking, using queues for instruction dispatch.
  *   - Stores and manages actuator movement counters in non-volatile EEPROM memory.
  *   - Robust command processing with status reporting and error handling via CAN.
@@ -38,6 +39,10 @@
  *   - 0x10: Read gripper movement counter
  *   - 0x11: Reset gripper movement counter
  *   - 0x12: Reset stepper movement counter
+ *   - 0x13: Home Y axis using go_home
+ *   - 0x14: Home Z axis using go_home
+ *   - 0x15: Move Y actuator to absolute position with speed control
+ *   - 0x16: Move Y axis with speed mode until hose presence sensor detects no hose
  *   - 0xFF: Power off, home all axes
  *
  * DEPENDENCIES:
@@ -98,6 +103,9 @@ byte replyData[8];  // Buffer for CAN replies
 #define STEPPER_STEP_PIN 22  // GPIO22 - Step pin
 #define STEPPER_DIR_PIN 21   // GPIO21 - Direction pin
 #define STEPPER_ENABLE_PIN 20 // GPIO20 - Enable pin
+
+// Hose Presence Sensor Pin
+#define HOSE_PRESENCE_SENSOR_PIN 31  // GPIO31 - Hose presence sensor (HIGH = hose present, LOW = no hose)
 
 // Instance of GripperDigital
 GripperDigital gripper(32, 33, 14);
@@ -221,6 +229,10 @@ void setup()
   stepper.setPinsInverted(false, false, true);  // Invert enable pin
   stepper.enableOutputs();
   stepper.moveTo(0);  // Set initial position
+
+  // Initialize hose presence sensor
+  pinMode(HOSE_PRESENCE_SENSOR_PIN, INPUT_PULLUP);
+  Serial.println("Hose presence sensor initialized on pin 31");
 
   // Initialize EEPROM
   EEPROM.begin(EEPROM_SIZE);
@@ -839,6 +851,80 @@ void process_instruction(CanFrame instruction)
       
       // Send response with status
       byte statusResponse[] = {0x14, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(statusResponse);
+    }
+    break;
+
+    // ***************************** CASE 0x16 ***************************** //
+    // Move Y axis with speed mode until hose presence sensor detects no hose
+    case 0x16:
+    {
+      Serial.println("Case 0x16: Moving Y axis with speed mode until no hose detected");
+
+      uint8_t speed_high = instruction.data[1];
+      uint8_t speed_low = instruction.data[2];
+      uint8_t direction = instruction.data[3]; // 0 = positive, 1 = negative
+      uint8_t acceleration = instruction.data[4]; // Acceleration parameter
+
+      uint16_t local_speed = (speed_high << 8) | speed_low;
+      bool dir = (direction == 1); // Convert to boolean for speed_mode
+      
+      uint8_t payload[8] = {0};  // Initialize buffer for CAN message
+      y_axis.speed_mode(dir, local_speed, acceleration, payload);  // Use speed mode directly
+
+      flushCanBuffer();
+
+      if (CAN1.sendMsgBuf(y_axis.motor_id, 0, 8, payload) != CAN_OK)
+      {
+        Serial.println("Error sending actuator command");
+        byte errorResponse[] = {0x16, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK
+        send_twai_response(errorResponse);
+        break;
+      }
+
+      // Monitor hose presence sensor while moving
+      bool hose_detected = true;
+      unsigned long start_time = millis();
+      const unsigned long timeout = 30000; // 30 second timeout
+
+      while (hose_detected && (millis() - start_time) < timeout)
+      {
+        // Read sensor (LOW = no hose, HIGH = hose present)
+        hose_detected = digitalRead(HOSE_PRESENCE_SENSOR_PIN);
+        
+        if (!hose_detected) {
+          Serial.println("No hose detected - stopping Y axis movement");
+          
+          // Stop the actuator by sending speed mode with 0 speed
+          uint8_t stop_payload[8] = {0};
+          y_axis.speed_mode(false, 0, acceleration, stop_payload);
+          
+          if (CAN1.sendMsgBuf(y_axis.motor_id, 0, 8, stop_payload) == CAN_OK) {
+            Serial.println("Y axis stopped successfully");
+          }
+          break;
+        }
+        
+        delay(50); // Check sensor every 50ms
+      }
+
+      if (millis() - start_time >= timeout) {
+        Serial.println("Timeout reached - stopping Y axis movement");
+        // Send stop command on timeout
+        uint8_t stop_payload[8] = {0};
+        y_axis.speed_mode(false, 0, acceleration, stop_payload);
+        CAN1.sendMsgBuf(y_axis.motor_id, 0, 8, stop_payload);
+      }
+
+      // Wait for final reply and get status
+      uint8_t status = waitForCanReply(y_axis.motor_id);
+
+      if (status == 0x01) {
+        incrementActuatorCounterY();
+      }
+
+      // Send response with status and sensor state
+      byte statusResponse[] = {0x16, status, (byte)(!hose_detected), 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(statusResponse);
     }
     break;

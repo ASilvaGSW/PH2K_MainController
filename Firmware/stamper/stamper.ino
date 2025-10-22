@@ -381,12 +381,11 @@ void setup()
   z_axis_stepper.enableOutputs();
   z_axis_stepper.moveTo(0);  // Set initial position
 
-
   // Set enable pins as outputs and enable steppers
   pinMode(Y_AXIS_STEPPER_ENABLE_PIN, OUTPUT);
   pinMode(Z_AXIS_STEPPER_ENABLE_PIN, OUTPUT);
-  digitalWrite(Y_AXIS_STEPPER_ENABLE_PIN, HIGH);
-  digitalWrite(Z_AXIS_STEPPER_ENABLE_PIN, HIGH);
+  digitalWrite(Y_AXIS_STEPPER_ENABLE_PIN, LOW);
+  digitalWrite(Z_AXIS_STEPPER_ENABLE_PIN, LOW);
 
   // Initialize servo motors
   servo_cover.attach(SERVO_COVER_PIN);

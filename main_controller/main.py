@@ -940,16 +940,24 @@ def stampertest():
 
     # while True:
 
-    # stamper.move_y_actuator(-500)
-    # stamper.move_y_actuator(0)
+        # stamper.send_heartbeat()
 
-    # stamper.move_z_actuator(500)
-    # stamper.move_z_actuator(0)
+        # stamper.move_y_actuator(-500)
+        # stamper.move_y_actuator(0)
 
-    stamper.control_servo(1,100)
-    # stamper.control_servo(2,100)
+        # stamper.move_z_actuator(100)
+        # stamper.move_z_actuator(0)
 
-    # stamper.move_y_stepper(100)
+        # stamper.control_servo(1,0)
+        # time.sleep(1)
+        # stamper.control_servo(1,100)
+        # time.sleep(1)
+        # stamper.control_servo(2,100)
+        # time.sleep(1)
+        # stamper.control_servo(2,0)
+        # time.sleep(1)
+
+    stamper.move_y_stepper(10000)
     # stamper.move_z_stepper(100)
 
     # stamper.control_pump(1,0,100,1000)
