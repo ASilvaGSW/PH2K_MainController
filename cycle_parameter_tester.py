@@ -456,7 +456,7 @@ class CycleParameterTester:
     def enable_test_buttons(self, widget):
         """Recursively enable test buttons"""
         if isinstance(widget, ttk.Button):
-            if "Ejecutar" in widget.cget("text") or "Probar" in widget.cget("text") or "Detener" in widget.cget("text"):
+            if "Ejecutar" in widget.cget("text") or "Probar" in widget.cget("text") or "Detener" in widget.cget("text") or "Enviar" in widget.cget("text"):
                 widget.configure(state=tk.NORMAL)
         
         for child in widget.winfo_children():
@@ -489,7 +489,7 @@ class CycleParameterTester:
     def disable_test_buttons(self, widget):
         """Recursively disable test buttons"""
         if isinstance(widget, ttk.Button):
-            if "Ejecutar" in widget.cget("text") or "Probar" in widget.cget("text") or "Detener" in widget.cget("text"):
+            if "Ejecutar" in widget.cget("text") or "Probar" in widget.cget("text") or "Detener" in widget.cget("text") or "Enviar" in widget.cget("text"):
                 widget.configure(state=tk.DISABLED)
         
         for child in widget.winfo_children():

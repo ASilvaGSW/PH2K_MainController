@@ -105,10 +105,10 @@ byte replyData[8];  // Buffer for CAN replies
 #define STEPPER_ENABLE_PIN 20 // GPIO20 - Enable pin
 
 // Hose Presence Sensor Pin
-#define HOSE_PRESENCE_SENSOR_PIN 31  // GPIO31 - Hose presence sensor (HIGH = hose present, LOW = no hose)
+#define HOSE_PRESENCE_SENSOR_PIN 32  // GPIO31 - Hose presence sensor (HIGH = hose present, LOW = no hose)
 
 // Instance of GripperDigital
-GripperDigital gripper(32, 33, 14);
+GripperDigital gripper(35, 33, 14);
 
 // Device CAN ID (only process messages with this ID)
 #define DEVICE_CAN_ID 0x192
@@ -231,7 +231,7 @@ void setup()
   stepper.moveTo(0);  // Set initial position
 
   // Initialize hose presence sensor
-  pinMode(HOSE_PRESENCE_SENSOR_PIN, INPUT_PULLUP);
+  pinMode(HOSE_PRESENCE_SENSOR_PIN, INPUT);
   Serial.println("Hose presence sensor initialized on pin 31");
 
   // Initialize EEPROM
@@ -874,7 +874,7 @@ void process_instruction(CanFrame instruction)
 
       flushCanBuffer();
 
-      if (CAN1.sendMsgBuf(y_axis.motor_id, 0, 8, payload) != CAN_OK)
+      if (CAN1.sendMsgBuf(y_axis.motor_id, 0, 5, payload) != CAN_OK)
       {
         Serial.println("Error sending actuator command");
         byte errorResponse[] = {0x16, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK
@@ -899,7 +899,7 @@ void process_instruction(CanFrame instruction)
           uint8_t stop_payload[8] = {0};
           y_axis.speed_mode(false, 0, acceleration, stop_payload);
           
-          if (CAN1.sendMsgBuf(y_axis.motor_id, 0, 8, stop_payload) == CAN_OK) {
+          if (CAN1.sendMsgBuf(y_axis.motor_id, 0, 5, stop_payload) == CAN_OK) {
             Serial.println("Y axis stopped successfully");
           }
           break;
