@@ -869,6 +869,14 @@ void process_instruction(CanFrame instruction)
       uint16_t local_speed = (speed_high << 8) | speed_low;
       bool dir = (direction == 1); // Convert to boolean for speed_mode
       
+      // Debug: Print received speed value
+      Serial.print("Velocidad recibida desde interfaz: ");
+      Serial.println(local_speed);
+      Serial.print("Direccion: ");
+      Serial.println(direction);
+      Serial.print("Aceleracion: ");
+      Serial.println(acceleration);
+      
       uint8_t payload[8] = {0};  // Initialize buffer for CAN message
       y_axis.speed_mode(dir, local_speed, acceleration, payload);  // Use speed mode directly
 
@@ -913,7 +921,7 @@ void process_instruction(CanFrame instruction)
         // Send stop command on timeout
         uint8_t stop_payload[8] = {0};
         y_axis.speed_mode(false, 0, acceleration, stop_payload);
-        CAN1.sendMsgBuf(y_axis.motor_id, 0, 8, stop_payload);
+        CAN1.sendMsgBuf(y_axis.motor_id, 0, 5, stop_payload);
       }
 
       // Wait for final reply and get status

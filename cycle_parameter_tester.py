@@ -130,7 +130,11 @@ class CycleParameterTester:
             
             # Insertion Servo Positions
             'slider_nozzle_insertion_position': 0,
-            'slider_joint_insertion_position': 10
+            'slider_joint_insertion_position': 10,
+            
+            # Component Placement Positions (initialized equal to home positions)
+            'slider_nozzle_component_placement_position': 0,
+            'slider_joint_component_placement_position': 0
         }
         
         self.current_params = self.default_params.copy()
@@ -245,7 +249,9 @@ class CycleParameterTester:
             ('hose_puller_y_speed', 'Hose Puller Y Speed'),
             ('hose_puller_y_speed_for_alignment', 'Hose Puller Y Speed for Alignment'),
             ('slider_nozzle_insertion_position', 'Slider Nozzle Insertion Position'),
-            ('slider_joint_insertion_position', 'Slider Joint Insertion Position')
+            ('slider_joint_insertion_position', 'Slider Joint Insertion Position'),
+            ('slider_nozzle_component_placement_position', 'Slider Nozzle Component Placement Position'),
+            ('slider_joint_component_placement_position', 'Slider Joint Component Placement Position')
         ]
         
         for i, (param, label) in enumerate(custom_params):
@@ -1043,8 +1049,10 @@ class CycleParameterTester:
         
         ttk.Button(slider_frame, text="Slider Nozzle Home", command=self.test_slider_nozzle_home).pack(side=tk.LEFT, padx=5)
         ttk.Button(slider_frame, text="Slider Nozzle Insertion", command=self.test_slider_nozzle_insertion).pack(side=tk.LEFT, padx=5)
+        ttk.Button(slider_frame, text="Slider Nozzle Component Placement", command=self.test_slider_nozzle_component_placement).pack(side=tk.LEFT, padx=5)
         ttk.Button(slider_frame, text="Slider Joint Home", command=self.test_slider_joint_home).pack(side=tk.LEFT, padx=5)
         ttk.Button(slider_frame, text="Slider Joint Insertion", command=self.test_slider_joint_insertion).pack(side=tk.LEFT, padx=5)
+        ttk.Button(slider_frame, text="Slider Joint Component Placement", command=self.test_slider_joint_component_placement).pack(side=tk.LEFT, padx=5)
         
         # Cutter control
         cutter_frame = ttk.LabelFrame(parent, text="Control de Cortador", padding=10)
@@ -1270,6 +1278,10 @@ class CycleParameterTester:
         result = self.insertion_servos.slider_nozzle_insertion(self.current_params['slider_nozzle_insertion_position'])
         self.log_message(f"Slider Nozzle Insertion (position: {self.current_params['slider_nozzle_insertion_position']}): {result}")
         
+    def test_slider_nozzle_component_placement(self):
+        result = self.insertion_servos.slider_nozzle_insertion(self.current_params['slider_nozzle_component_placement_position'])
+        self.log_message(f"Slider Nozzle Component Placement (position: {self.current_params['slider_nozzle_component_placement_position']}): {result}")
+        
     def test_slider_joint_home(self):
         result = self.insertion_servos.slider_joint_home()
         self.log_message(f"Slider Joint Home: {result}")
@@ -1277,6 +1289,10 @@ class CycleParameterTester:
     def test_slider_joint_insertion(self):
         result = self.insertion_servos.slider_joint_insertion(self.current_params['slider_joint_insertion_position'])
         self.log_message(f"Slider Joint Insertion (position: {self.current_params['slider_joint_insertion_position']}): {result}")
+        
+    def test_slider_joint_component_placement(self):
+        result = self.insertion_servos.slider_joint_insertion(self.current_params['slider_joint_component_placement_position'])
+        self.log_message(f"Slider Joint Component Placement (position: {self.current_params['slider_joint_component_placement_position']}): {result}")
         
     def test_activate_cutter(self):
         result = self.insertion_servos.activate_cutter()

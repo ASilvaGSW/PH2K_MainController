@@ -29,5 +29,7 @@
     "hose_puller_y_speed": 200,
     "hose_puller_y_speed_for_alignment": 100,
     "slider_nozzle_insertion_position": 0,
-    "slider_joint_insertion_position": 10
+    "slider_joint_insertion_position": 10,
+    "slider_nozzle_component_placement_position": 0,
+    "slider_joint_component_placement_position": 0
 }
