@@ -282,14 +282,17 @@ void handleRoot() {
   // JavaScript for PWM control
   html += "<script>";
   html += "function updateServoPWM(servoIndex, pwmValue) {";
+  html += "let servoRanges = [{min:500,max:2500},{min:500,max:2500},{min:500,max:2500},{min:500,max:2500},{min:500,max:2500},{min:700,max:1550}];";
+  html += "let range = servoRanges[servoIndex];";
   html += "document.getElementById('pwm' + servoIndex).textContent = pwmValue + 'μs';";
-  html += "let percent = Math.round(((pwmValue - 500) / (2500 - 500)) * 100);";
+  html += "let percent = Math.round(((pwmValue - range.min) / (range.max - range.min)) * 100);";
   html += "document.getElementById('percent' + servoIndex).textContent = percent + '%';";
   html += "fetch('/control?servo=' + (servoIndex + 1) + '&pwm=' + pwmValue)";
   html += ".then(response => response.json())";
   html += ".then(data => {";
   html += "if (data.status === 'success') {";
-  html += "document.getElementById('status').textContent = data.servo ? ('" + servoCalib[0].name.substring(0,7) + " ' + data.servo + ' → ' + data.pwm + 'μs (' + percent + '%)') : 'Comando ejecutado';";
+  html += "let servoNames = ['Feeder', 'Wrapper', 'Cutter', 'Holder', 'Gripper', 'Elevator'];";
+  html += "document.getElementById('status').textContent = servoNames[servoIndex] + ' → ' + pwmValue + 'μs (' + percent + '%)';";
   html += "document.getElementById('status').style.background = '#e8f5e8';";
   html += "document.getElementById('status').style.borderColor = '#4CAF50';";
   html += "} else {";
@@ -310,10 +313,11 @@ void handleRoot() {
   html += "}";
   html += "function emergencyStop() {";
   html += "if (confirm('¿Estás seguro de que quieres centrar todos los servos?')) {";
+  html += "let centerValues = [1500, 1500, 1500, 1500, 1500, 1125];";
   html += "for (let i = 0; i < 6; i++) {";
-  html += "setServoPWM(i, 1500);";
+  html += "setServoPWM(i, centerValues[i]);";
   html += "}";
-  html += "document.getElementById('status').textContent = 'PARADA DE EMERGENCIA - Todos los servos centrados (1500μs)';";
+  html += "document.getElementById('status').textContent = 'PARADA DE EMERGENCIA - Todos los servos centrados';";
   html += "document.getElementById('status').style.background = '#fff3e0';";
   html += "document.getElementById('status').style.borderColor = '#FF9800';";
   html += "}";
