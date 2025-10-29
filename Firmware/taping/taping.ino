@@ -336,7 +336,7 @@ void handleRoot() {
   html += "}";
   html += "}";
   html += "})";
-  html += ".catch(error => console.log('Status update error:', error));";html += "}";
+  html += ".catch(error => console.log('Status update error:', error));";
   html += "}";
   html += "function runSequence(sequenceType) {";
   html += "if (confirm('¿Ejecutar secuencia ' + sequenceType.toUpperCase() + '?\\n\\nEsta acción moverá múltiples servos automáticamente.')) {";
