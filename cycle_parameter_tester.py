@@ -56,7 +56,7 @@ if platform.system() == 'Linux':
         print(f"Error al importar canbus_jetson: {e}")
         sys.exit(1)
 else:
-    try:
+    try: 
         from classes.canbus import Canbus
         print("Usando implementación de Canbus para Windows")
     except ImportError as e:
