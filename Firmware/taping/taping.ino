@@ -97,6 +97,7 @@ void setup() {
   server.on("/control", handleServoControl);
   server.on("/status", handleStatus);
   server.on("/calibrate", handleCalibration);
+  server.on("/sequence", handleSequence);
   
   // Start web server
   server.begin();
@@ -179,6 +180,23 @@ void handleRoot() {
   html += ".info-panel { background: #e3f2fd; border: 1px solid #2196F3; border-radius: 10px; padding: 15px; margin-bottom: 20px; }";
   html += ".info-panel h4 { color: #1976D2; margin-bottom: 10px; }";
   html += ".info-text { font-size: 0.9em; color: #555; }";
+  
+  // Sequence section styles
+  html += ".sequence-section { background: linear-gradient(135deg, #e3f2fd, #f3e5f5); border: 2px solid #2196F3; border-radius: 12px; padding: 20px; margin: 20px 0; box-shadow: 0 4px 12px rgba(33,150,243,0.2); }";
+  html += ".sequence-section h2 { color: #1976D2; margin: 0 0 15px 0; text-align: center; font-size: 24px; }";
+  html += ".sequence-info { background: rgba(255,255,255,0.8); border-radius: 8px; padding: 15px; margin-bottom: 20px; }";
+  html += ".sequence-info ul { margin: 10px 0; padding-left: 20px; }";
+  html += ".sequence-info li { margin: 5px 0; color: #424242; }";
+  html += ".sequence-buttons { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; }";
+  html += ".sequence-btn { padding: 15px 20px; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }";
+  html += ".sequence-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.3); }";
+  html += ".sequence-btn:active { transform: translateY(0); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }";
+  html += ".sequence-btn.full-cycle { background: linear-gradient(135deg, #4CAF50, #388E3C); color: white; }";
+  html += ".sequence-btn.forward { background: linear-gradient(135deg, #2196F3, #1976D2); color: white; }";
+  html += ".sequence-btn.backward { background: linear-gradient(135deg, #FF9800, #F57C00); color: white; }";
+  html += ".sequence-btn.reset { background: linear-gradient(135deg, #9C27B0, #7B1FA2); color: white; }";
+  html += ".sequence-status { background: #f5f5f5; border: 2px solid #ddd; border-radius: 8px; padding: 12px; text-align: center; font-weight: bold; color: #666; }";
+  
   html += "@media (max-width: 600px) { .control-group { flex-direction: column; align-items: stretch; } .header h1 { font-size: 2em; } .controls { padding: 20px; } }";
   html += "</style></head><body>";
   html += "<div class='container'>";
@@ -236,6 +254,26 @@ void handleRoot() {
     html += "</div>";
     html += "</div>";
   }
+  
+  // Automated Sequences Section
+  html += "<div class='sequence-section'>";
+  html += "<h2>🔄 Secuencias Automatizadas</h2>";
+  html += "<div class='sequence-info'>";
+  html += "<p><strong>Secuencias basadas en AMI_Taping_v9.ino:</strong></p>";
+  html += "<ul>";
+  html += "<li><strong>Ciclo Completo:</strong> Secuencia principal de taping automático</li>";
+  html += "<li><strong>Avance:</strong> Preparación y agarre de manguera</li>";
+  html += "<li><strong>Retroceso:</strong> Proceso de wrapping y corte</li>";
+  html += "</ul>";
+  html += "</div>";
+  html += "<div class='sequence-buttons'>";
+  html += "<button class='sequence-btn full-cycle' onclick='runSequence(\"fullcycle\")'>🔄 CICLO COMPLETO</button>";
+  html += "<button class='sequence-btn forward' onclick='runSequence(\"forward\")'>⬆️ AVANCE</button>";
+  html += "<button class='sequence-btn backward' onclick='runSequence(\"backward\")'>⬇️ RETROCESO</button>";
+  html += "<button class='sequence-btn reset' onclick='runSequence(\"reset\")'>🏠 RESET POSICIONES</button>";
+  html += "</div>";
+  html += "<div class='sequence-status' id='sequenceStatus'>Listo para ejecutar secuencias</div>";
+  html += "</div>";
   
   html += "<button class='emergency-stop' onclick='emergencyStop()'>🛑 PARADA DE EMERGENCIA</button>";
   html += "<div class='status' id='status'>Sistema PWM listo - Control de precisión activado</div>";
@@ -298,7 +336,35 @@ void handleRoot() {
   html += "}";
   html += "}";
   html += "})";
-  html += ".catch(error => console.log('Status update error:', error));";
+  html += ".catch(error => console.log('Status update error:', error));";html += "}";
+  html += "}";
+  html += "function runSequence(sequenceType) {";
+  html += "if (confirm('¿Ejecutar secuencia ' + sequenceType.toUpperCase() + '?\\n\\nEsta acción moverá múltiples servos automáticamente.')) {";
+  html += "document.getElementById('sequenceStatus').textContent = 'Ejecutando secuencia ' + sequenceType + '...';";
+  html += "document.getElementById('sequenceStatus').style.background = '#fff3e0';";
+  html += "document.getElementById('sequenceStatus').style.borderColor = '#FF9800';";
+  html += "fetch('/sequence?type=' + sequenceType)";
+  html += ".then(response => response.json())";
+  html += ".then(data => {";
+  html += "if (data.status === 'success') {";
+  html += "document.getElementById('sequenceStatus').textContent = 'Secuencia ' + sequenceType + ' completada exitosamente';";
+  html += "document.getElementById('sequenceStatus').style.background = '#e8f5e8';";
+  html += "document.getElementById('sequenceStatus').style.borderColor = '#4CAF50';";
+  html += "document.getElementById('status').textContent = 'Secuencia ejecutada: ' + data.sequence + ' - ' + new Date().toLocaleTimeString();";
+  html += "document.getElementById('status').style.background = '#e8f5e8';";
+  html += "document.getElementById('status').style.borderColor = '#4CAF50';";
+  html += "} else {";
+  html += "document.getElementById('sequenceStatus').textContent = 'Error en secuencia: ' + (data.message || 'Fallo desconocido');";
+  html += "document.getElementById('sequenceStatus').style.background = '#ffebee';";
+  html += "document.getElementById('sequenceStatus').style.borderColor = '#f44336';";
+  html += "}";
+  html += "})";
+  html += ".catch(error => {";
+  html += "document.getElementById('sequenceStatus').textContent = 'Error de conexión: ' + error;";
+  html += "document.getElementById('sequenceStatus').style.background = '#ffebee';";
+  html += "document.getElementById('sequenceStatus').style.borderColor = '#f44336';";
+  html += "});";
+  html += "}";
   html += "}";
   html += "setInterval(updateStatus, 5000);";
   html += "updateStatus();";
@@ -413,4 +479,168 @@ void handleStatus() {
   }
   json += "]}";
   server.send(200, "application/json", json);
+}
+
+// Handle automated sequences
+void handleSequence() {
+  if (server.hasArg("type")) {
+    String sequenceType = server.arg("type");
+    sequenceType.toLowerCase();
+    
+    Serial.println("🔄 Ejecutando secuencia: " + sequenceType);
+    
+    if (sequenceType == "fullcycle") {
+      executeFullCycleSequence();
+      server.send(200, "application/json", "{\"status\":\"success\",\"sequence\":\"Full Cycle\",\"message\":\"Secuencia de ciclo completo ejecutada\"}");
+    } 
+    else if (sequenceType == "forward") {
+      executeForwardSequence();
+      server.send(200, "application/json", "{\"status\":\"success\",\"sequence\":\"Forward\",\"message\":\"Secuencia de avance ejecutada\"}");
+    } 
+    else if (sequenceType == "backward") {
+      executeBackwardSequence();
+      server.send(200, "application/json", "{\"status\":\"success\",\"sequence\":\"Backward\",\"message\":\"Secuencia de retroceso ejecutada\"}");
+    } 
+    else if (sequenceType == "reset") {
+      executeResetSequence();
+      server.send(200, "application/json", "{\"status\":\"success\",\"sequence\":\"Reset\",\"message\":\"Posiciones reseteadas a home\"}");
+    } 
+    else {
+      server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Tipo de secuencia no válido\"}");
+    }
+  } else {
+    server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Parámetro 'type' requerido\"}");
+  }
+}
+
+// Automated Sequence Functions based on AMI_Taping_v9.ino
+
+// Full Cycle Sequence: step7() -> step1() -> step6() -> step4()
+void executeFullCycleSequence() {
+  Serial.println("🔄 Iniciando secuencia CICLO COMPLETO");
+  
+  // Step 7: Holder to home position
+  Serial.println("  Step 7: Holder a posición home");
+  moveServoPWM(3, 1500); // Holder home
+  delay(500);
+  
+  // Step 1: Feeder forward movement
+  Serial.println("  Step 1: Feeder avance");
+  moveServoPWM(0, 1200); // Feeder forward
+  delay(1000);
+  moveServoPWM(0, 1500); // Feeder stop
+  delay(500);
+  
+  // Step 6: Gripper operations
+  Serial.println("  Step 6: Operaciones de gripper");
+  moveServoPWM(4, 2000); // Gripper open
+  delay(500);
+  moveServoPWM(4, 1800); // Gripper close
+  delay(500);
+  
+  // Step 4: Cutter operation
+  Serial.println("  Step 4: Operación de corte");
+  moveServoPWM(2, 500);  // Cutter cut position
+  delay(1000);
+  moveServoPWM(2, 1500); // Cutter home position
+  delay(500);
+  
+  Serial.println("✅ Secuencia CICLO COMPLETO completada");
+}
+
+// Forward Sequence: step10() -> step8() -> step7() -> step12() -> step9()
+void executeForwardSequence() {
+  Serial.println("🔄 Iniciando secuencia AVANCE");
+  
+  // Step 10: Elevator down
+  Serial.println("  Step 10: Elevator abajo");
+  moveServoPWM(5, 700); // Elevator down
+  delay(500);
+  
+  // Step 8: Gripper close
+  Serial.println("  Step 8: Gripper cerrar");
+  moveServoPWM(4, 1800); // Gripper close
+  delay(500);
+  
+  // Step 7: Holder home
+  Serial.println("  Step 7: Holder home");
+  moveServoPWM(3, 1500); // Holder home
+  delay(500);
+  
+  // Step 12: Additional holder operation
+  Serial.println("  Step 12: Operación adicional holder");
+  moveServoPWM(3, 1800); // Holder hold position
+  delay(500);
+  
+  // Step 9: Gripper open
+  Serial.println("  Step 9: Gripper abrir");
+  moveServoPWM(4, 2000); // Gripper open
+  delay(500);
+  
+  Serial.println("✅ Secuencia AVANCE completada");
+}
+
+// Backward Sequence: step2() -> step3() -> step4() -> step6() -> step5()
+void executeBackwardSequence() {
+  Serial.println("🔄 Iniciando secuencia RETROCESO");
+  
+  // Step 2: Wrapper CCW 1/4 spin
+  Serial.println("  Step 2: Wrapper CCW 1/4 vuelta");
+  moveServoPWM(1, 1200); // Wrapper CCW slow
+  delay(2000);
+  moveServoPWM(1, 1500); // Wrapper stop
+  delay(500);
+  
+  // Step 3: Wrapper CW 1/2 spin
+  Serial.println("  Step 3: Wrapper CW 1/2 vuelta");
+  moveServoPWM(1, 1650); // Wrapper CW slow
+  delay(4000);
+  moveServoPWM(1, 1500); // Wrapper stop
+  delay(500);
+  
+  // Step 4: Cutter operation
+  Serial.println("  Step 4: Operación de corte");
+  moveServoPWM(2, 500);  // Cutter cut position
+  delay(1000);
+  moveServoPWM(2, 1500); // Cutter home position
+  delay(500);
+  
+  // Step 6: Gripper operations
+  Serial.println("  Step 6: Operaciones de gripper");
+  moveServoPWM(4, 2000); // Gripper open
+  delay(500);
+  moveServoPWM(4, 1800); // Gripper close
+  delay(500);
+  
+  // Step 5: Wrapper 5 spins CCW
+  Serial.println("  Step 5: Wrapper 5 vueltas CCW");
+  moveServoPWM(1, 1200); // Wrapper CCW slow
+  delay(10000); // Extended time for 5 rotations
+  moveServoPWM(1, 1500); // Wrapper stop
+  delay(500);
+  
+  Serial.println("✅ Secuencia RETROCESO completada");
+}
+
+// Reset Sequence: All servos to home/center positions
+void executeResetSequence() {
+  Serial.println("🔄 Iniciando secuencia RESET");
+  
+  Serial.println("  Moviendo todos los servos a posición home...");
+  
+  // Move all servos to safe home positions
+  moveServoPWM(0, 1500); // Feeder stop/center
+  delay(200);
+  moveServoPWM(1, 1500); // Wrapper stop
+  delay(200);
+  moveServoPWM(2, 1500); // Cutter home position
+  delay(200);
+  moveServoPWM(3, 1500); // Holder home
+  delay(200);
+  moveServoPWM(4, 1500); // Gripper neutral
+  delay(200);
+  moveServoPWM(5, 1125); // Elevator center
+  delay(500);
+  
+  Serial.println("✅ Secuencia RESET completada - Todos los servos en posición home");
 }
