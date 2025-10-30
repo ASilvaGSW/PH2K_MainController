@@ -41,12 +41,12 @@ struct ServoCalibration {
 };
 
 ServoCalibration servoCalib[] = {
-  {500, 2500, 1500, "Feeder"},     // Standard range, uses specific speeds: 885μs (19mm), 1390μs, 1410μs
-  {500, 2500, 1500, "Wrapper"},    // Standard range, uses specific speeds: CCW=1200μs, CW=1650μs
-  {500, 2500, 500, "Cutter"},      // Standard range, Cut=500μs, Home=1500μs (mapped from angles)
-  {900, 2100, 1500, "Holder"},     // KST servo range: 900-2100μs (pulseLenghtMin/Max from AMI)
-  {900, 2100, 2000, "Gripper"},    // KST servo range: 900-2100μs, Open=2000μs (FinalPosition from AMI)
-  {700, 1550, 1125, "Elevator"}    // Industrial grade: Down=700μs, Up=1550μs, Center=1125μs
+  {500, 2500, 1500, "Feeder"},     // CONTINUOUS SERVO: 1500μs=STOP, <1500=CCW, >1500=CW. Speed: 885μs (19mm tape)
+  {500, 2500, 1500, "Wrapper"},    // CONTINUOUS SERVO: 1500μs=STOP, 1200μs=CCW (wrap), 1650μs=CW (unwrap)
+  {500, 2500, 500, "Cutter"},      // POSITION SERVO: Cut=500μs, Home=1500μs (mapped from angles)
+  {900, 2100, 1500, "Holder"},     // POSITION SERVO: KST range 900-2100μs (pulseLenghtMin/Max from AMI)
+  {900, 2100, 2000, "Gripper"},    // POSITION SERVO: KST range 900-2100μs, Open=2000μs (FinalPosition from AMI)
+  {700, 1550, 1125, "Elevator"}    // POSITION SERVO: Industrial grade: Down=700μs, Up=1550μs, Center=1125μs
 };
 
 void setup() {
@@ -226,16 +226,16 @@ void handleRoot() {
     
     // Motor-specific preset buttons based on AMI functionality
     html += "<div class='preset-buttons'>";
-    if (i == 0) { // Feeder - Based on AMI speedServo1 values
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1500)'>Stop</button>";
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 885)'>19mm Tape</button>";
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1390)'>Tape Type 2</button>";
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1410)'>Tape Type 3</button>";
-    } else if (i == 1) { // Wrapper - Based on AMI speedServo2 values
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1200)'>CCW (Wrap)</button>";
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1500)'>Stop</button>";
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1650)'>CW (Unwrap)</button>";
-    } else if (i == 2) { // Cutter - Based on AMI zeroPosition and angles
+    if (i == 0) { // Feeder - CONTINUOUS SERVO (1500=STOP)
+      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1500)'>🛑 STOP</button>";
+      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 885)'>🎯 19mm Tape (CCW)</button>";
+      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1200)'>⬅️ Slow CCW</button>";
+      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1700)'>➡️ Slow CW</button>";
+    } else if (i == 1) { // Wrapper - CONTINUOUS SERVO (1500=STOP)
+      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1200)'>🔄 CCW (Wrap)</button>";
+      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1500)'>🛑 STOP</button>";
+      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1650)'>🔃 CW (Unwrap)</button>";
+    } else if (i == 2) { // Cutter - POSITION SERVO
       html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 500)'>Cut Position</button>";
       html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1500)'>Home Position</button>";
       html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 2000)'>Safe Position</button>";
@@ -265,6 +265,11 @@ void handleRoot() {
   html += "<li><strong>Ciclo Completo:</strong> Secuencia principal de taping automático</li>";
   html += "<li><strong>Avance:</strong> Preparación y agarre de manguera</li>";
   html += "<li><strong>Retroceso:</strong> Proceso de wrapping y corte</li>";
+  html += "</ul>";
+  html += "<p><strong>⚙️ Tipos de Servos:</strong></p>";
+  html += "<ul>";
+  html += "<li><strong>🔄 Continuos (Feeder/Wrapper):</strong> 1500μs = STOP, &lt;1500 = CCW, &gt;1500 = CW</li>";
+  html += "<li><strong>📍 Posición (Cutter/Holder/Gripper/Elevator):</strong> Valores específicos de posición</li>";
   html += "</ul>";
   html += "</div>";
   html += "<div class='sequence-buttons'>";
