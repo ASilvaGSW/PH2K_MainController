@@ -41,12 +41,12 @@ struct ServoCalibration {
 };
 
 ServoCalibration servoCalib[] = {
-  {500, 2500, 1500, "Feeder"},
-  {500, 2500, 1500, "Wrapper"}, 
-  {500, 2500, 1500, "Cutter"},
-  {500, 2500, 1500, "Holder"},
-  {500, 2500, 1500, "Gripper"},
-  {700, 1550, 1125, "Elevator"}  // Industrial grade: Down=700, Up=1550, Center=1125
+  {500, 2500, 1500, "Feeder"},     // Standard range, uses specific speeds: 885μs (19mm), 1390μs, 1410μs
+  {500, 2500, 1500, "Wrapper"},    // Standard range, uses specific speeds: CCW=1200μs, CW=1650μs
+  {500, 2500, 500, "Cutter"},      // Standard range, Cut=500μs, Home=1500μs (mapped from angles)
+  {900, 2100, 1500, "Holder"},     // KST servo range: 900-2100μs (pulseLenghtMin/Max from AMI)
+  {900, 2100, 2000, "Gripper"},    // KST servo range: 900-2100μs, Open=2000μs (FinalPosition from AMI)
+  {700, 1550, 1125, "Elevator"}    // Industrial grade: Down=700μs, Up=1550μs, Center=1125μs
 };
 
 void setup() {
@@ -226,27 +226,28 @@ void handleRoot() {
     
     // Motor-specific preset buttons based on AMI functionality
     html += "<div class='preset-buttons'>";
-    if (i == 0) { // Feeder
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 500)'>Stop</button>";
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 885)'>19mm Tape</button>";
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1200)'>Feed Forward</button>";
-    } else if (i == 1) { // Wrapper
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1200)'>CCW Slow</button>";
+    if (i == 0) { // Feeder - Based on AMI speedServo1 values
       html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1500)'>Stop</button>";
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1650)'>CW Slow</button>";
-    } else if (i == 2) { // Cutter
+      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 885)'>19mm Tape</button>";
+      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1390)'>Tape Type 2</button>";
+      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1410)'>Tape Type 3</button>";
+    } else if (i == 1) { // Wrapper - Based on AMI speedServo2 values
+      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1200)'>CCW (Wrap)</button>";
+      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1500)'>Stop</button>";
+      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1650)'>CW (Unwrap)</button>";
+    } else if (i == 2) { // Cutter - Based on AMI zeroPosition and angles
       html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 500)'>Cut Position</button>";
       html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1500)'>Home Position</button>";
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1800)'>Safe Position</button>";
-    } else if (i == 3) { // Holder
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1400)'>Release</button>";
+      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 2000)'>Safe Position</button>";
+    } else if (i == 3) { // Holder - Based on AMI HomePosition and mapped angles
+      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1200)'>Release (70°)</button>";
       html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1500)'>Home</button>";
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1800)'>Hold</button>";
-    } else if (i == 4) { // Gripper
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1800)'>Close</button>";
+      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1800)'>Hold (95°)</button>";
+    } else if (i == 4) { // Gripper - Based on AMI FinalPosition and mapped angles
+      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1800)'>Close (95°)</button>";
       html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1500)'>Neutral</button>";
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 2000)'>Open</button>";
-    } else if (i == 5) { // Elevator
+      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 2000)'>Open (115°)</button>";
+    } else if (i == 5) { // Elevator - Based on AMI S6HomePos/S6FinalPos
       html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 700)'>Down</button>";
       html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1125)'>Center</button>";
       html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1550)'>Up</button>";
@@ -523,30 +524,30 @@ void handleSequence() {
 void executeFullCycleSequence() {
   Serial.println("🔄 Iniciando secuencia CICLO COMPLETO");
   
-  // Step 7: Holder to home position
+  // Step 7: Holder to home position (based on AMI HomePosition)
   Serial.println("  Step 7: Holder a posición home");
   moveServoPWM(3, 1500); // Holder home
   delay(500);
   
-  // Step 1: Feeder forward movement
+  // Step 1: Feeder forward movement (based on AMI speedServo1)
   Serial.println("  Step 1: Feeder avance");
-  moveServoPWM(0, 1200); // Feeder forward
+  moveServoPWM(0, 885); // Feeder forward (AMI speedServo1 value)
   delay(1000);
   moveServoPWM(0, 1500); // Feeder stop
   delay(500);
   
-  // Step 6: Gripper operations
+  // Step 6: Gripper operations (based on AMI angle mappings)
   Serial.println("  Step 6: Operaciones de gripper");
-  moveServoPWM(4, 2000); // Gripper open
+  moveServoPWM(4, 2000); // Gripper open (115° mapped to 2000μs)
   delay(500);
-  moveServoPWM(4, 1800); // Gripper close
+  moveServoPWM(4, 1800); // Gripper close (95° mapped to 1800μs)
   delay(500);
   
-  // Step 4: Cutter operation
+  // Step 4: Cutter operation (based on AMI zeroPosition)
   Serial.println("  Step 4: Operación de corte");
-  moveServoPWM(2, 500);  // Cutter cut position
+  moveServoPWM(2, 500);  // Cutter cut position (AMI zeroPosition)
   delay(1000);
-  moveServoPWM(2, 1500); // Cutter home position
+  moveServoPWM(2, 1500); // Cutter home position (AMI HomePosition)
   delay(500);
   
   Serial.println("✅ Secuencia CICLO COMPLETO completada");
