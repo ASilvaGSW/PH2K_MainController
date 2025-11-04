@@ -163,7 +163,7 @@ void incrementServoCounter()
  * - Initializes stepper motor with max speed, acceleration, and enable pin.
  * - Loads actuator movement counters from EEPROM (persistent storage).
  * - Creates a FreeRTOS queue for CAN instruction handling.
- * - Initializes both CAN buses (TWAI for general, MCP2515 for local network).
+ * - Initializes both CAN buses (TWAI for general).
  * - Creates a dedicated FreeRTOS task for listening to the TWAI bus.
  * - Sends a startup message over CAN to indicate readiness.
  */

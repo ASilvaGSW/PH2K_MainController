@@ -1,656 +1,1333 @@
+/////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                             //
+//                FW version 9                                                                 //
+//                                                                                             //
+/////////////////////////////////////////////////////////////////////////////////////////////////
 /*
- * ESP32 Gripper Servo Control Web Interface - PWM Control
- * Controls 6 servos on pins: 2, 14, 15, 17, 19, 25
- * Creates WiFi hotspot for web-based control
- * Uses PWM microsecond control for maximum precision
- * 
- */
+  Change of approach on the sync movement of the step12. Now the Servo1 moves by degrees
 
-#include <WiFi.h>
-#include <WebServer.h>
-#include <ESP32Servo.h>
+  by Gonzalo Martinez
+*/
 
-// WiFi credentials for hotspot
-const char* ssid = "ESP32_Gripper_Control";
-const char* password = "gripper123";
+/////////////
+//Libraries//
+/////////////
+#include <ESP32Servo.h>                                                                                       // Library to control the servos
+#include <Wire.h>                                                                                             // Library to control I2C
+#include <AS5600.h>                                                                                           // Library for Encoders
+#include <Adafruit_TCS34725.h>                                                                                // Library for RGB sensors
+#include <ESP32-TWAI-CAN.hpp>                                                                                 // Library for CAN bus TWAI communication
 
-// Web server on port 80
-WebServer server(80);
+// FreeRTOS
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <freertos/queue.h>
 
-// Servo objects
-Servo servo1, servo2, servo3, servo4, servo5, servo6;
+/////////////////////
+//Servos Parameters//
+/////////////////////
+#define angleMin 0                                                                                            // Set the minimum angle to control
+#define angleMax 180                                                                                          // Set the maximum angle to control
+#define minTravelAngle 0                                                                                      // This is for servos KST
+#define MaxTravelAngle 120                                                                                    // This is for servos KST
+#define microsecondsMin 500                                                                                   // Set the minimum usec, consult the datasheet
+#define microsecondsMax 2500                                                                                  // Set the maximum usec, consult the datasheet
+#define pulseLenghtMin 900                                                                                    // This is for servos KST
+#define pulseLenghtMax 2100                                                                                   // This is for servos KST
 
-// Servo pins - AMI Taping Machine configuration
-const int servoPins[] = {2, 25, 15, 14, 19, 17};  // Based on AMI_Taping_v9.ino
-Servo servos[] = {servo1, servo2, servo3, servo4, servo5, servo6};
+////////////////////////////////
+//Objects to handle the Servos//
+////////////////////////////////
+Servo servo1;                                                                                                 // Feeder
+Servo servo2;                                                                                                 // Wrapper
+Servo servo3;                                                                                                 // Cutter
+Servo servo4;                                                                                                 // Holder
+Servo servo5;                                                                                                 // Gripper
+Servo servo6;                                                                                                 // Elevator
 
-// PWM Control Settings (microseconds)
-const int PWM_MIN = 500;    // Minimum pulse width (μs)
-const int PWM_MAX = 2500;   // Maximum pulse width (μs)
-const int PWM_CENTER = 1500; // Center position (μs)
+int servoPin1 = 2;                                                                                            // Servo 1 pin connection
+int servoPin2 = 25;                                                                                           // Servo 2 pin connection
+int servoPin3 = 15;                                                                                           // Servo 3 pin connection
+int servoPin4 = 14;                                                                                           // Servo 4 pin connection
+int servoPin5 = 19;                                                                                           // Servo 5 pin connection
+int servoPin6 = 17;                                                                                           // Servo 6 pin connection
 
-// Current servo positions in microseconds
-int servoPWM[] = {1500, 1500, 1500, 1500, 1500, 1500};
+/////////////////////
+//CAN Bus TWAI Pins//
+/////////////////////
+#define CAN0_TX 4                                                                                             // GPIO4 - TX for CAN0 (General Network)
+#define CAN0_RX 5                                                                                             // GPIO5 - RX for CAN0 (General Network)
 
-// Servo calibration ranges (can be adjusted per servo)
-struct ServoCalibration {
-  int minPWM;
-  int maxPWM;
-  int centerPWM;
-  String name;
-};
+// Device CAN ID (only process messages with this ID)
+#define DEVICE_CAN_ID 0x00A                                                                                   // Taping device CAN ID
+#define RESPONSE_CAN_ID 0x40A                                                                                 // Response CAN ID
 
-ServoCalibration servoCalib[] = {
-  {500, 2500, 1500, "Feeder"},     // CONTINUOUS SERVO: 1500μs=STOP, <1500=CCW, >1500=CW. Speed: 885μs (19mm tape)
-  {500, 2500, 1500, "Wrapper"},    // CONTINUOUS SERVO: 1500μs=STOP, 1200μs=CCW (wrap), 1650μs=CW (unwrap)
-  {500, 2500, 500, "Cutter"},      // POSITION SERVO: Cut=500μs, Home=1500μs (mapped from angles)
-  {900, 2100, 1500, "Holder"},     // POSITION SERVO: KST range 900-2100μs (pulseLenghtMin/Max from AMI)
-  {900, 2100, 2000, "Gripper"},    // POSITION SERVO: KST range 900-2100μs, Open=2000μs (FinalPosition from AMI)
-  {700, 1550, 1125, "Elevator"}    // POSITION SERVO: Industrial grade: Down=700μs, Up=1550μs, Center=1125μs
-};
+// Queue to store instructions received from the CAN bus (TWAI)
+QueueHandle_t instruction_queue;
 
-void setup() {
-  Serial.begin(115200);
-  delay(1000);
-  Serial.println("Iniciando ESP32 Gripper Control PWM...");
+///////////////////
+//SERVO1 [Feeder]//
+///////////////////
+unsigned long startTime1;                                                                                     // Variable to store start time of motion in Servo1
+//int currentState1 = 0;                                                                                      // Servo state: 0 -> first direction, 1 -> second direction
+const float GapGainFeeder = 6.486021505;                                                                      // Value to reduce the error between 'targetPosition - MovedAngle'
+const unsigned long timeout = 5000;                                                                           // Value to set the maximum working time of the servo1 in a row. 5000 = 5 second
+
+////////////////////
+//SERVO2 [Wrapper]//
+////////////////////
+#define speedServo2_CCW  1200                                                                                 // Range from 500 to 1500   (the closer to 1500 the slower)
+#define speedServo2_CW   1650                                                                                 // Range from 1500 to 2500  (the closer to 1500 the slower)
+#define HALL_SENSOR_PIN 26                                                                                    // Pin to receive signal from Hall Effect Sensor located in the Wrapper
+unsigned long startTime2;                                                                                     // Variable to store start time of motion
+unsigned long startTime3;                                                                                     // Variable to store start time of motion
+unsigned long startTime4;                                                                                     // Variable to store start time of motion
+const unsigned long timeDirection1 = 500;                                                                     // 1st movement duration (500 miliseconds)
+const unsigned long timeDirection2 = 1000;                                                                    // 2nd movement duration (1 second)
+const unsigned long timeDirection3 = 2000;                                                                    // Last movement duration (2 seconds)
+const unsigned long timeout2 = 5000;                                                                          // Value to set the maximum working time of the servo2 in a row. 5000 = 5 second
+const float GapGainWrapper1 = 29.52992;                                                                       // Value to reduce the error between 'targetPosition - MovedAngle'
+const float GEAR_RATIO = 2.333;                                                                               // Encoder gear spins 2.333 times per 1 wrapper turn
+volatile bool hallDetected = false;                                                                           // Boolean variable that activates when the Hall Effect Sensor detects something
+volatile unsigned long lastHallTime = 0;                                                                      // Hall Effect Sensor working time
+volatile int hallCounter = 0;                                                                                 // Hall Effect Sensor event counter
+const int TARGET_ROTATIONS = 4;                                                                               // Target to achieve to the hallCounter, this represents 3 spins of the Wrapper
+void IRAM_ATTR hallSensorISR();                                                                               // Name of the function for the Hall Effect Sensor (Interrupt Service Routine for Hall Effect Sensor)
+//int currentState2 = 0;                                                                                      // Servo state: 0 -> first direction, 1 -> second direction
+
+///////////////////
+//SERVO3 [Cutter]//
+///////////////////
+#define stopServo     1500                                                                                    // Do not modify, this is to stop the servo
+#define zeroPosition  500                                                                                     // Do not modify, this is to place the Cutter servo in Cut position
+int angle_cut = 80;                                                                                           // Angle of the servo to reach the Cut position
+int angle_home = 0;                                                                                           // Angle of Home position
+
+/////////////////////////////////
+//SERVO4 [Holder] & 5 [Gripper]//
+/////////////////////////////////
+#define FinalPosition 2000                                                                                    // Final Position of Servo
+#define HomePosition 1500                                                                                     // Home Position Servo   
+int angle_hold4 = 95;                                                                                         // Angle of servo4 to reach and hold the tape
+int angle_home4 = 70;                                                                                         // Angle of servo4 to reach the home position
+int angle_hold5 = 95;                                                                                         // Angle of servo5 to close the gripper
+int angle_home5 = 115;                                                                                        // Angle of servo5 to open the gripper
+
+/////////////////////
+//SERVO6 [Elevator]//
+/////////////////////
+#define S6FinalPos 1550                                                                                       // Up
+#define S6HomePos 700                                                                                         // Down   
+const float servo6StepDelay = 1;                                                                              // Value of delay used to control speed
+                                                                                                            
+////////////
+//Encoders//
+////////////
+AS5600 encoder1;                                                                                              // Create Encoder object for Feeder, pins 21, 22
+AS5600 encoder2(&Wire1);                                                                                      // Create Encoder object for Wrapper, pins 13, 23
+const float encoderRes = 0.08789;                                                                             // Encoder resolution obtained from 360/4095. 360 is the degrees of full spin, 4095 is the maximum value of 12 bits
+float initialAngle = 0;                                                                                       // To ensure that the Encoder will start with a value of 0
+float targetAngle = 0;                                                                                        // "" it will change later on the code
+const float degreesPerFeed = 158.0;                                                                           // Adjust the angle based on the lenght of tape to feed: 60 mm = 152.2 degrees (158 value obtained during tests)
+const float degreesPerFeedSync = 177.66;                                                                      // Lenght of the tape that will be wrapped around the hose
+float initialAngle2 =0;                                                                                       // To ensure that the Encoder will start with a value of 0
+float targetAngle2 = 0;                                                                                       // "" it will change later on the code
+const float degreesPerWrap = 120.0 * GEAR_RATIO;                                                              // 1st movement of the Wrapper. This represents 1/4 of turn CCW direction
+const float degreesPerWrap2 = 90.0 * GEAR_RATIO;                                                              // 2nd movement of the Wrapper. This represents 1/4 of turn CW direction  
+const float degreesPerWrap3 = 1800.0 * GEAR_RATIO;                                                            // Final movement of the Wrapper. This represents 5 turns CW direction
+
+////////////////////
+//Position Sensors//
+////////////////////
+const int Cutter = 18;                                                                                        // Pin of position sensor 'Cut', used to detect Cutter movement
+const int ElevatorDown = 16;                                                                                  // Pin of position sensor 'Down', used to detect Elevator
   
-  // Configure PWM timers for ESP32Servo
-  ESP32PWM::allocateTimer(0);
-  ESP32PWM::allocateTimer(1);
-  ESP32PWM::allocateTimer(2);
-  ESP32PWM::allocateTimer(3);
+///////////////  
+//RGB Sensors//
+///////////////
+Adafruit_TCS34725 tcs1 = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);                  // Instance to set and control RGB Feeder Sensor
+Adafruit_TCS34725 tcs2 = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);                  // Instance to set and control RGB Hose Sensor
+
+///////////////////
+//State variables//
+///////////////////
+bool gripperClosed = false;                                                                                   // Flag to indicate gripper is closed
+bool elevatorIsDown = false;                                                                                  // Flag to indicate elevator is down
+bool gripperReadyForHose = false;                                                                             // Flag to indicate the gripper is waiting for a trigger to open
+
+////////////////
+//Push Buttons//
+////////////////
+#define BUTTON_FULLCYCLE 27                                                                               // Push button for Full Cycle / Cut
+#define BUTTON_FORWARD   32                                                                                   // Push button for Feeder Forward Movement
+#define BUTTON_BACKWARD  33                                                                                   // Push button for Feeder Backwar Movement
+
+// Debounce variables for Push Buttons //
+int lastStableStateFullCycle = HIGH;                                                                          // Last confirmed stable state for FullCycle button
+int lastRawStateFullCycle = HIGH;                                                                             // Last raw reading from FullCycle button pin
+unsigned long lastDebounceTimeFullCycle = 0;                                                                  // Last debounce timer for FullCycle button
+
+int lastStableStateForward = HIGH;                                                                            // Last confirmed stable state for Forward button
+int lastRawStateForward = HIGH;                                                                               // Last raw reading from Forward button pin
+unsigned long lastDebounceTimeForward = 0;                                                                    // Last debounce timer for Forward button
+
+int lastStableStateBackward = HIGH;                                                                           // Last confirmed stable state for Backward button
+int lastRawStateBackward = HIGH;                                                                              // Last raw reading from Backward button pin
+unsigned long lastDebounceTimeBackward = 0;                                                                   // Last debounce timer for Backward button
+
+const unsigned long debounceDelayTest = 50;                                                                   // Debounce delay in milliseconds for all push buttons
+
+//////////////////////////////////
+//State variables for automation//
+//////////////////////////////////
+bool fullCycleFirstPress = true;                                                                              // Tracks if FullCycle button has been pressed since reset
+bool sequenceRunning = false;                                                                                 // Prevents overlapping sequences
+
+// Add global variables for servo speeds
+int speedServo1 = 885;                                                                                       // Default to 19mm tape
+int speedServoSync = 885;                                                                                    // Default to 19mm tape
+
+///////////////////////
+//CAN Global Variables//
+///////////////////////
+byte replyData[8];                                                                                           // Buffer for CAN replies
+
+// Function declarations for CAN
+void process_instruction(CanFrame instruction);
+void send_twai_response(const byte response_data[8]);
+void twai_listener_task(void *pvParameters);
+
+void setup()
+{
+  Serial.begin(115200);                                                                                       // Start serial communication
+
+/////////////////////////
+//Servos initialization//
+/////////////////////////
+servo1.attach(servoPin1);    
+servo2.attach(servoPin2);    
+servo3.attach(servoPin3);
+servo4.attach(servoPin4); 
+servo5.attach(servoPin5); 
+servo6.attach(servoPin6);
+ 
+servo1.writeMicroseconds(stopServo);                                                                          // Initialize the servo stopped
+servo2.writeMicroseconds(stopServo);                                                                          // Initialize the servo stopped
+servo3.writeMicroseconds(zeroPosition);                                                                       // Servo3 start position (Home)
+servo4.writeMicroseconds(HomePosition);                                                                       // Servo4 start position (Home)
+servo5.writeMicroseconds(FinalPosition);                                                                      // Servo5 final position (Open)
+servo6.writeMicroseconds(S6HomePos);                                                                          // Servo6 start position (Down)
+
+////////////////////
+//Position Sensors//
+////////////////////
+pinMode(Cutter, INPUT_PULLUP);                                                                                // Declaring an internal Pull-Up resistor for the position sensor
+pinMode(ElevatorDown, INPUT_PULLUP);                                                                          // Declaring an internal Pull-Up resistor for the position sensor
+
+//////////////////////////////
+//Hall Sensor Initialization//
+//////////////////////////////
+pinMode(HALL_SENSOR_PIN, INPUT_PULLUP);                                                                       // Declares an internal Pull-Up resistor for the pin where the Hall Effect Sensor is going to be read
+attachInterrupt(digitalPinToInterrupt(HALL_SENSOR_PIN), hallSensorISR, FALLING);                              // Calls the function when the Hall Effect Sensor detects a Magnetic Field change (falls)
+
+//////////////////////
+//Initialize Encoder//
+//////////////////////
+pinMode(13, INPUT_PULLUP);                                                                                    // SDA for Bus2 (Wrapper and Hose detection)
+pinMode(23, INPUT_PULLUP);                                                                                    // SCL for Encoder2 (Wrapper)
+pinMode(21, INPUT_PULLUP);                                                                                    // SDA for Encoder1 (Feeder)
+pinMode(22, INPUT_PULLUP);                                                                                    // SCL for Encoder1 (Feeder)
+
+Wire.begin(21, 22);                                                                                           // Start I2C communication for Bus 1: Feeder Encoder & RGB Feeder
+if (!encoder1.begin())                                                                                        // Validation of Encoder initialization. Sends an Error Message if not successful
+{
+  Serial.println("FEEDER Encoder not detected.");                                                             // Message displayed
+  while(1);
+}
+encoder1.setDirection(AS5600_CLOCK_WISE);                                                                     // Function to declare the direction of rotation of Encoder1
+
+Wire1.begin(13, 23);                                                                                          // Start I2C communication for Wrapper Encoder
+if (!encoder2.begin())                                                                                        // Validation of Encoder initialization. Sends an Error Message if not successful
+{
+  Serial.println("WRAPPER Encoder not detected");                                                             // Message displayed
+  while(1);
+}
+encoder2.setDirection(AS5600_COUNTERCLOCK_WISE);                                                              // Function to declare the direction of rotation of Encoder2
+
+//////////////////////////
+//Initialize RGB sensors//
+//////////////////////////
+if (!tcs1.begin(TCS34725_ADDRESS, &Wire))                                                                     // Validation of RGB Feeder initialization. Sends an Error Message if not successful  
+{
+  Serial.println("TCS34725 #1 (Tape) not found!");                                                            // Message displayed
+  while(1);
+}
+if (!tcs2.begin(TCS34725_ADDRESS, &Wire1))                                                                    // Validation of RGB Hose initialization. Sends an Error Message if not successful
+{
+  Serial.println("TCS34725 #2 (Hose) not found!");                                                            // Message displayed
+  while(1);
+}
+Serial.println("I2C sensors initialized!");                                                                   // Successful Message
+
+////////////////////////////
+// Initialize push buttons//
+////////////////////////////
+pinMode(BUTTON_FULLCYCLE, INPUT_PULLUP);                                                                      // Declaring the pushbuttons as internal Input Pullup
+pinMode(BUTTON_FORWARD, INPUT_PULLUP);
+pinMode(BUTTON_BACKWARD, INPUT_PULLUP);
+
+///////////////////////////////
+// Initialize CAN bus (TWAI) //
+///////////////////////////////
+Serial.println("Initializing CAN system with FreeRTOS");
+
+// Create the instruction queue
+instruction_queue = xQueueCreate(10, sizeof(CanFrame));
+if (instruction_queue == NULL) {
+  Serial.println("Error creating instruction queue");
+  while(1);
+}
+
+// Initialize the CAN bus (TWAI - General Network)
+Serial.println("Initializing CAN0 (TWAI)...");
+ESP32Can.setPins(CAN0_TX, CAN0_RX);
+ESP32Can.setSpeed(ESP32Can.convertSpeed(125));
+if (ESP32Can.begin()) {
+  Serial.println("CAN0 (TWAI) initialized successfully");
+} else {
+  Serial.println("Error initializing CAN0 (TWAI)");
+  while (1);
+}
+
+// Create the task to listen on the TWAI bus on core 0
+xTaskCreatePinnedToCore(
+    twai_listener_task,   /* Task function */
+    "TWAICanListener",    /* Task name */
+    4096,                 /* Stack size */
+    NULL,                 /* Task parameters */
+    1,                    /* Task priority */
+    NULL,                 /* Task handle */
+    0);                   /* Core to run on (0) */
+
+Serial.println("CAN system ready. Main loop running on core 1.");
+
+// Send startup message
+byte startup_msg[] = {0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+send_twai_response(startup_msg);
+
+delay(500);                                                                                                   // Delay time to make sure everything is ready before begining. Setup completed
+//Serial.println("System ready. Type a number from 1 to 11 to execute a step");                               // Message to display the setup is ready and waiting for an instruction
+}
+
+///////////////////////////////////////////////////////
+//INTERRUPTION SERVICE ROUTINE FOR HALL EFFECT SENSOR//
+///////////////////////////////////////////////////////
+void IRAM_ATTR hallSensorISR()                                                                                
+{
+  static unsigned long lastInterrupt = 0;                                                                     // Register the time of the previous interruption
+  unsigned long now = millis();                                                                               // Variable to register the time in miliseconds
   
-  // Initialize servos with PWM control
-  for (int i = 0; i < 6; i++) {
-    servos[i].setPeriodHertz(50);    // Standard 50Hz servo frequency
-    servos[i].attach(servoPins[i], servoCalib[i].minPWM, servoCalib[i].maxPWM);
-    
-    // Set initial position to center
-    servos[i].writeMicroseconds(servoCalib[i].centerPWM);
-    servoPWM[i] = servoCalib[i].centerPWM;
-    
-    Serial.print("✓ ");
-    Serial.print(servoCalib[i].name);
-    Serial.print(" inicializado en pin ");
-    Serial.print(servoPins[i]);
-    Serial.print(" - PWM: ");
-    Serial.print(servoCalib[i].centerPWM);
-    Serial.println("μs");
-    
-    delay(100); // Small delay between servo initializations
+  if (now - lastInterrupt > 50)                                                                               // Debounce: 50ms minimum between triggers 
+  { 
+    hallCounter++;                                                                                            // Hall Effect Sensor counter increments by 1
+    lastInterrupt = now;                                                                                      // Save the time of the interruption
   }
-  
-  // Configure WiFi hotspot
-  Serial.println("\nConfigurando hotspot WiFi...");
-  WiFi.softAP(ssid, password);
-  
-  IPAddress IP = WiFi.softAPIP();
-  Serial.print("✓ Hotspot creado: ");
-  Serial.println(ssid);
-  Serial.print("✓ IP del servidor: ");
-  Serial.println(IP);
-  Serial.print("✓ Contraseña: ");
-  Serial.println(password);
-  
-  // Configure web server routes
-  server.on("/", handleRoot);
-  server.on("/control", handleServoControl);
-  server.on("/status", handleStatus);
-  server.on("/calibrate", handleCalibration);
-  server.on("/sequence", handleSequence);
-  
-  // Start web server
-  server.begin();
-  Serial.println("✓ Servidor web iniciado en puerto 80");
-  Serial.println("\n🌐 Accede a la interfaz web:");
-  Serial.print("   http://");
-  Serial.print(IP);
-  Serial.println("/");
-  Serial.println("\n🎯 Control PWM de precisión activado!");
-  Serial.println("   Rango: 500-2500μs | Centro: 1500μs");
 }
 
-void loop() {
-  server.handleClient();
-  delay(2);
-}
+void loop() 
+{
+  ////////////////////////////
+  // Tape presence condition//
+  ////////////////////////////
+  /*if (!isTapePresent())                                                                                       // Tape check: block all steps if no tape 
+  {
+    Serial.println("No tape detected! System will not operate.");                                             // Displayed message
+    delay(500);                                                                                               // Avoid spamming
+    return;                                                                                                   // Blocks every function if there's no tape
+  }*/
+  elevatorIsDown = (digitalRead(ElevatorDown) == LOW);                                                        // Update elevator state
+  // checkHoseAndOpenGripper();                                                                               // Check elevator sensor for gripper open
 
-// Function to move servo using PWM microseconds
-void moveServoPWM(int servoIndex, int pwmValue) {
-  if (servoIndex >= 0 && servoIndex < 6) {
-    // Constrain PWM value to safe range
-    pwmValue = constrain(pwmValue, servoCalib[servoIndex].minPWM, servoCalib[servoIndex].maxPWM);
-    
-    // Write PWM value directly
-    servos[servoIndex].writeMicroseconds(pwmValue);
-    servoPWM[servoIndex] = pwmValue;
-    
-    Serial.print(servoCalib[servoIndex].name);
-    Serial.print(" (Pin ");
-    Serial.print(servoPins[servoIndex]);
-    Serial.print(") PWM: ");
-    Serial.print(pwmValue);
-    Serial.println("μs");
+  ///////////////////////////////////
+  //Push Button Debounce Test Logic//
+  ///////////////////////////////////
+  int readingFullCycle = digitalRead(BUTTON_FULLCYCLE);                                                       // Variable to detect the state of the FullCycle/Cut push button
+  if (readingFullCycle != lastRawStateFullCycle)                                                              // If the current reading is different from the last raw state, reset debounce timer
+  {
+    lastDebounceTimeFullCycle = millis();                                                                     // Store the time of the state change
   }
-}
-
-// Convert PWM to percentage (0-100%)
-int pwmToPercent(int pwmValue, int servoIndex) {
-  int minPWM = servoCalib[servoIndex].minPWM;
-  int maxPWM = servoCalib[servoIndex].maxPWM;
-  return map(pwmValue, minPWM, maxPWM, 0, 100);
-}
-
-// Convert percentage to PWM
-int percentToPWM(int percent, int servoIndex) {
-  int minPWM = servoCalib[servoIndex].minPWM;
-  int maxPWM = servoCalib[servoIndex].maxPWM;
-  return map(percent, 0, 100, minPWM, maxPWM);
-}
-
-// Main web page with PWM control
-void handleRoot() {
-  String html = "<!DOCTYPE html><html lang='es'><head><meta charset='UTF-8'>";
-  html += "<meta name='viewport' content='width=device-width, initial-scale=1.0'>";
-  html += "<title>Control PWM de Gripper - ESP32</title>";
-  html += "<style>";
-  html += "* { margin: 0; padding: 0; box-sizing: border-box; }";
-  html += "body { font-family: Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }";
-  html += ".container { max-width: 900px; margin: 0 auto; background: white; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden; }";
-  html += ".header { background: linear-gradient(45deg, #2196F3, #21CBF3); color: white; padding: 30px; text-align: center; }";
-  html += ".header h1 { font-size: 2.5em; margin-bottom: 10px; }";
-  html += ".header p { font-size: 1.1em; opacity: 0.9; }";
-  html += ".controls { padding: 30px; }";
-  html += ".servo-control { background: #f8f9fa; border-radius: 10px; padding: 20px; margin-bottom: 20px; border-left: 4px solid #2196F3; }";
-  html += ".servo-control h3 { color: #333; margin-bottom: 15px; font-size: 1.3em; }";
-  html += ".control-group { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }";
-  html += ".slider-container { flex: 1; min-width: 250px; }";
-  html += ".slider { width: 100%; height: 8px; border-radius: 5px; background: #ddd; outline: none; -webkit-appearance: none; }";
-  html += ".slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #2196F3; cursor: pointer; }";
-  html += ".pwm-display { background: #2196F3; color: white; padding: 8px 15px; border-radius: 20px; font-weight: bold; min-width: 80px; text-align: center; font-size: 0.9em; }";
-  html += ".percent-display { background: #4CAF50; color: white; padding: 8px 15px; border-radius: 20px; font-weight: bold; min-width: 60px; text-align: center; font-size: 0.9em; }";
-  html += ".preset-buttons { display: flex; gap: 8px; margin-top: 15px; flex-wrap: wrap; }";
-  html += ".preset-btn { background: #4CAF50; color: white; border: none; padding: 6px 12px; border-radius: 15px; cursor: pointer; font-size: 0.8em; transition: all 0.3s; }";
-  html += ".preset-btn:hover { background: #45a049; transform: translateY(-2px); }";
-  html += ".preset-btn.pwm { background: #FF9800; }";
-  html += ".preset-btn.pwm:hover { background: #F57C00; }";
-  html += ".status { background: #e8f5e8; border: 1px solid #4CAF50; border-radius: 10px; padding: 15px; margin-top: 20px; text-align: center; }";
-  html += ".emergency-stop { background: #f44336; color: white; border: none; padding: 15px 30px; border-radius: 25px; font-size: 1.1em; font-weight: bold; cursor: pointer; margin: 20px auto; display: block; transition: all 0.3s; }";
-  html += ".emergency-stop:hover { background: #d32f2f; transform: scale(1.05); }";
-  html += ".info-panel { background: #e3f2fd; border: 1px solid #2196F3; border-radius: 10px; padding: 15px; margin-bottom: 20px; }";
-  html += ".info-panel h4 { color: #1976D2; margin-bottom: 10px; }";
-  html += ".info-text { font-size: 0.9em; color: #555; }";
-  
-  // Sequence section styles
-  html += ".sequence-section { background: linear-gradient(135deg, #e3f2fd, #f3e5f5); border: 2px solid #2196F3; border-radius: 12px; padding: 20px; margin: 20px 0; box-shadow: 0 4px 12px rgba(33,150,243,0.2); }";
-  html += ".sequence-section h2 { color: #1976D2; margin: 0 0 15px 0; text-align: center; font-size: 24px; }";
-  html += ".sequence-info { background: rgba(255,255,255,0.8); border-radius: 8px; padding: 15px; margin-bottom: 20px; }";
-  html += ".sequence-info ul { margin: 10px 0; padding-left: 20px; }";
-  html += ".sequence-info li { margin: 5px 0; color: #424242; }";
-  html += ".sequence-buttons { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; }";
-  html += ".sequence-btn { padding: 15px 20px; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }";
-  html += ".sequence-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.3); }";
-  html += ".sequence-btn:active { transform: translateY(0); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }";
-  html += ".sequence-btn.full-cycle { background: linear-gradient(135deg, #4CAF50, #388E3C); color: white; }";
-  html += ".sequence-btn.forward { background: linear-gradient(135deg, #2196F3, #1976D2); color: white; }";
-  html += ".sequence-btn.backward { background: linear-gradient(135deg, #FF9800, #F57C00); color: white; }";
-  html += ".sequence-btn.reset { background: linear-gradient(135deg, #9C27B0, #7B1FA2); color: white; }";
-  html += ".sequence-status { background: #f5f5f5; border: 2px solid #ddd; border-radius: 8px; padding: 12px; text-align: center; font-weight: bold; color: #666; }";
-  
-  html += "@media (max-width: 600px) { .control-group { flex-direction: column; align-items: stretch; } .header h1 { font-size: 2em; } .controls { padding: 20px; } }";
-  html += "</style></head><body>";
-  html += "<div class='container'>";
-  html += "<div class='header'>";
-  html += "<h1>🏭 AMI Taping Machine</h1>";
-  html += "<p>Sistema de Control Industrial PWM - Máquina de Taping Automática</p>";
-  html += "</div>";
-  html += "<div class='controls'>";
-  
-  // Info panel
-  html += "<div class='info-panel'>";
-  html += "<h4>🏭 Control Industrial AMI Taping</h4>";
-  html += "<div class='info-text'>Rango PWM: 500-2500μs | Centro: 1500μs | Motores: Feeder, Wrapper, Cutter, Holder, Gripper, Elevator</div>";
-  html += "</div>";
-  
-  // Generate servo controls with motor-specific functionality
-  for (int i = 0; i < 6; i++) {
-    html += "<div class='servo-control'>";
-    html += "<h3>" + servoCalib[i].name + " - Pin " + String(servoPins[i]) + "</h3>";
-    html += "<div class='control-group'>";
-    html += "<div class='slider-container'>";
-    html += "<input type='range' min='" + String(servoCalib[i].minPWM) + "' max='" + String(servoCalib[i].maxPWM) + "' value='" + String(servoPWM[i]) + "' class='slider' id='servo" + String(i) + "' oninput='updateServoPWM(" + String(i) + ", this.value)'>";
-    html += "</div>";
-    html += "<div class='pwm-display' id='pwm" + String(i) + "'>" + String(servoPWM[i]) + "μs</div>";
-    html += "<div class='percent-display' id='percent" + String(i) + "'>" + String(pwmToPercent(servoPWM[i], i)) + "%</div>";
-    html += "</div>";
-    
-    // Motor-specific preset buttons based on AMI functionality
-    html += "<div class='preset-buttons'>";
-    if (i == 0) { // Feeder - CONTINUOUS SERVO (1500=STOP)
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1500)'>🛑 STOP</button>";
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 885)'>🎯 19mm Tape (CCW)</button>";
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1200)'>⬅️ Slow CCW</button>";
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1700)'>➡️ Slow CW</button>";
-    } else if (i == 1) { // Wrapper - CONTINUOUS SERVO (1500=STOP)
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1200)'>🔄 CCW (Wrap)</button>";
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1500)'>🛑 STOP</button>";
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1650)'>🔃 CW (Unwrap)</button>";
-    } else if (i == 2) { // Cutter - POSITION SERVO
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 500)'>Cut Position</button>";
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1500)'>Home Position</button>";
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 2000)'>Safe Position</button>";
-    } else if (i == 3) { // Holder - Based on AMI HomePosition and mapped angles
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1200)'>Release (70°)</button>";
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1500)'>Home</button>";
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1800)'>Hold (95°)</button>";
-    } else if (i == 4) { // Gripper - Based on AMI FinalPosition and mapped angles
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1800)'>Close (95°)</button>";
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1500)'>Neutral</button>";
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 2000)'>Open (115°)</button>";
-    } else if (i == 5) { // Elevator - Based on AMI S6HomePos/S6FinalPos
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 700)'>Down</button>";
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1125)'>Center</button>";
-      html += "<button class='preset-btn' onclick='setServoPWM(" + String(i) + ", 1550)'>Up</button>";
-    }
-    html += "</div>";
-    html += "</div>";
-  }
-  
-  // Automated Sequences Section
-  html += "<div class='sequence-section'>";
-  html += "<h2>🔄 Secuencias Automatizadas</h2>";
-  html += "<div class='sequence-info'>";
-  html += "<p><strong>Secuencias basadas en AMI_Taping_v9.ino:</strong></p>";
-  html += "<ul>";
-  html += "<li><strong>Ciclo Completo:</strong> Secuencia principal de taping automático</li>";
-  html += "<li><strong>Avance:</strong> Preparación y agarre de manguera</li>";
-  html += "<li><strong>Retroceso:</strong> Proceso de wrapping y corte</li>";
-  html += "</ul>";
-  html += "<p><strong>⚙️ Tipos de Servos:</strong></p>";
-  html += "<ul>";
-  html += "<li><strong>🔄 Continuos (Feeder/Wrapper):</strong> 1500μs = STOP, &lt;1500 = CCW, &gt;1500 = CW</li>";
-  html += "<li><strong>📍 Posición (Cutter/Holder/Gripper/Elevator):</strong> Valores específicos de posición</li>";
-  html += "</ul>";
-  html += "</div>";
-  html += "<div class='sequence-buttons'>";
-  html += "<button class='sequence-btn full-cycle' onclick='runSequence(\"fullcycle\")'>🔄 CICLO COMPLETO</button>";
-  html += "<button class='sequence-btn forward' onclick='runSequence(\"forward\")'>⬆️ AVANCE</button>";
-  html += "<button class='sequence-btn backward' onclick='runSequence(\"backward\")'>⬇️ RETROCESO</button>";
-  html += "<button class='sequence-btn reset' onclick='runSequence(\"reset\")'>🏠 RESET POSICIONES</button>";
-  html += "</div>";
-  html += "<div class='sequence-status' id='sequenceStatus'>Listo para ejecutar secuencias</div>";
-  html += "</div>";
-  
-  html += "<button class='emergency-stop' onclick='emergencyStop()'>🛑 PARADA DE EMERGENCIA</button>";
-  html += "<div class='status' id='status'>Sistema PWM listo - Control de precisión activado</div>";
-  html += "</div></div>";
-
-  // JavaScript for PWM control
-  html += "<script>";
-  html += "function updateServoPWM(servoIndex, pwmValue) {";
-  html += "let servoRanges = [{min:500,max:2500},{min:500,max:2500},{min:500,max:2500},{min:500,max:2500},{min:500,max:2500},{min:700,max:1550}];";
-  html += "let range = servoRanges[servoIndex];";
-  html += "document.getElementById('pwm' + servoIndex).textContent = pwmValue + 'μs';";
-  html += "let percent = Math.round(((pwmValue - range.min) / (range.max - range.min)) * 100);";
-  html += "document.getElementById('percent' + servoIndex).textContent = percent + '%';";
-  html += "fetch('/control?servo=' + (servoIndex + 1) + '&pwm=' + pwmValue)";
-  html += ".then(response => response.json())";
-  html += ".then(data => {";
-  html += "if (data.status === 'success') {";
-  html += "let servoNames = ['Feeder', 'Wrapper', 'Cutter', 'Holder', 'Gripper', 'Elevator'];";
-  html += "document.getElementById('status').textContent = servoNames[servoIndex] + ' → ' + pwmValue + 'μs (' + percent + '%)';";
-  html += "document.getElementById('status').style.background = '#e8f5e8';";
-  html += "document.getElementById('status').style.borderColor = '#4CAF50';";
-  html += "} else {";
-  html += "document.getElementById('status').textContent = 'Error: ' + (data.message || 'Comando fallido');";
-  html += "document.getElementById('status').style.background = '#ffebee';";
-  html += "document.getElementById('status').style.borderColor = '#f44336';";
-  html += "}";
-  html += "})";
-  html += ".catch(error => {";
-  html += "document.getElementById('status').textContent = 'Error de conexión: ' + error;";
-  html += "document.getElementById('status').style.background = '#ffebee';";
-  html += "document.getElementById('status').style.borderColor = '#f44336';";
-  html += "});";
-  html += "}";
-  html += "function setServoPWM(servoIndex, pwmValue) {";
-  html += "document.getElementById('servo' + servoIndex).value = pwmValue;";
-  html += "updateServoPWM(servoIndex, pwmValue);";
-  html += "}";
-  html += "function emergencyStop() {";
-  html += "if (confirm('¿Estás seguro de que quieres centrar todos los servos?')) {";
-  html += "let centerValues = [1500, 1500, 1500, 1500, 1500, 1125];";
-  html += "for (let i = 0; i < 6; i++) {";
-  html += "setServoPWM(i, centerValues[i]);";
-  html += "}";
-  html += "document.getElementById('status').textContent = 'PARADA DE EMERGENCIA - Todos los servos centrados';";
-  html += "document.getElementById('status').style.background = '#fff3e0';";
-  html += "document.getElementById('status').style.borderColor = '#FF9800';";
-  html += "}";
-  html += "}";
-  html += "function updateStatus() {";
-  html += "fetch('/status')";
-  html += ".then(response => response.json())";
-  html += ".then(data => {";
-  html += "if (data.servos) {";
-  html += "for (let i = 0; i < data.servos.length; i++) {";
-  html += "let servo = data.servos[i];";
-  html += "document.getElementById('servo' + i).value = servo.pwm;";
-  html += "document.getElementById('pwm' + i).textContent = servo.pwm + 'μs';";
-  html += "document.getElementById('percent' + i).textContent = servo.percent + '%';";
-  html += "}";
-  html += "if (document.getElementById('status').style.borderColor !== 'rgb(244, 67, 54)') {";
-  html += "document.getElementById('status').textContent = 'Sistema sincronizado - ' + new Date().toLocaleTimeString();";
-  html += "document.getElementById('status').style.background = '#e8f5e8';";
-  html += "document.getElementById('status').style.borderColor = '#4CAF50';";
-  html += "}";
-  html += "}";
-  html += "})";
-  html += ".catch(error => console.log('Status update error:', error));";
-  html += "}";
-  html += "function runSequence(sequenceType) {";
-  html += "if (confirm('¿Ejecutar secuencia ' + sequenceType.toUpperCase() + '?\\n\\nEsta acción moverá múltiples servos automáticamente.')) {";
-  html += "document.getElementById('sequenceStatus').textContent = 'Ejecutando secuencia ' + sequenceType + '...';";
-  html += "document.getElementById('sequenceStatus').style.background = '#fff3e0';";
-  html += "document.getElementById('sequenceStatus').style.borderColor = '#FF9800';";
-  html += "fetch('/sequence?type=' + sequenceType)";
-  html += ".then(response => response.json())";
-  html += ".then(data => {";
-  html += "if (data.status === 'success') {";
-  html += "document.getElementById('sequenceStatus').textContent = 'Secuencia ' + sequenceType + ' completada exitosamente';";
-  html += "document.getElementById('sequenceStatus').style.background = '#e8f5e8';";
-  html += "document.getElementById('sequenceStatus').style.borderColor = '#4CAF50';";
-  html += "document.getElementById('status').textContent = 'Secuencia ejecutada: ' + data.sequence + ' - ' + new Date().toLocaleTimeString();";
-  html += "document.getElementById('status').style.background = '#e8f5e8';";
-  html += "document.getElementById('status').style.borderColor = '#4CAF50';";
-  html += "} else {";
-  html += "document.getElementById('sequenceStatus').textContent = 'Error en secuencia: ' + (data.message || 'Fallo desconocido');";
-  html += "document.getElementById('sequenceStatus').style.background = '#ffebee';";
-  html += "document.getElementById('sequenceStatus').style.borderColor = '#f44336';";
-  html += "}";
-  html += "})";
-  html += ".catch(error => {";
-  html += "document.getElementById('sequenceStatus').textContent = 'Error de conexión: ' + error;";
-  html += "document.getElementById('sequenceStatus').style.background = '#ffebee';";
-  html += "document.getElementById('sequenceStatus').style.borderColor = '#f44336';";
-  html += "});";
-  html += "}";
-  html += "}";
-  html += "setInterval(updateStatus, 5000);";
-  html += "updateStatus();";
-  html += "</script>";
-  html += "</body></html>";
-  
-  server.send(200, "text/html", html);
-}
-
-// Handle servo control via PWM
-void handleServoControl() {
-  if (server.hasArg("servo")) {
-    int servoIndex = server.arg("servo").toInt() - 1; // Convert to 0-based index
-    
-    // Validate servo index
-    if (servoIndex < 0 || servoIndex >= 6) {
-      server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid servo index\"}");
-      return;
-    }
-    
-    // Handle PWM control
-    if (server.hasArg("pwm")) {
-      int pwmValue = server.arg("pwm").toInt();
-      if (pwmValue >= PWM_MIN && pwmValue <= PWM_MAX) {
-        moveServoPWM(servoIndex, pwmValue);
-        server.send(200, "application/json", "{\"status\":\"success\",\"servo\":" + String(servoIndex + 1) + ",\"pwm\":" + String(pwmValue) + "}");
-      } else {
-        server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"PWM out of range (500-2500)\"}");
+  lastRawStateFullCycle = readingFullCycle;                                                                   // Update the last raw state with the current reading
+  if ((millis() - lastDebounceTimeFullCycle) >= debounceDelayTest)                                            // Check if the debounce period has passed
+  {
+    if (readingFullCycle != lastStableStateFullCycle)                                                         // Check if the reading is different from the last stable state
+    {
+      lastStableStateFullCycle = readingFullCycle;                                                            // Update the last stable state
+      if (lastStableStateFullCycle == LOW && !sequenceRunning)                                                // Button pressed and no sequence running
+      {
+        sequenceRunning = true;
+        if (fullCycleFirstPress) {
+          Serial.println("FullCycle: First press - step7(), step1()");
+          step7(); // Ensure holder is in home position
+          delay(10);
+          step1();
+          delay(10);
+          fullCycleFirstPress = false;
+        } else {
+          Serial.println("FullCycle: step7(), step1(), step6(), step4()");
+          step7(); // Ensure holder is in home position
+          delay(10);
+          step1();
+          delay(10);
+          step6();
+          delay(10);
+          step4();
+          delay(10);
+        }
+        sequenceRunning = false;
       }
     }
-    // Handle percentage control
-     else if (server.hasArg("percent")) {
-       int percent = server.arg("percent").toInt();
-       if (percent >= 0 && percent <= 100) {
-         int pwmValue = percentToPWM(percent, servoIndex);
-         moveServoPWM(servoIndex, pwmValue);
-         server.send(200, "application/json", "{\"status\":\"success\",\"servo\":" + String(servoIndex + 1) + ",\"percent\":" + String(percent) + ",\"pwm\":" + String(pwmValue) + "}");
-       } else {
-         server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Percentage out of range (0-100)\"}");
-       }
-     }
-     // Handle legacy position control (convert to PWM)
-     else if (server.hasArg("position")) {
-       int position = server.arg("position").toInt();
-       if (position >= 0 && position <= 180) {
-         int percent = map(position, 0, 180, 0, 100);
-         int pwmValue = percentToPWM(percent, servoIndex);
-         moveServoPWM(servoIndex, pwmValue);
-         server.send(200, "application/json", "{\"status\":\"success\",\"servo\":" + String(servoIndex + 1) + ",\"position\":" + String(position) + ",\"pwm\":" + String(pwmValue) + "}");
-       } else {
-         server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Position out of range (0-180)\"}");
-       }
-     } else {
-      server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Missing control parameter (pwm, percent, or position)\"}");
+  }
+
+  int readingForward = digitalRead(BUTTON_FORWARD);                                                           // Variable to detect the state of the Forward push button
+  if (readingForward != lastRawStateForward)                                                                  // If the current reading is different from the last raw state, reset debounce timer
+  {
+    lastDebounceTimeForward = millis();                                                                       // Store the time of the state change
+  }
+  lastRawStateForward = readingForward;                                                                       // Update the last raw state with the current reading
+  if ((millis() - lastDebounceTimeForward) >= debounceDelayTest)                                              // If the debounce period has passed
+  {
+    if (readingForward != lastStableStateForward)                                                             // If the reading is different from the last stable state
+    {
+      lastStableStateForward = readingForward;                                                                // Update the last stable state
+      if (lastStableStateForward == LOW && !sequenceRunning)                                                  // Button pressed and no sequence running
+      {
+        sequenceRunning = true;
+        Serial.println("ButtonForward: step10(), delay, step8(), step7(), step12()");
+        step10();
+        delay(100);                                                                                           // Short delay to allow elevator to settle before closing gripper
+        step8();
+        gripperClosed = true;                                                                                 // Set gripper closed flag
+        gripperReadyForHose = true;                                                                           // Set gripper ready for hose flag
+        delay(10);
+        step7();
+        delay(10);
+        step12();
+        sequenceRunning = false;
+        delay(10);
+        step9();
+      }
     }
-  } else {
-    server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Missing servo parameter\"}");
   }
-}
 
-// Handle calibration requests
-void handleCalibration() {
-  if (server.hasArg("servo") && server.hasArg("min") && server.hasArg("max")) {
-    int servoIndex = server.arg("servo").toInt() - 1;
-    int minPWM = server.arg("min").toInt();
-    int maxPWM = server.arg("max").toInt();
-    
-    if (servoIndex >= 0 && servoIndex < 6 && minPWM >= 500 && maxPWM <= 2500 && minPWM < maxPWM) {
-      servoCalib[servoIndex].minPWM = minPWM;
-      servoCalib[servoIndex].maxPWM = maxPWM;
-      servoCalib[servoIndex].centerPWM = (minPWM + maxPWM) / 2;
-      
-      // Re-attach servo with new calibration
-      servos[servoIndex].detach();
-      delay(50);
-      servos[servoIndex].attach(servoPins[servoIndex], minPWM, maxPWM);
-      
-      Serial.print("Calibración actualizada para ");
-      Serial.print(servoCalib[servoIndex].name);
-      Serial.print(": Min=");
-      Serial.print(minPWM);
-      Serial.print("μs, Max=");
-      Serial.print(maxPWM);
-      Serial.print("μs, Centro=");
-      Serial.print(servoCalib[servoIndex].centerPWM);
-      Serial.println("μs");
-      
-      server.send(200, "application/json", "{\"status\":\"success\",\"servo\":" + String(servoIndex + 1) + ",\"minPWM\":" + String(minPWM) + ",\"maxPWM\":" + String(maxPWM) + ",\"centerPWM\":" + String(servoCalib[servoIndex].centerPWM) + "}");
-    } else {
-      server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid calibration parameters\"}");
+  int readingBackward = digitalRead(BUTTON_BACKWARD);                                                         // Variable to detect the state of the Backward push button
+  if (readingBackward != lastRawStateBackward)                                                                // If the current reading is different from the last raw state, reset debounce timer
+  {
+    lastDebounceTimeBackward = millis();                                                                      // Store the time of the state change
+  }
+  lastRawStateBackward = readingBackward;                                                                     // Update the last raw state with the current reading
+  if ((millis() - lastDebounceTimeBackward) >= debounceDelayTest)                                             // If the debounce period has passed
+  {
+    if (readingBackward != lastStableStateBackward)                                                           // If the reading is different from the last stable state
+    {
+      lastStableStateBackward = readingBackward;                                                              // Update the last stable state
+      if (lastStableStateBackward == LOW && !sequenceRunning)                                                 // Button pressed and no sequence running
+      {
+        sequenceRunning = true;
+        Serial.println("ButtonBackward: step2(), step3(), step4(), step6(), step5()");
+        step2();
+        delay(10);
+        step3();
+        delay(10);
+        step4();
+        delay(10);
+        step6();
+        delay(10);
+        step5();
+        sequenceRunning = false;
+        delay(10);   
+      }
     }
-  } else {
-    server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Missing calibration parameters\"}");
   }
-}
 
-// Handle status requests
-void handleStatus() {
-  String json = "{\"servos\":[";
-  for (int i = 0; i < 6; i++) {
-    if (i > 0) json += ",";
-    json += "{";
-    json += "\"id\":" + String(i + 1) + ",";
-    json += "\"name\":\"" + servoCalib[i].name + "\",";
-    json += "\"pin\":" + String(servoPins[i]) + ",";
-    json += "\"pwm\":" + String(servoPWM[i]) + ",";
-    json += "\"percent\":" + String(pwmToPercent(servoPWM[i], i)) + ",";
-    json += "\"minPWM\":" + String(servoCalib[i].minPWM) + ",";
-    json += "\"maxPWM\":" + String(servoCalib[i].maxPWM) + ",";
-    json += "\"centerPWM\":" + String(servoCalib[i].centerPWM);
-    json += "}";
-  }
-  json += "]}";
-  server.send(200, "application/json", json);
-}
+  if (Serial.available() > 0)                                                                                 // Condition to execute the firmware if the Serial Communication started correctly 
+  {
+    int step = Serial.parseInt();                                                                             // Reads the typed number (instruction)
+    //Serial.print("Executing step ");                                                                        // Message displayed indicating that an instruction is being executed
+    //Serial.println(step);                                                                                   // Message showing the instruction ongoing
 
-// Handle automated sequences
-void handleSequence() {
-  if (server.hasArg("type")) {
-    String sequenceType = server.arg("type");
-    sequenceType.toLowerCase();
-    
-    Serial.println("🔄 Ejecutando secuencia: " + sequenceType);
-    
-    if (sequenceType == "fullcycle") {
-      executeFullCycleSequence();
-      server.send(200, "application/json", "{\"status\":\"success\",\"sequence\":\"Full Cycle\",\"message\":\"Secuencia de ciclo completo ejecutada\"}");
-    } 
-    else if (sequenceType == "forward") {
-      executeForwardSequence();
-      server.send(200, "application/json", "{\"status\":\"success\",\"sequence\":\"Forward\",\"message\":\"Secuencia de avance ejecutada\"}");
-    } 
-    else if (sequenceType == "backward") {
-      executeBackwardSequence();
-      server.send(200, "application/json", "{\"status\":\"success\",\"sequence\":\"Backward\",\"message\":\"Secuencia de retroceso ejecutada\"}");
-    } 
-    else if (sequenceType == "reset") {
-      executeResetSequence();
-      server.send(200, "application/json", "{\"status\":\"success\",\"sequence\":\"Reset\",\"message\":\"Posiciones reseteadas a home\"}");
-    } 
-    else {
-      server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Tipo de secuencia no válido\"}");
+    switch (step)                                                                                             // Switch Loop. State Machine
+    {
+      case 1:                                                                                                 // Case 1: Feeder moves
+       //if (currentState1 == 0)
+       // {
+          step1();
+      //  }
+      break;
+
+      case 2:                                                                                                 // Case 2: Wrapper moves 1/4 of turn CCW direction
+       //if (currentState2 == 0)
+        //{  
+          step2();
+       // }
+        break;
+
+      case 3:                                                                                                 // Case 3: Wrapper moves 1/4 of turn CW direction
+        //if(currentState2 == 1)
+        //{  
+           step3();
+       // }
+        break;
+
+      case 4:                                                                                                 // Case 4: Cutter moves
+        step4();
+        break;
+
+      case 5:                                                                                                 // Case 5: Wrapper moves 3 turns CW direction
+       //if (currentState2 == 2)
+       //{
+        step5();
+       //}
+        break;
+
+      case 6:                                                                                                 // Case 6: Holder moves to Hold position
+        step6();
+        break;
+
+      case 7:                                                                                                 // Case 7: Holder moves to Home position
+        step7();
+        break;
+
+      case 8:                                                                                                 // Case 8: Gripper moves to Close position
+        step8();
+        gripperClosed = true;                                                                                 // Set state when gripper closes                                                
+        gripperReadyForHose = true;                                                                           // Gripper state waiting for hose trigger
+        break;
+
+      case 9:                                                                                                 // Case 9: Gripper moves to Open position
+        step9();
+        gripperClosed = false;                                                                                // Set state when gripper opens
+        gripperReadyForHose = false;                                                                          // Disarm hose trigger
+        break;
+
+      case 10:                                                                                                // Case 10: Elevator moves to Up position
+        step10();
+        break;
+
+      case 11:                                                                                                // Case 11: Elevator moves to Down position
+        step11();
+        break;
+
+      case 12:                                                                                                // Case 12: Elevator moves to Down position while Feeder moves until the elevator reaches Down position
+        step12();
+        break;
+
+      case 13:                                                                                                // Case 13: Feeder moves in reverse direction
+        step13();
+        break;
+
+      case 14: {                                                                                              // Case 14: Part Number selection. This step changes the SpeedServo1 value to adjust it to the type of Tape
+        Serial.println("Select Part Number: 1 for 19mm tape, 2 for 10mm tape");
+        while (Serial.available() == 0) { /* wait for input */ }
+        int pn = Serial.parseInt();
+        if (pn == 1) {
+          speedServo1 = 1390;
+          speedServoSync = 1347;
+          Serial.println("19mm tape selected. Speeds set.");
+        } else if (pn == 2) {
+          speedServo1 = 1410;
+          speedServoSync = 1387;
+          Serial.println("10mm tape selected. Speeds set.");
+        } else {
+          Serial.println("Invalid selection. Type 1 or 2.");
+        }
+        break;
+      }
+
+      case 20:                                                                                                // Case 20: Reset all the flags
+       resetStep();
+        break;
+
+      default:
+        //Serial.println("Not valid number. Type a number from 1 to 12 to execute a step");                   // Default Case displays a message indicating the need of a valid instruction
+        break;
     }
-  } else {
-    server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Parámetro 'type' requerido\"}");
+  }
+
+  //////////////////////////////
+  // Process CAN Instructions //
+  //////////////////////////////
+  CanFrame instruction;
+  if (xQueueReceive(instruction_queue, &instruction, (TickType_t)0) == pdPASS) {
+    process_instruction(instruction);
   }
 }
 
-// Automated Sequence Functions based on AMI_Taping_v9.ino
+//////////
+//FEEDER//
+//////////
+void step1()
+{
+  servo1.attach(servoPin1);                                                                                    // Function to ensure the communication with Servo1 (feeder)
+  float initialAngle = encoder1.readAngle() * encoderRes;                                                      // Get starting angle reading the encoder value times the encoder resolution
+  const float targetMovement = degreesPerFeed - GapGainFeeder;                                                 // Degrees to move
+  
+  unsigned long startTime = millis();                                                                          // Variable to register the time of initialization in milliseconds
+  float totalMoved = 0.0;                                                                                      // Variable to register the amount of degrees that the servo has moved
+  float previousAngle = initialAngle;                                                                          // Variable to register the last angle value before moving
 
-// Full Cycle Sequence: step7() -> step1() -> step6() -> step4()
-void executeFullCycleSequence() {
-  Serial.println("🔄 Iniciando secuencia CICLO COMPLETO");
-  
-  // Step 7: Holder to home position (based on AMI HomePosition)
-  Serial.println("  Step 7: Holder a posición home");
-  moveServoPWM(3, 1500); // Holder home
-  delay(500);
-  
-  // Step 1: Feeder forward movement (based on AMI speedServo1)
-  Serial.println("  Step 1: Feeder avance");
-  moveServoPWM(0, 885); // Feeder forward (AMI speedServo1 value)
-  delay(1000);
-  moveServoPWM(0, 1500); // Feeder stop
-  delay(500);
-  
-  // Step 6: Gripper operations (based on AMI angle mappings)
-  Serial.println("  Step 6: Operaciones de gripper");
-  moveServoPWM(4, 2000); // Gripper open (115° mapped to 2000μs)
-  delay(500);
-  moveServoPWM(4, 1800); // Gripper close (95° mapped to 1800μs)
-  delay(500);
-  
-  // Step 4: Cutter operation (based on AMI zeroPosition)
-  Serial.println("  Step 4: Operación de corte");
-  moveServoPWM(2, 500);  // Cutter cut position (AMI zeroPosition)
-  delay(1000);
-  moveServoPWM(2, 1500); // Cutter home position (AMI HomePosition)
-  delay(500);
-  
-  Serial.println("✅ Secuencia CICLO COMPLETO completada");
+  servo1.writeMicroseconds(speedServo1);                                                                       // Start moving servo1 (feeder)
+
+  while (totalMoved < targetMovement && (millis() - startTime < timeout))                                      // Loop to read the angle and modify the angle before stopping the the servo. Conditions include Angle and Working Time 
+  {
+    float currentAngle = encoder1.readAngle() * encoderRes;                                                    // Variable to read in real-time the current position of the servo1 (feeder)    
+    float delta = currentAngle - previousAngle;                                                                // Calculate delta movement with wrap-around
+    if (delta < -180.0) delta += 360.0;                                                                        // Improved wrap-around detection
+    if (delta > 180.0) delta -= 360.0;                                                                         // Improved wrap-around detection
+    totalMoved += abs(delta);                                                                                  // Accumulate movement
+    previousAngle = currentAngle;                                                                              // Reset the previousAngle value for last movement
+    delay(20);                                                                                                 // Short delay for stability
+  }
+  //Serial.print("Moved: ");                                                                                   // Message to display the quantity of degrees moved
+  Serial.println(totalMoved);                                                                                  // Shows to value of the Accumulate movement (degrees moved)
+  //Serial.println("°");                                                                                       // Degree symbol
+  servo1.writeMicroseconds(stopServo);                                                                         // Stop servo
+  //servo1.detach();                                                                                           // Function to ensure the servo stopped. Not recommended to use
+
+  if (totalMoved >= targetMovement)                                                                            // Condition to verify if the servo1 moved 
+  {
+    Serial.println("Feed complete.");                                                                          // Message displayed indicating that the movement was succesful
+  } 
+  else 
+  {
+    Serial.println("Timeout! Check mechanical load or increase timeout.");                                     // Error message indicating that the working time was complete
+  }
 }
 
-// Forward Sequence: step10() -> step8() -> step7() -> step12() -> step9()
-void executeForwardSequence() {
-  Serial.println("🔄 Iniciando secuencia AVANCE");
+/////////////////////////////////
+//WRAPPER 1/4 spin CCW direction//
+/////////////////////////////////
+void step2() 
+{
+  encoder2.setDirection(AS5600_COUNTERCLOCK_WISE);                                                             // Confirm physical direction matches
+  servo2.attach(servoPin2);                                                                                    // Ensures Servo2 is attached to the MCU
+  float initialAngle2 = encoder2.readAngle() * encoderRes;                                                     // Variable to register the initial position of the Encoder Gear
+  const float targetMovement = degreesPerWrap - GapGainWrapper1;                                               // Variable to calculate the degrees to move, the Gap Gain fixes the last position
+
+  Serial.print("Target Movement: ");                                                                           // Print a message for debug
+  Serial.println(targetMovement);                                                                              // Debugging
+
+  unsigned long startTime = millis();                                                                          // Variable store the start time of execution in milliseconds   
+  float totalMoved = 0.0;                                                                                      // Variable to accumulete the total quantity of degrees during the movement
+  float previousAngle = initialAngle2;                                                                         // Variable to store the last angle value before move
   
-  // Step 10: Elevator down
-  Serial.println("  Step 10: Elevator abajo");
-  moveServoPWM(5, 700); // Elevator down
-  delay(500);
+  servo2.writeMicroseconds(speedServo2_CCW);                                                                   // Command to initialize the movement of Servo2 in CCW direction
+
+  while (totalMoved < targetMovement && (millis() - startTime < timeout2))                                     // Conditionals to perform the movement of the Servo 
+  {
+    float currentAngle = encoder2.readAngle() * encoderRes;                                                    // Variable to continously read the angle read by the encoder
+    float delta = currentAngle - previousAngle;                                                                // Handle wrap-around at 360° boundary
+    if (delta < -180.0) delta += 360.0;                                                                        // Improved wrap-around detection
+    if (delta > 180.0) delta -= 360.0;                                                                         // Improved wrap-around detection
+
+    totalMoved += abs(delta);                                                                                  // Use absolute delta
+    previousAngle = currentAngle;                                                                              // Resets the previous angle value to the final position
+
+    Serial.print("Moved: ");                                                                                   // Print a message for debug
+    Serial.print(totalMoved);                                                                                  // Prints the degrees moved
+    Serial.print(" | Time: ");                                                                                 // Prints the time of movement for debug
+    Serial.println(millis() - startTime);                                                                      // Debugging
+    
+    delay(20);                                                                                                 // Short delay for stability
+  }
+
+  servo2.writeMicroseconds(stopServo);                                                                         // After all conditions denied the servo will stop
   
-  // Step 8: Gripper close
-  Serial.println("  Step 8: Gripper cerrar");
-  moveServoPWM(4, 1800); // Gripper close
-  delay(500);
-  
-  // Step 7: Holder home
-  Serial.println("  Step 7: Holder home");
-  moveServoPWM(3, 1500); // Holder home
-  delay(500);
-  
-  // Step 12: Additional holder operation
-  Serial.println("  Step 12: Operación adicional holder");
-  moveServoPWM(3, 1800); // Holder hold position
-  delay(500);
-  
-  // Step 9: Gripper open
-  Serial.println("  Step 9: Gripper abrir");
-  moveServoPWM(4, 2000); // Gripper open
-  delay(500);
-  
-  Serial.println("✅ Secuencia AVANCE completada");
+  if (totalMoved >= targetMovement)                                                                            // Condition to validate the degrees moved and determine success or an error 
+  {
+    Serial.println("Step 2: Initial Wrap Completed");                                                          // Message indicating a succesfull movement
+  } 
+  else
+  {
+    Serial.println("Step 2: Timeout - Check Encoder or Mechanical Load");                                      // Message indicating an error
+  }
 }
 
-// Backward Sequence: step2() -> step3() -> step4() -> step6() -> step5()
-void executeBackwardSequence() {
-  Serial.println("🔄 Iniciando secuencia RETROCESO");
+/////////////////////////////////
+//WRAPPER 1/2 spin CW direction//
+/////////////////////////////////
+void step3() 
+{
+  encoder2.setDirection(AS5600_CLOCK_WISE);                                                                    // Direction of the Encodeer, changed for CW movement
+  servo2.attach(servoPin2);                                                                                    // Ensures the servo is communicating with the MCU
+  float initialAngle2 = encoder2.readAngle() * encoderRes;                                                     // Variable to register the initial angle of the Encoder before moving
+  const float targetMovement = degreesPerWrap2 - GapGainWrapper1;                                              // Variable to calculate the degrees to move, the Gap Gain fixes the last position
+
+  Serial.print("Target Movement: ");                                                                           // Print a message for debug
+  Serial.println(targetMovement);                                                                              // Debugging
+
+  unsigned long startTime = millis();                                                                          // Variable store the start time of execution in milliseconds 
+  float totalMoved = 0.0;                                                                                      // Variable to accumulete the total quantity of degrees during the movement
+  float previousAngle = initialAngle2;                                                                         // Variable to store the last angle value before move
   
-  // Step 2: Wrapper CCW 1/4 spin
-  Serial.println("  Step 2: Wrapper CCW 1/4 vuelta");
-  moveServoPWM(1, 1200); // Wrapper CCW slow
-  delay(2000);
-  moveServoPWM(1, 1500); // Wrapper stop
-  delay(500);
+  servo2.writeMicroseconds(speedServo2_CW);                                                                    // Command to initialize the movement of Servo2 in CW direction
+
+  // Add motion stabilization, these 2 variables are use to detect 'No movement' of the wrapper
+  int stableCount = 0;                                                                                         // Counter of 'Not Movement' event 
+  const int maxStableCount = 5;                                                                                // Max threshold for allowed consecutive 'Not Movement' iterations
+
+  while (totalMoved < targetMovement && (millis() - startTime < timeout2))                                     // Conditionals to perform the movement of the Servo
+  {
+    float currentAngle = encoder2.readAngle() * encoderRes;                                                    // Variable to continously read the angle read by the encoder
+    
+    float delta = previousAngle - currentAngle;                                                                // CW movement decreases angle
+    if (delta < -180.0) delta += 360.0;                                                                        // Improved wrap-around detection
+    if (delta > 180.0) delta -= 360.0;                                                                         // Improved wrap-around detection
+
+    totalMoved += abs(delta);                                                                                  // Use absolute delta
+    previousAngle = currentAngle;                                                                              // Resets the previous angle value to the final position
+
+    if (abs(delta) < 1.0)                                                                                      // Detect stalling. Adjust threshold as needed
+    { 
+      stableCount++;                                                                                           // Increments in 1 the 'Not Movement' counter
+      if (stableCount > maxStableCount)                                                                        // Conditional to determine if there's an error 
+      {
+        Serial.println("Stall detected!");                                                                     // Prints message indcating an error
+        break;                                                                                                 // Ends the loop
+      }
+    } 
+    else 
+    {
+      stableCount = 0;                                                                                         // Resets the counter to 0
+    }
+    
+    delay(20);                                                                                                 // Short delay for stabilization
+  }
+
+  servo2.writeMicroseconds(stopServo);                                                                         // After all conditions denied the servo will stop
   
-  // Step 3: Wrapper CW 1/2 spin
-  Serial.println("  Step 3: Wrapper CW 1/2 vuelta");
-  moveServoPWM(1, 1650); // Wrapper CW slow
-  delay(4000);
-  moveServoPWM(1, 1500); // Wrapper stop
-  delay(500);
-  
-  // Step 4: Cutter operation
-  Serial.println("  Step 4: Operación de corte");
-  moveServoPWM(2, 500);  // Cutter cut position
-  delay(1000);
-  moveServoPWM(2, 1500); // Cutter home position
-  delay(500);
-  
-  // Step 6: Gripper operations
-  Serial.println("  Step 6: Operaciones de gripper");
-  moveServoPWM(4, 2000); // Gripper open
-  delay(500);
-  moveServoPWM(4, 1800); // Gripper close
-  delay(500);
-  
-  // Step 5: Wrapper 5 spins CCW
-  Serial.println("  Step 5: Wrapper 5 vueltas CCW");
-  moveServoPWM(1, 1200); // Wrapper CCW slow
-  delay(10000); // Extended time for 5 rotations
-  moveServoPWM(1, 1500); // Wrapper stop
-  delay(500);
-  
-  Serial.println("✅ Secuencia RETROCESO completada");
+  if (totalMoved >= targetMovement)                                                                            // Condition to validate the degrees moved and determine success or an error 
+  {
+    Serial.println("Step 3: Half-Turn Completed");                                                             // Message indicating a succesfull movement
+  } 
+  else 
+  {
+    Serial.print("Step 3: Partial Movement - ");                                                               // Message indicating an error
+    Serial.println(totalMoved);
+  }
+}
+//////////
+//CUTTER//
+//////////
+void step4()
+{
+  servo3.attach(servoPin3);                                                                                    // Ensure servo is attached and powered
+  int angle1 = map(angle_cut, angleMin, angleMax, microsecondsMin, microsecondsMax);                           // Function to map the Cut Angle based on the parameters of the servo
+  int angle2 = map(angle_home, angleMin, angleMax, microsecondsMin, microsecondsMax);                          // Function to map the Home Angle based on the parameters of the servo
+  servo3.writeMicroseconds(angle2);                                                                            // Wakeup pulse
+  delay(300);                                                                                                  // 300 ms pause between movements
+  servo3.writeMicroseconds(angle1);                                                                            // Servo3 (cutter) moves to Cut position
+  Serial.println("Servo3 moved to cutting angle.");                                                            // Message indicating the movement performed
+  delay(1000);                                                                                                 // 1000 ms pause between movements
+  servo3.writeMicroseconds(angle2);                                                                            // Servo 3 returns to Home position
+  Serial.println("Servo3 returned to Home position.");                                                         // Message indicating the movement performed
+  delay(1000);                                                                                                 // 1000 ms pause between movements
+  Serial.println("Step 4 completed.");                                                                         // Message indicating the end of the cycle
+
 }
 
-// Reset Sequence: All servos to home/center positions
-void executeResetSequence() {
-  Serial.println("🔄 Iniciando secuencia RESET");
-  
-  Serial.println("  Moviendo todos los servos a posición home...");
-  
-  // Move all servos to safe home positions
-  moveServoPWM(0, 1500); // Feeder stop/center
-  delay(200);
-  moveServoPWM(1, 1500); // Wrapper stop
-  delay(200);
-  moveServoPWM(2, 1500); // Cutter home position
-  delay(200);
-  moveServoPWM(3, 1500); // Holder home
-  delay(200);
-  moveServoPWM(4, 1500); // Gripper neutral
-  delay(200);
-  moveServoPWM(5, 1125); // Elevator center
-  delay(500);
-  
-  Serial.println("✅ Secuencia RESET completada - Todos los servos en posición home");
+////////////////////////////////
+//WRAPPER 5 spins CW direction//
+////////////////////////////////
+void step5() 
+{
+  // --- Robust: Wait for first trigger, then count 4 spins ---
+  hallCounter = 0;                                                                                             // Reset Hall Effect Sensor counter
+  encoder2.setDirection(AS5600_COUNTERCLOCK_WISE);                                                             // Direction of the Encoder, changed for CCW movement
+  servo2.attach(servoPin2);                                                                                    // Ensures the servo is communicating with the MCU
+  const float degreesPerRotation = 360.0 * GEAR_RATIO;                                                         // Variable directly declared in the function for better control. It represents a full spin
+  const float targetMovement = degreesPerRotation * TARGET_ROTATIONS - GapGainWrapper1;                        // Variable to calculate the target angle to reach. It represents 4 spins
+
+  unsigned long startTime = millis();                                                                          // Variable store the start time of execution in milliseconds
+  float initialAngle = encoder2.readAngle() * encoderRes;                                                      // Variable to register the initial angle of the Encoder before moving
+  float previousAngle = initialAngle;                                                                          // Variable to store the last angle value before move
+  float totalMoved = 0.0;                                                                                      // Variable to accumulete the total quantity of degrees during the movement
+
+  servo2.writeMicroseconds(speedServo2_CW);                                                                    // Command to initialize the movement of Servo2 in CW direction
+
+  // Move until first Hall trigger
+  Serial.println("Waiting for first Hall trigger to start spin count...");
+  int initialHall = hallCounter;
+  while ((millis() - startTime < timeout2) && (hallCounter == initialHall)) 
+  {
+    // Just wait for the first trigger
+    delay(1);
+  }
+  // Now start counting spins
+  hallCounter = 0;
+  Serial.println("First Hall trigger detected. Starting spin count...");
+
+  while((millis() - startTime < timeout2) && (hallCounter < TARGET_ROTATIONS))                                 // Conditionals to perform the movement of the Servo
+  {
+    float currentAngle = encoder2.readAngle() * encoderRes;                                                    // Variable to continously read the angle read by the encoder                                                 
+    float delta = previousAngle - currentAngle;                                                                // CW movement decreases angle
+    if(delta < 0) delta += 360.0;                                                                              // Improved wrap-around detection
+    totalMoved += delta;                                                                                       // Increases Delta value to the totalMoved variable
+    previousAngle = currentAngle;                                                                              // Resets the previous angle value to the final position
+
+    Serial.print("Hall Count: ");                                                                              // Message printed for Debug
+    Serial.print(hallCounter);                                                                                 // Prints the quantatity of times the Hall Sensor went triggered
+    Serial.print("/4 | Moved: ");                                                                              // Message printed for Debug
+    Serial.print(totalMoved);                                                                                  // Prints the quantity of degrees moved
+    Serial.println("°");
+
+    delay(20);                                                                                                 // Short delay for stabilization
+  } 
+
+  servo2.writeMicroseconds(stopServo);                                                                         // After all conditions denied the servo will stop
+  if(hallCounter >= TARGET_ROTATIONS)                                                                          // Conditional to detect succesfull movement or an error based on the Hall Effect Sensor input 
+  {
+    Serial.println("Stopped by Hall Sensor. 4 rotations complete!");                                           // Message printed if succcesfull movement                                            
+    // --- Begin CCW Correction ---
+    float correctionDegrees = 80.0;                                                                            // Correction value for the wrapper to coincide with the structure
+    float startAngle = encoder2.readAngle() * encoderRes;                                                      // Variable to save the stop position
+    float moved = 0.0;                                                                                         // Variable to calculate the degress moved
+    float prevAngle = startAngle;                                                                              // Variable to store the previous angle value
+    servo2.writeMicroseconds(speedServo2_CCW);                                                                 // Begin movement of the wrapper in CCW direction
+    unsigned long correctionStartTime = millis();                                                              // Reset timer for correction phase
+    while (moved < correctionDegrees && (millis() - correctionStartTime < timeout2))                           // Correction loop with its own timeout
+    {
+        float currAngle = encoder2.readAngle() * encoderRes;                                                   // Variable to read in real time the current position of the wrapper
+        float delta = currAngle - prevAngle;                                                                   // Delta calculation
+        if (delta < -180.0) delta += 360.0;                                                                    // Handle wrap-around
+        if (delta > 180.0) delta -= 360.0;                                                                     // Handle wrap-around
+        moved += abs(delta);                                                                                   // Updates the degrees moved value
+        prevAngle = currAngle;                                                                                 // Updates the previous angle value
+        Serial.print("Correction moved: ");                                                                    // Debug print
+        Serial.print(moved);
+        Serial.print(" / ");
+        Serial.println(correctionDegrees);
+        delay(20);                                                                                             // Short delay for stabilization
+    }
+    servo2.writeMicroseconds(stopServo);                                                                       // Stop movement after correction
+    Serial.println("CCW correction complete.");                                                                // Message printed indicating a succesful correction
+  } 
+  else 
+  {
+    Serial.println("Timeout!");                                                                                // Message printed if Servo stopped due to Timeout
+  }
+}
+
+////////////////////////
+//HOLDER Hold Position//
+////////////////////////
+void step6()
+{
+  int angle_holdTape = map(angle_hold4, minTravelAngle, MaxTravelAngle, pulseLenghtMin, pulseLenghtMax);       // Function to map the Holding Angle based on the servo4 parameters
+  servo4.writeMicroseconds(angle_holdTape);                                                                    // Servo4 moves to Holding position
+  Serial.println("Servo 4 moved to holding angle.");                                                           // Message displayed indicating the servo4 is in Holding position
+  delay(200);                                                                                                  // Short Delay for system stability
+}
+
+////////////////////////
+//HOLDER Home Position//
+////////////////////////
+void step7()
+{
+  int angle_holdHome = map(angle_home4, minTravelAngle, MaxTravelAngle, pulseLenghtMin, pulseLenghtMax);       // Function to map the Home Angle based on the servo4 parameters
+  servo4.writeMicroseconds(angle_holdHome);                                                                    // Servo4 moves to Home position
+  Serial.println("Servo 4 moved to home angle.");                                                              // Message displayed indicating the servo4 is in Home position
+  delay(200);                                                                                                  // Short delay for system stability
+}
+
+//////////////////////////
+//GRIPPER Close Position//
+//////////////////////////
+void step8()
+{
+  int angle_holdTape = map(angle_hold5, minTravelAngle, MaxTravelAngle, pulseLenghtMin, pulseLenghtMax);       // Function to map the Hold Angle based on the servo5 parameters
+  servo5.writeMicroseconds(angle_holdTape);                                                                    // Servo5 moves to Close position
+  Serial.println("Servo 5 moved to holding angle.");                                                           // Message printed indicating the end of the movement                                                       
+  delay(200);                                                                                                  // Short delay for system stability
+}
+
+/////////////////////////
+//GRIPPER Open Position//
+/////////////////////////
+void step9()
+{
+  int angle_holdHome = map(angle_home5, minTravelAngle, MaxTravelAngle, pulseLenghtMin, pulseLenghtMax);       // Function to map the Open Angle based on the servo5 parameters
+  servo5.writeMicroseconds(angle_holdHome);                                                                    // Servo5 moves to Open position
+  Serial.println("Servo 5 moved to home angle.");                                                              // Message printed indicating the end of the movement
+  delay(700);                                                                                                  // Short delay for system stability
+}
+
+////////////////////////
+//ELEVATOR Up Position//
+////////////////////////
+void step10()
+{
+  servo6.attach(servoPin6);                                                                                    // Ensures the servo6 is communicating with the MCU
+  step9();                                                                                                     // Open gripper while elevator goes up
+  for (int angle = S6HomePos; angle <= S6FinalPos; angle += 1)                                                 // For loop to move the servo degree per degree 
+  {
+    servo6.writeMicroseconds(angle);                                                                           // Servo moves to the angle calculated in the For loop
+    delay(servo6StepDelay);                                                                                    // Delay to determine the angular speed of the movement
+  }
+  servo6.writeMicroseconds(S6FinalPos);                                                                        // Command to ensure elevator reaches the Up position
+  Serial.println("Elevator UP.");                                                                              // Message printed at the end of the movement
+}
+
+//////////////////////////
+//ELEVATOR Down Position//
+//////////////////////////
+void step11()
+{
+  servo6.attach(servoPin6);                                                                                    // Ensures the servo6 is communicating with the MCU
+  for (int angle = S6FinalPos; angle >= S6HomePos; angle -= 1)                                                 // For loop to move the servo degree per degree 
+  {
+    servo6.writeMicroseconds(angle);                                                                           // Servo moves to the angle calculated in the For loop                                                                        
+    delay(servo6StepDelay);                                                                                    // Delay to determine the angular speed of the movement
+  }
+  servo6.writeMicroseconds(S6HomePos);                                                                         // Command to ensure the elevator reaches the Down position
+  Serial.println("Elevator DOWN.");                                                                            // Message printed at the end of the movement
+}
+
+//////////////////////////////////////
+//SYNCHRONIZED MOVEMENT Servos 1 & 6//
+//////////////////////////////////////
+void step12() 
+{
+  servo1.attach(servoPin1);                                                                                     // Ensures servo1 is communicating with the MCU
+  servo6.attach(servoPin6);                                                                                     // Ensures servo6 is communicating with the MCU
+  servo6.writeMicroseconds(S6FinalPos);                                                                         // Writes the current current position to avoid unwanted movement
+
+  float initialAngle = encoder1.readAngle() * encoderRes;                                                       // Get starting angle from encoder1 (Feeder)
+  const float targetMovement = degreesPerFeedSync - GapGainFeeder;                                              // Degrees to move for servo1, adjusted by gap gain
+  float totalMoved = 0.0;                                                                                       // Variable to register the degrees moved by servo1
+  float previousAngle = initialAngle;                                                                           // Variable to register the previous angle before movement (for delta calculation)
+  bool servo1Done = false;                                                                                      // Boolean variable to detect if servo1 reached its target
+
+  int currentAngle6 = S6FinalPos;                                                                               // Variable to register the current position of servo6 (Elevator), starts at Up
+  bool servo6Done = false;                                                                                      // Boolean variable to detect if servo6 completed its movement
+  unsigned long lastMoveTime6 = millis();                                                                       // Variable to register the time of the last movement of servo6
+  unsigned long stepDelay6 = (unsigned long)servo6StepDelay;                                                    // Delay between servo6 steps, converted to unsigned long
+
+  servo1.writeMicroseconds(speedServoSync);                                                                     // Start Servo1 at the speed for synchronized movement                                                                                                 // Give Servo1 a 150ms head start before starting Servo6
+  delay(100);
+
+  while (!servo1Done || !servo6Done)                                                                            // Loop until both servos have completed their movements
+  {   
+    if (!servo1Done)                                                                                            // If servo1 has not finished its movement
+    {
+      float currentAngle1 = encoder1.readAngle() * encoderRes;                                                  // Read the current angle from encoder1
+      float delta = currentAngle1 - previousAngle;                                                              // Calculate the change in angle since last check
+      if (delta < -180.0) delta += 360.0;                                                                       // Handle wrap-around (negative direction)
+      if (delta > 180.0) delta -= 360.0;                                                                        // Handle wrap-around (positive direction)
+      totalMoved += abs(delta);                                                                                 // Accumulate the absolute movement
+      previousAngle = currentAngle1;                                                                            // Update previous angle for next iteration
+      if (totalMoved >= targetMovement)                                                                         // If the target movement is reached
+      {
+        servo1.writeMicroseconds(stopServo);                                                                    // Stop servo1
+        servo1.detach();                                                                                        // Detach servo1 to ensure it stops
+        servo1Done = true;                                                                                      // Mark servo1 as done
+        Serial.println("Servo1: Synchronized feed complete.");                                                  // Print completion message
+      }
+    }
+    if (!servo6Done)                                                                                            // If servo6 has not finished its movement
+    {
+      unsigned long now = millis();                                                                             // Get the current time
+      if (currentAngle6 > S6HomePos && (now - lastMoveTime6 >= stepDelay6))                                     // If enough time has passed and servo6 is not yet at the bottom
+      {
+        currentAngle6 -= 1.5;                                                                                     // Move servo6 down by 1 unit
+        servo6.writeMicroseconds(currentAngle6);                                                                // Command servo6 to new position
+        lastMoveTime6 = now;                                                                                    // Update last movement time
+      } 
+      else if (currentAngle6 <= S6HomePos)                                                                      // If servo6 has reached or passed the bottom
+      {
+        servo6.writeMicroseconds(S6HomePos);                                                                    // Ensure servo6 is at the bottom
+        servo6Done = true;                                                                                      // Mark servo6 as done
+        Serial.println("Servo6: Elevator down complete.");                                                      // Print completion message
+      }
+    }
+  }
+  Serial.println("Both servos synchronized movement complete.");                                                // Print final completion message
+}
+
+void resetStep()
+{
+  //currentState2 = 0;  // Reset to first direction
+ // currentState1 = 0;  // Reset to first direction
+}
+
+////////////////////////////////
+// Tape presence check logic //
+////////////////////////////////
+bool isTapePresent()                                                                                            // Helper: Tape presence check 
+{
+  uint16_t r, g, b, c;                                                                                          // Variables to store the raw data from the RGB sensor
+  tcs1.getRawData(&r, &g, &b, &c);                                                                              // Read raw data from the RGB sensor (Feeder)
+  return c > 500;                                                                                               // Return true if the clear channel value is above threshold (tape present)
+}
+
+
+///////////////////////////////////////////////////
+// Gripper open triggered by ElevatorDown sensor //
+///////////////////////////////////////////////////
+void checkHoseAndOpenGripper()                                                                                  // Helper: Gripper open by ElevatorDown
+{
+  // Function disabled: gripper will not open automatically when elevator is down.
+  // if (gripperClosed && elevatorIsDown && gripperReadyForHose)                                                // Only trigger if all conditions are met
+  // {
+  //   int openPulse = map(angle_home5, minTravelAngle, MaxTravelAngle, pulseLenghtMin, pulseLenghtMax);         // Calculate the pulse width to open the gripper
+  //   servo5.writeMicroseconds(openPulse);                                                                      // Command the gripper servo to open
+  //   Serial.println("ElevatorDown detected! Gripper opened.");                                                 // Print message to Serial Monitor
+  //   delay(7);                                                                                                 // Allow time for gripper to open, but keep <10ms for high sample rate
+  //   gripperClosed = false;                                                                                    // Update gripper state to open
+  //   gripperReadyForHose = false;                                                                              // Disarm trigger until next cycle
+  // }
+}
+
+void step13()
+{
+  servo1.attach(servoPin1);                                                                                    // Ensure communication with Servo1 (feeder)
+  float initialAngle = encoder1.readAngle() * encoderRes;                                                      // Get starting angle
+  const float targetMovement = degreesPerFeed - GapGainFeeder;                                                 // Degrees to move
+
+  unsigned long startTime = millis();                                                                          // Register start time
+  float totalMoved = 0.0;                                                                                      // Register degrees moved
+  float previousAngle = initialAngle;                                                                          // Last angle value
+
+  // Move feeder in reverse direction
+  servo1.writeMicroseconds(2000);                                                                              // >1500us  reverse continuous rotation servos
+
+  while (totalMoved < targetMovement && (millis() - startTime < timeout))                                      // Loop to move until target or timeout
+  {
+    float currentAngle = encoder1.readAngle() * encoderRes;
+    float delta = previousAngle - currentAngle;                                                                // Reverse direction
+    if (delta < -180.0) delta += 360.0;
+    if (delta > 180.0) delta -= 360.0;
+    totalMoved += abs(delta);
+    previousAngle = currentAngle;
+    delay(20);
+  }
+  Serial.println(totalMoved);
+  servo1.writeMicroseconds(stopServo);                                                                         // Stop servo
+
+  if (totalMoved >= targetMovement)
+  {
+    Serial.println("Reverse feed complete.");
+  } 
+  else 
+  {
+    Serial.println("Timeout! Check mechanical load or increase timeout.");
+  }
+}
+
+///////////////////////
+// CAN Bus Functions //
+///////////////////////
+
+/*
+ * twai_listener_task(void *pvParameters)
+ * --------------------------------------
+ * FreeRTOS task running on core 0. Continuously listens for new CAN frames on the TWAI bus.
+ * - Accepts only frames matching DEVICE_CAN_ID.
+ * - Places valid instructions in the instruction_queue for processing by the main loop.
+ * - Ignores frames not addressed to this device.
+ * - Uses a small delay to avoid CPU saturation.
+ */
+void twai_listener_task(void *pvParameters)
+{
+  Serial.println("TWAI listener task started on core 0");
+  CanFrame rxFrame;
+  for (;;) {
+    if (ESP32Can.readFrame(rxFrame)) {
+      Serial.print("CAN0 (TWAI) - Instruction received ID: 0x");
+      Serial.println(rxFrame.identifier, HEX);
+      // Only accept instructions for this device
+      if (rxFrame.identifier == DEVICE_CAN_ID) {
+        if (xQueueSend(instruction_queue, &rxFrame, (TickType_t)10) != pdPASS) {
+          Serial.println("Error: Instruction queue is full.");
+        }
+      } else {
+        Serial.println("Ignored frame: ID does not match DEVICE_CAN_ID");
+      }
+    }
+    vTaskDelay(pdMS_TO_TICKS(10)); // Small delay to avoid saturating the CPU
+  }
+}
+
+/*
+ * process_instruction(CanFrame instruction)
+ * ----------------------------------------
+ * Decodes and executes CAN instructions received from the queue.
+ * Basic implementation with heartbeat and reset commands.
+ * More commands can be added as needed for taping operations.
+ */
+void process_instruction(CanFrame instruction)
+{
+  Serial.print("Processing command: 0x");
+  Serial.println(instruction.data[0], HEX);
+
+  switch (instruction.data[0])
+  {
+    // ***************************** CASE 0x01 ***************************** //
+    // Reset microcontroller
+    case 0x01: 
+    {
+      Serial.println("Case 0x01: Reset microcontroller");
+      byte response[] = {0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+      delay(100);
+      ESP.restart();
+    }
+    break;
+
+    // ***************************** CASE 0x02 ***************************** //
+    // Send heartbeat
+    case 0x02:
+    {
+      Serial.println("Case 0x02: Send Heartbeat");
+      byte response[] = {0x02, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x03 ***************************** //
+    // Execute step1 - Feeder
+    case 0x03:
+    {
+      Serial.println("Case 0x03: Execute step1 - Feeder");
+      step1();
+      byte response[] = {0x03, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x04 ***************************** //
+    // Execute step2 - Cutter
+    case 0x04:
+    {
+      Serial.println("Case 0x04: Execute step2 - Cutter");
+      step2();
+      byte response[] = {0x04, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x05 ***************************** //
+    // Execute step3 - Applicator
+    case 0x05:
+    {
+      Serial.println("Case 0x05: Execute step3 - Applicator");
+      step3();
+      byte response[] = {0x05, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x06 ***************************** //
+    // Execute step4 - Holder
+    case 0x06:
+    {
+      Serial.println("Case 0x06: Execute step4 - Holder");
+      step4();
+      byte response[] = {0x06, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x07 ***************************** //
+    // Execute step5 - Holder Home
+    case 0x07:
+    {
+      Serial.println("Case 0x07: Execute step5 - Holder Home");
+      step5();
+      byte response[] = {0x07, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x08 ***************************** //
+    // Execute step6 - Applicator Home
+    case 0x08:
+    {
+      Serial.println("Case 0x08: Execute step6 - Applicator Home");
+      step6();
+      byte response[] = {0x08, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x09 ***************************** //
+    // Execute step7 - Holder Home Position
+    case 0x09:
+    {
+      Serial.println("Case 0x09: Execute step7 - Holder Home Position");
+      step7();
+      byte response[] = {0x09, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x0A ***************************** //
+    // Execute step8 - Gripper Close
+    case 0x0A:
+    {
+      Serial.println("Case 0x0A: Execute step8 - Gripper Close");
+      step8();
+      byte response[] = {0x0A, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x0B ***************************** //
+    // Execute step9 - Gripper Open
+    case 0x0B:
+    {
+      Serial.println("Case 0x0B: Execute step9 - Gripper Open");
+      step9();
+      byte response[] = {0x0B, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x0C ***************************** //
+    // Execute step10 - Elevator Down
+    case 0x0C:
+    {
+      Serial.println("Case 0x0C: Execute step10 - Elevator Down");
+      step10();
+      byte response[] = {0x0C, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x0D ***************************** //
+    // Execute step11 - Elevator Up
+    case 0x0D:
+    {
+      Serial.println("Case 0x0D: Execute step11 - Elevator Up");
+      step11();
+      byte response[] = {0x0D, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x0E ***************************** //
+    // Execute step12 - Feeder Reverse
+    case 0x0E:
+    {
+      Serial.println("Case 0x0E: Execute step12 - Feeder Reverse");
+      step12();
+      byte response[] = {0x0E, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x0F ***************************** //
+    // Execute step13 - Feeder Reverse (Alternative)
+    case 0x0F:
+    {
+      Serial.println("Case 0x0F: Execute step13 - Feeder Reverse (Alternative)");
+      step13();
+      byte response[] = {0x0F, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x10 ***************************** //
+    // Execute FullCycle sequence
+    case 0x10:
+    {
+      Serial.println("Case 0x10: Execute FullCycle sequence");
+      if (fullCycleFirstPress) {
+        Serial.println("FullCycle: First press - step7(), step1()");
+        step7(); // Ensure holder is in home position
+        delay(10);
+        step1();
+        delay(10);
+        fullCycleFirstPress = false;
+      } else {
+        Serial.println("FullCycle: step7(), step1(), step6(), step4()");
+        step7(); // Ensure holder is in home position
+        delay(10);
+        step1();
+        delay(10);
+        step6();
+        delay(10);
+        step4();
+        delay(10);
+      }
+      byte response[] = {0x10, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x11 ***************************** //
+    // Execute Forward sequence
+    case 0x11:
+    {
+      Serial.println("Case 0x11: Execute Forward sequence");
+      Serial.println("ButtonForward: step10(), delay, step8(), step7(), step12()");
+      step10();
+      delay(100); // Short delay to allow elevator to settle before closing gripper
+      step8();
+      gripperClosed = true; // Set gripper closed flag
+      gripperReadyForHose = true; // Set gripper ready for hose flag
+      delay(10);
+      step7();
+      delay(10);
+      step12();
+      delay(10);
+      step9();
+      byte response[] = {0x11, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x12 ***************************** //
+    // Execute Backward sequence
+    case 0x12:
+    {
+      Serial.println("Case 0x12: Execute Backward sequence");
+      Serial.println("ButtonBackward: step2(), step3(), step4(), step6(), step5()");
+      step2();
+      delay(10);
+      step3();
+      delay(10);
+      step4();
+      delay(10);
+      step6();
+      delay(10);
+      step5();
+      delay(10);
+      byte response[] = {0x12, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE DEFAULT ***************************** //
+    default:
+      Serial.println("Unknown command.");
+      byte errorResponse[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+      send_twai_response(errorResponse);
+      break;
+  }
+}
+
+/*
+ * send_twai_response(const byte response_data[8])
+ * -----------------------------------------------
+ * Sends a response frame on the TWAI (CAN0) bus with the RESPONSE_CAN_ID.
+ * - Used to acknowledge commands, report status, or send data back to the master controller.
+ * - The response_data buffer must be 8 bytes.
+ */
+void send_twai_response(const byte response_data[8]) {
+  CanFrame tx_frame;
+  tx_frame.identifier = RESPONSE_CAN_ID;  // Response ID
+  tx_frame.extd = 0;
+  tx_frame.data_length_code = 8;
+  memcpy(tx_frame.data, response_data, 8);
+  ESP32Can.writeFrame(tx_frame);
 }

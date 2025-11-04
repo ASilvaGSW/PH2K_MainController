@@ -32,6 +32,8 @@ from classes.insertion_servos import InsertionServos
 from classes.lubrication_feeder import LubricationFeeder
 from classes.lubrication_stamper import LubricationStamper
 from classes.stamper import Stamper
+from classes.taping import Taping
+from classes.taping_fuyus import TapingFuyus
 from classes.transporter_fuyus import TransporterFuyus
 from classes.transporter_grippers import TransporterGrippers
 
@@ -47,18 +49,20 @@ insertion_servos = None
 lubrication_feeder = None
 lubrication_stamper = None
 stamper = None
+taping = None
+taping_fuyus = None
 transporter_fuyus = None
 transporter_grippers = None
 
 # Connectivity flags for different stations
-CHECK_FIRST_STATION = True
+CHECK_FIRST_STATION = False
 CHECK_SECOND_STATION = True
 CHECK_ALL_DEVICES = False  # When True, checks all devices regardless of station flags
 
 #Initialize and setup CANbus and devices
 def my_main():
     global canbus, hose_jig, hose_puller, puller_extension, insertion_jig, elevator_in, pick_and_place, insertion_servos
-    global lubrication_feeder, lubrication_stamper, stamper, transporter_fuyus, transporter_grippers
+    global lubrication_feeder, lubrication_stamper, stamper, taping, taping_fuyus, transporter_fuyus, transporter_grippers
     
     # Example CAN IDs (these should be configured according to your hardware setup)
     CANBUS_ID_JIG = 0x0CA
@@ -71,6 +75,8 @@ def my_main():
     CANBUS_ID_LUBRICATION_FEEDER = 0x019
     CANBUS_ID_LUBRICATION_STAMPER = 0x004
     CANBUS_ID_STAMPER = 0x005
+    CANBUS_ID_TAPING = 0x00A
+    CANBUS_ID_TAPING_FUYUS = 0x007
     CANBUS_ID_TRANSPORTER_FUYUS = 0x021
     CANBUS_ID_TRANSPORTER_GRIPPERS = 0x020
 
@@ -88,10 +94,12 @@ def my_main():
     lubrication_feeder = LubricationFeeder(canbus, CANBUS_ID_LUBRICATION_FEEDER)
     lubrication_stamper = LubricationStamper(canbus, CANBUS_ID_LUBRICATION_STAMPER)
     stamper = Stamper(canbus, CANBUS_ID_STAMPER)
+    taping = Taping(canbus, CANBUS_ID_TAPING)
+    taping_fuyus = TapingFuyus(canbus, CANBUS_ID_TAPING_FUYUS)
     transporter_fuyus = TransporterFuyus(canbus, CANBUS_ID_TRANSPORTER_FUYUS)
     transporter_grippers = TransporterGrippers(canbus, CANBUS_ID_TRANSPORTER_GRIPPERS)
 
-    # checkConnectivity()
+    checkConnectivity()
 
 
 #Check connectivity
@@ -116,10 +124,12 @@ def checkConnectivity():
     # Second Station - Check only if flag is enabled or CHECK_ALL_DEVICES is True
     if CHECK_SECOND_STATION or CHECK_ALL_DEVICES:
         print("=== CHECKING SECOND STATION ===")
-        print("Lubrication Stamper Connected") if lubrication_stamper.send_heartbeat() == "success" else print("Lubrication Stamper Not Connected")
-        print("Stamper Connected") if stamper.send_heartbeat() == "success" else print("Stamper Not Connected")
-        print("Transporter Fuyus Connected") if transporter_fuyus.send_heartbeat() == "success" else print("Transporter Fuyus Not Connected")
-        print("Transporter Grippers Connected") if transporter_grippers.send_heartbeat() == "success" else print("Transporter Grippers Not Connected")
+        # print("Lubrication Stamper Connected") if lubrication_stamper.send_heartbeat() == "success" else print("Lubrication Stamper Not Connected")
+        # print("Stamper Connected") if stamper.send_heartbeat() == "success" else print("Stamper Not Connected")
+        print("Taping Connected") if taping.send_heartbeat() == "success" else print("Taping Not Connected")
+        print("Taping Fuyus Connected") if taping_fuyus.send_heartbeat() == "success" else print("Taping Fuyus Not Connected")
+        # print("Transporter Fuyus Connected") if transporter_fuyus.send_heartbeat() == "success" else print("Transporter Fuyus Not Connected")
+        # print("Transporter Grippers Connected") if transporter_grippers.send_heartbeat() == "success" else print("Transporter Grippers Not Connected")
 
     # Show current connectivity check configuration
     if not CHECK_ALL_DEVICES:
@@ -935,32 +945,333 @@ def get_connectivity_status():
     }
 
 
+
+def taping_fuyus_test():
+    """
+    Función de prueba para la clase TapingFuyus
+    Prueba las funciones principales de control de actuadores Y y Z
+    """
+    global taping_fuyus
+    
+    print("=== Iniciando prueba de TapingFuyus ===")
+    
+    # Enviar heartbeat
+    # print("Enviando heartbeat...")
+    # taping_fuyus.send_heartbeat()
+    # time.sleep(0.5)    
+    # Enviar Z a Home
+    # print("Enviando Z a Home...")
+    # taping_fuyus.home_z_actuator()
+    # time.sleep(0.5)
+    while True:
+        taping_fuyus.move_y_actuator_with_speed(1000,300)
+        taping_fuyus.move_z_actuator_with_speed(800,300)    
+        taping_fuyus.move_z_actuator_with_speed(0,300)    
+        taping_fuyus.move_y_actuator_with_speed(0,300)
+        taping_fuyus.move_z_actuator_with_speed(800,300)    
+        time.sleep(2)
+        taping_fuyus.move_z_actuator_with_speed(0,300) 
+
+
+    # print("Enviando Z a X...")
+    # for i in range(1,10):
+    #     taping_fuyus.move_z_actuator(0)
+    #     time.sleep(0.5)
+    #     taping_fuyus.move_z_actuator(810)
+    #     time.sleep(0.5)
+
+    # print("Enviando Z a X...")
+    # for i in range(1,10):
+    #     taping_fuyus.move_z_actuator_with_speed(0,300)
+    #     time.sleep(0.5)
+    #     taping_fuyus.move_z_actuator_with_speed(800,300)
+    #     time.sleep(2.5)        
+    
+    # # Hacer home de todos los actuadores
+    # print("Haciendo home de todos los actuadores...")
+    # taping_fuyus.home_all_actuators()
+    # time.sleep(2)
+    
+    # # Leer contadores iniciales
+    # print("Leyendo contadores iniciales...")
+    # y_counter = taping_fuyus.read_y_counter()
+    # z_counter = taping_fuyus.read_z_counter()
+    # print(f"Contador Y: {y_counter}, Contador Z: {z_counter}")
+    
+    # # Mover actuador Y a posición absoluta
+    # print("Moviendo actuador Y a posición 1000...")
+    # taping_fuyus.move_y_absolute(1000)
+    # time.sleep(1)
+    
+    # # Mover actuador Z a posición absoluta
+    # print("Moviendo actuador Z a posición 500...")
+    # taping_fuyus.move_z_absolute(500)
+    # time.sleep(1)
+    
+    # # Mover ambos actuadores simultáneamente
+    # print("Moviendo ambos actuadores a posiciones específicas...")
+    # taping_fuyus.move_to_position(500, 250)
+    # time.sleep(1)
+    
+    # # Probar movimiento con control de velocidad
+    # print("Moviendo actuador Y con control de velocidad...")
+    # taping_fuyus.move_y_with_speed(2000, 1500)  # posición 2000, velocidad 1500
+    # time.sleep(1)
+    
+    # print("Moviendo actuador Z con control de velocidad...")
+    # taping_fuyus.move_z_with_speed(1000, 1200)  # posición 1000, velocidad 1200
+    # time.sleep(1)
+    
+    # # Leer contadores después del movimiento
+    # print("Leyendo contadores después del movimiento...")
+    # counters = taping_fuyus.get_all_counters()
+    # print(f"Contadores - Y: {counters['y']}, Z: {counters['z']}")
+    
+    # # Resetear contadores
+    # print("Reseteando contadores...")
+    # taping_fuyus.reset_all_counters()
+    # time.sleep(0.5)
+    
+    # # Verificar que los contadores se resetearon
+    # print("Verificando reset de contadores...")
+    # counters_after_reset = taping_fuyus.get_all_counters()
+    # print(f"Contadores después del reset - Y: {counters_after_reset['y']}, Z: {counters_after_reset['z']}")
+    
+    # # Regresar a home
+    # print("Regresando a posición home...")
+    # taping_fuyus.home_all_actuators()
+    # time.sleep(2)
+    
+    # print("=== Prueba de TapingFuyus completada ===")
+
+
 def stampertest():
+    """
+    Función de prueba para el stamper
+    """
     global stamper
+    
+    if stamper is None:
+        print("Error: stamper no está inicializado")
+        return False
+    
+    try:
+        print("=== Iniciando pruebas del Stamper ===")
+        
+        # Prueba de conectividad
+        print("1. Probando conectividad...")
+        if not stamper.heartbeat():
+            print("   ❌ Error: No hay respuesta del stamper")
+            return False
+        print("   ✅ Conectividad OK")
+        
+        # Prueba de home
+        print("2. Ejecutando home...")
+        if stamper.home():
+            print("   ✅ Home completado")
+        else:
+            print("   ❌ Error en home")
+            return False
+        
+        # Prueba de movimiento hacia abajo
+        print("3. Moviendo hacia abajo...")
+        if stamper.move_down():
+            print("   ✅ Movimiento hacia abajo completado")
+        else:
+            print("   ❌ Error en movimiento hacia abajo")
+            return False
+        
+        # Esperar un poco
+        time.sleep(2)
+        
+        # Prueba de movimiento hacia arriba
+        print("4. Moviendo hacia arriba...")
+        if stamper.move_up():
+            print("   ✅ Movimiento hacia arriba completado")
+        else:
+            print("   ❌ Error en movimiento hacia arriba")
+            return False
+        
+        print("=== Pruebas del Stamper completadas exitosamente ===")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error durante las pruebas del stamper: {e}")
+        return False
 
-    # while True:
 
-        # stamper.send_heartbeat()
-
-        # stamper.move_y_actuator(-500)
-        # stamper.move_y_actuator(0)
-
-        # stamper.move_z_actuator(100)
-        # stamper.move_z_actuator(0)
-
-        # stamper.control_servo(1,0)
+def taping_test():
+    """
+    Función de prueba completa para el firmware taping
+    Prueba todos los comandos CAN disponibles (0x01-0x12)
+    """
+    global taping
+    
+    if taping is None:
+        print("Error: taping no está inicializado")
+        return False
+    
+    try:
+        print("=== Iniciando pruebas del Taping ===")
+        
+        # Prueba 1: Conectividad (Heartbeat - 0x02)
+        print("1. Probando conectividad (Heartbeat)...")
+        if not taping.heartbeat():
+            print("   ❌ Error: No hay respuesta del dispositivo taping")
+            return False
+        print("   ✅ Conectividad OK")
+        
+        # Prueba 2: Reset del microcontrolador (0x01)
+        # print("2. Probando reset del microcontrolador...")
+        # if taping.reset():
+        #     print("   ✅ Reset enviado correctamente")
+        #     time.sleep(2)  # Esperar a que el dispositivo se reinicie
+        # else:
+        #     print("   ❌ Error en reset")
+        #     return False
+        
+        # Verificar conectividad después del reset
+        # print("   Verificando conectividad después del reset...")
         # time.sleep(1)
-        # stamper.control_servo(1,100)
+        # if not taping.heartbeat():
+        #     print("   ❌ Error: No hay respuesta después del reset")
+        #     return False
+        # print("   ✅ Dispositivo respondiendo después del reset")
+        
+        # Prueba 3: Comandos individuales de step (0x03-0x0F)
+        # print("3. Probando comandos individuales de step...")
+        
+        # step_commands = [
+        #     ("step1 (Feeder)", taping.step1_feeder),
+        #     ("step2 (Cutter)", taping.step2_cutter),
+        #     ("step3 (Wrapper)", taping.step3_wrapper),
+        #     ("step4 (Wrapper Continue)", taping.step4_wrapper_continue),
+        #     ("step5 (Wrapper Finish)", taping.step5_wrapper_finish),
+        #     ("step6 (Cutter Up)", taping.step6_cutter_up),
+        #     ("step7 (Cutter Down)", taping.step7_cutter_down),
+        #     ("step8 (Gripper Hold)", taping.step8_gripper_hold),
+        #     ("step9 (Gripper Open)", taping.step9_gripper_open),
+        #     ("step10 (Gripper Attach)", taping.step10_gripper_attach),
+        #     ("step11 (Feeder Reverse)", taping.step11_feeder_reverse),
+        #     ("step12 (Feeder Forward)", taping.step12_feeder_forward),
+        #     ("step13 (Feeder Reverse Alt)", taping.step13_feeder_reverse_alt)
+        # ]
+        
+        # for step_name, step_function in step_commands:
+        #     print(f"   Ejecutando {step_name}...")
+        #     if step_function():
+        #         print(f"   ✅ {step_name} completado")
+        #     else:
+        #         print(f"   ❌ Error en {step_name}")
+        #         return False
+        #     time.sleep(1)  # Pausa entre comandos
+        
+        # Prueba 4: Secuencias completas (0x10-0x12)
+        # print("4. Probando secuencias completas...")
+        
+        # FullCycle (0x10)
+        # print("   Ejecutando FullCycle...")
+        # if taping.full_cycle():
+        #     print("   ✅ FullCycle completado")
+        # else:
+        #     print("   ❌ Error en FullCycle")
+        #     return False
+        # time.sleep(2)
+        
+        # Forward (0x11)
+        # print("   Ejecutando Forward...")
+        # if taping.forward():
+        #     print("   ✅ Forward completado")
+        # else:
+        #     print("   ❌ Error en Forward")
+        #     return False
+        # time.sleep(2)
+        
+        # Backward (0x12)
+        # print("   Ejecutando Backward...")
+        # if taping.backward():
+        #     print("   ✅ Backward completado")
+        # else:
+        #     print("   ❌ Error en Backward")
+        #     return False
+        # time.sleep(2)
+        
+        # # Prueba 5: Métodos de conveniencia
+        # print("5. Probando métodos de conveniencia...")
+        
+        # print("   Ejecutando feed_tape...")
+        # if taping.feed_tape():
+        #     print("   ✅ feed_tape completado")
+        # else:
+        #     print("   ❌ Error en feed_tape")
+        #     return False
         # time.sleep(1)
-        # stamper.control_servo(2,100)
+        
+        # print("   Ejecutando cut_tape...")
+        # if taping.cut_tape():
+        #     print("   ✅ cut_tape completado")
+        # else:
+        #     print("   ❌ Error en cut_tape")
+        #     return False
         # time.sleep(1)
-        # stamper.control_servo(2,0)
+        
+        # print("   Ejecutando wrap_tape...")
+        # if taping.wrap_tape():
+        #     print("   ✅ wrap_tape completado")
+        # else:
+        #     print("   ❌ Error en wrap_tape")
+        #     return False
         # time.sleep(1)
-
-    stamper.move_y_stepper(10000)
-    # stamper.move_z_stepper(100)
-
-    # stamper.control_pump(1,0,100,1000)
+        
+        # Prueba 6: Operaciones de alto nivel
+        # print("6. Probando operaciones de alto nivel...")
+        
+        # print("   Ejecutando prepare_for_hose...")
+        # if taping.prepare_for_hose():
+        #     print("   ✅ prepare_for_hose completado")
+        # else:
+        #     print("   ❌ Error en prepare_for_hose")
+        #     return False
+        # time.sleep(2)
+        
+        # print("   Ejecutando complete_taping_cycle...")
+        # if taping.complete_taping_cycle():
+        #     print("   ✅ complete_taping_cycle completado")
+        # else:
+        #     print("   ❌ Error en complete_taping_cycle")
+        #     return False
+        # time.sleep(2)
+        
+        # print("   Ejecutando home_all...")
+        # if taping.home_all():
+        #     print("   ✅ home_all completado")
+        # else:
+        #     print("   ❌ Error en home_all")
+        #     return False
+        # time.sleep(2)
+        
+        # Prueba final: Heartbeat para verificar que el dispositivo sigue respondiendo
+        # print("7. Verificación final de conectividad...")
+        # if taping.heartbeat():
+        #     print("   ✅ Dispositivo respondiendo correctamente")
+        # else:
+        #     print("   ❌ Error: Dispositivo no responde después de las pruebas")
+        #     return False
+        
+        # print("=== Pruebas del Taping completadas exitosamente ===")
+        # print("Resumen:")
+        # print("✅ Conectividad y reset")
+        # print("✅ 13 comandos individuales de step")
+        # print("✅ 3 secuencias completas (FullCycle, Forward, Backward)")
+        # print("✅ Métodos de conveniencia")
+        # print("✅ Operaciones de alto nivel")
+        # print("✅ Verificación final")
+        
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error durante las pruebas del taping: {e}")
+        return False
 
 
 if __name__ == "__main__":
@@ -999,7 +1310,13 @@ if __name__ == "__main__":
 
     # testIR()
 
-    stampertest()
+    # Prueba de TapingFuyus
+    # taping_fuyus_test()
+
+    # Prueba de Taping
+    # taping_test()
+
+    # stampertest()
 
 
     canbus.close_canbus()
