@@ -111,7 +111,7 @@ class TapingFuyus:
         """
         Move Y actuator to absolute position with speed control
         :param angle: Target angle (can be positive or negative)
-        :param speed: Speed value (0-255)
+        :param speed: Speed value (0-1500) encoded in 2 bytes (high/low)
         """
         # Automatically calculate orientation based on angle sign
         orientation = 1 if angle < 0 else 0
@@ -120,8 +120,11 @@ class TapingFuyus:
         
         angle_high = (abs_angle >> 8) & 0xFF
         angle_low = abs_angle & 0xFF
-        speed_byte = min(255, max(0, speed))  # Ensure speed is within valid range
-        status, reply_data = self.canbus.send_message(self.canbus_id, [0x15, angle_high, angle_low, orientation, speed_byte] + [0x00]*3)
+        # English: Speed uses 2 bytes (0-1500). Español: Velocidad usa 2 bytes (0-1500). 日本語: 速度は2バイト(0-1500)
+        speed_value = max(0, min(1500, int(speed)))
+        speed_high = (speed_value >> 8) & 0xFF
+        speed_low = speed_value & 0xFF
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x15, angle_high, angle_low, orientation, speed_high, speed_low] + [0x00]*2)
         return status
 
     # Case 0x16: Move Z actuator to absolute position with speed control
@@ -129,7 +132,7 @@ class TapingFuyus:
         """
         Move Z actuator to absolute position with speed control
         :param angle: Target angle (can be positive or negative)
-        :param speed: Speed value (0-255)
+        :param speed: Speed value (0-1500) encoded in 2 bytes (high/low)
         """
         # Automatically calculate orientation based on angle sign
         orientation = 1 if angle < 0 else 0
@@ -138,8 +141,11 @@ class TapingFuyus:
         
         angle_high = (abs_angle >> 8) & 0xFF
         angle_low = abs_angle & 0xFF
-        speed_byte = min(255, max(0, speed))  # Ensure speed is within valid range
-        status, reply_data = self.canbus.send_message(self.canbus_id, [0x16, angle_high, angle_low, orientation, speed_byte] + [0x00]*3)
+        # English: Speed uses 2 bytes (0-1500). Español: Velocidad usa 2 bytes (0-1500). 日本語: 速度は2バイト(0-1500)
+        speed_value = max(0, min(1500, int(speed)))
+        speed_high = (speed_value >> 8) & 0xFF
+        speed_low = speed_value & 0xFF
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x16, angle_high, angle_low, orientation, speed_high, speed_low] + [0x00]*2)
         return status
 
     # Case 0xFF: Power off - Move all to home position

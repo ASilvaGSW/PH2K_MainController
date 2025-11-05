@@ -594,7 +594,10 @@ void process_instruction(CanFrame instruction)
       uint8_t pos_high = instruction.data[1];
       uint8_t pos_low = instruction.data[2];
       uint8_t orientation = instruction.data[3];
-      uint8_t speed = instruction.data[4];
+      // English: Speed is 2 bytes (high/low). Español: Velocidad en 2 bytes. 日本語: 速度は2バイト
+      uint8_t speed_high = instruction.data[4];
+      uint8_t speed_low  = instruction.data[5];
+      uint16_t speed = (static_cast<uint16_t>(speed_high) << 8) | static_cast<uint16_t>(speed_low);
 
       int16_t angle = (pos_high << 8) | pos_low;
       if (orientation == 1)
@@ -637,7 +640,10 @@ void process_instruction(CanFrame instruction)
       uint8_t pos_high = instruction.data[1];
       uint8_t pos_low = instruction.data[2];
       uint8_t orientation = instruction.data[3];
-      uint8_t speed = instruction.data[4];
+      // English: Speed is 2 bytes (high/low). Español: Velocidad en 2 bytes. 日本語: 速度は2バイト
+      uint8_t speed_high = instruction.data[4];
+      uint8_t speed_low  = instruction.data[5];
+      uint16_t speed = (static_cast<uint16_t>(speed_high) << 8) | static_cast<uint16_t>(speed_low);
 
       int16_t angle = (pos_high << 8) | pos_low;
       if (orientation == 1)

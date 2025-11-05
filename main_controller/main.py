@@ -959,90 +959,33 @@ def taping_fuyus_test():
     # print("Enviando heartbeat...")
     # taping_fuyus.send_heartbeat()
     # time.sleep(0.5)    
-    # Enviar Z a Home
+    
+    home_position = 0
+    tape_position = 830
+    z_speed = 250
+    tape_spot = 3100
+    y_speed = 400
+
+    # # Enviar Z a Home
     # print("Enviando Z a Home...")
     # taping_fuyus.home_z_actuator()
     # time.sleep(0.5)
-    while True:
-        taping_fuyus.move_y_actuator_with_speed(1000,300)
-        taping_fuyus.move_z_actuator_with_speed(800,300)    
-        taping_fuyus.move_z_actuator_with_speed(0,300)    
-        taping_fuyus.move_y_actuator_with_speed(0,300)
-        taping_fuyus.move_z_actuator_with_speed(800,300)    
-        time.sleep(2)
-        taping_fuyus.move_z_actuator_with_speed(0,300) 
 
-
-    # print("Enviando Z a X...")
-    # for i in range(1,10):
-    #     taping_fuyus.move_z_actuator(0)
-    #     time.sleep(0.5)
-    #     taping_fuyus.move_z_actuator(810)
-    #     time.sleep(0.5)
-
-    # print("Enviando Z a X...")
-    # for i in range(1,10):
-    #     taping_fuyus.move_z_actuator_with_speed(0,300)
-    #     time.sleep(0.5)
-    #     taping_fuyus.move_z_actuator_with_speed(800,300)
-    #     time.sleep(2.5)        
-    
-    # # Hacer home de todos los actuadores
-    # print("Haciendo home de todos los actuadores...")
-    # taping_fuyus.home_all_actuators()
-    # time.sleep(2)
-    
-    # # Leer contadores iniciales
-    # print("Leyendo contadores iniciales...")
-    # y_counter = taping_fuyus.read_y_counter()
-    # z_counter = taping_fuyus.read_z_counter()
-    # print(f"Contador Y: {y_counter}, Contador Z: {z_counter}")
-    
-    # # Mover actuador Y a posición absoluta
-    # print("Moviendo actuador Y a posición 1000...")
-    # taping_fuyus.move_y_absolute(1000)
-    # time.sleep(1)
-    
-    # # Mover actuador Z a posición absoluta
-    # print("Moviendo actuador Z a posición 500...")
-    # taping_fuyus.move_z_absolute(500)
-    # time.sleep(1)
-    
-    # # Mover ambos actuadores simultáneamente
-    # print("Moviendo ambos actuadores a posiciones específicas...")
-    # taping_fuyus.move_to_position(500, 250)
-    # time.sleep(1)
-    
-    # # Probar movimiento con control de velocidad
-    # print("Moviendo actuador Y con control de velocidad...")
-    # taping_fuyus.move_y_with_speed(2000, 1500)  # posición 2000, velocidad 1500
-    # time.sleep(1)
-    
-    # print("Moviendo actuador Z con control de velocidad...")
-    # taping_fuyus.move_z_with_speed(1000, 1200)  # posición 1000, velocidad 1200
-    # time.sleep(1)
-    
-    # # Leer contadores después del movimiento
-    # print("Leyendo contadores después del movimiento...")
-    # counters = taping_fuyus.get_all_counters()
-    # print(f"Contadores - Y: {counters['y']}, Z: {counters['z']}")
-    
-    # # Resetear contadores
-    # print("Reseteando contadores...")
-    # taping_fuyus.reset_all_counters()
+    # # Enviar Y a Home
+    # print("Enviando Y a Home...")
+    # taping_fuyus.home_y_actuator()
     # time.sleep(0.5)
-    
-    # # Verificar que los contadores se resetearon
-    # print("Verificando reset de contadores...")
-    # counters_after_reset = taping_fuyus.get_all_counters()
-    # print(f"Contadores después del reset - Y: {counters_after_reset['y']}, Z: {counters_after_reset['z']}")
-    
-    # # Regresar a home
-    # print("Regresando a posición home...")
-    # taping_fuyus.home_all_actuators()
-    # time.sleep(2)
-    
-    # print("=== Prueba de TapingFuyus completada ===")
+
+    # Routine
+    # for i in range(1):
+    taping_fuyus.move_z_actuator_with_speed(home_position,z_speed)
+    taping_fuyus.move_y_actuator_with_speed(tape_spot,y_speed)
+    taping_fuyus.move_z_actuator_with_speed(tape_position,z_speed)
+    time.sleep(1)
+    taping_fuyus.move_z_actuator_with_speed(home_position,z_speed)
+    taping_fuyus.move_y_actuator_with_speed(home_position,y_speed)
+
+    return True
 
 
 def stampertest():
@@ -1102,175 +1045,108 @@ def stampertest():
 
 def taping_test():
     """
-    Función de prueba completa para el firmware taping
-    Prueba todos los comandos CAN disponibles (0x01-0x12)
+    Prueba simple de secuencia para firmware taping v2
+    Tests the main CAN commands (0x03–0x0D)
+    シンプルなテストシーケンス（0x03–0x0D）
     """
     global taping
     
-    if taping is None:
-        print("Error: taping no está inicializado")
-        return False
-    
     try:
-        print("=== Iniciando pruebas del Taping ===")
-        
-        # Prueba 1: Conectividad (Heartbeat - 0x02)
-        print("1. Probando conectividad (Heartbeat)...")
-        if not taping.heartbeat():
-            print("   ❌ Error: No hay respuesta del dispositivo taping")
+        if taping is None:
+            print("❌ taping no está inicializado / not initialized / 初期化されていません")
             return False
-        print("   ✅ Conectividad OK")
-        
-        # Prueba 2: Reset del microcontrolador (0x01)
-        # print("2. Probando reset del microcontrolador...")
-        # if taping.reset():
-        #     print("   ✅ Reset enviado correctamente")
-        #     time.sleep(2)  # Esperar a que el dispositivo se reinicie
-        # else:
-        #     print("   ❌ Error en reset")
+
+        print("=== Taping Test / Prueba Taping / テーピングテスト ===")
+
+        # Heartbeat
+        # print("→ 0x02 Heartbeat / Latido / ハートビート")
+        # if not taping.send_heartbeat():
+        #     print("   ❌ Error en heartbeat")
         #     return False
-        
-        # Verificar conectividad después del reset
-        # print("   Verificando conectividad después del reset...")
-        # time.sleep(1)
-        # if not taping.heartbeat():
-        #     print("   ❌ Error: No hay respuesta después del reset")
+        # time.sleep(0.3)
+
+        # # 0x03 Feeder
+        # print("→ 0x03 Feeder (~3s) stop 1500us / Alimentador (~3s) stop 1500us / フィーダ(~3秒)1500usで停止")
+        # if not taping.step1_feeder():
+        #     print("   ❌ Error en 0x03 Feeder")
         #     return False
-        # print("   ✅ Dispositivo respondiendo después del reset")
-        
-        # Prueba 3: Comandos individuales de step (0x03-0x0F)
-        # print("3. Probando comandos individuales de step...")
-        
-        # step_commands = [
-        #     ("step1 (Feeder)", taping.step1_feeder),
-        #     ("step2 (Cutter)", taping.step2_cutter),
-        #     ("step3 (Wrapper)", taping.step3_wrapper),
-        #     ("step4 (Wrapper Continue)", taping.step4_wrapper_continue),
-        #     ("step5 (Wrapper Finish)", taping.step5_wrapper_finish),
-        #     ("step6 (Cutter Up)", taping.step6_cutter_up),
-        #     ("step7 (Cutter Down)", taping.step7_cutter_down),
-        #     ("step8 (Gripper Hold)", taping.step8_gripper_hold),
-        #     ("step9 (Gripper Open)", taping.step9_gripper_open),
-        #     ("step10 (Gripper Attach)", taping.step10_gripper_attach),
-        #     ("step11 (Feeder Reverse)", taping.step11_feeder_reverse),
-        #     ("step12 (Feeder Forward)", taping.step12_feeder_forward),
-        #     ("step13 (Feeder Reverse Alt)", taping.step13_feeder_reverse_alt)
-        # ]
-        
-        # for step_name, step_function in step_commands:
-        #     print(f"   Ejecutando {step_name}...")
-        #     if step_function():
-        #         print(f"   ✅ {step_name} completado")
-        #     else:
-        #         print(f"   ❌ Error en {step_name}")
-        #         return False
-        #     time.sleep(1)  # Pausa entre comandos
-        
-        # Prueba 4: Secuencias completas (0x10-0x12)
-        # print("4. Probando secuencias completas...")
-        
-        # FullCycle (0x10)
-        # print("   Ejecutando FullCycle...")
-        # if taping.full_cycle():
-        #     print("   ✅ FullCycle completado")
-        # else:
-        #     print("   ❌ Error en FullCycle")
+        # time.sleep(0.8)
+
+        # # 0x04 Wrapper CCW
+        # print("→ 0x04 Wrapper CCW 1200us ~1s luego 1500us / 反時計 1200us 約1秒後1500us")
+        # if not taping.step2_wrapper_ccw():
+        #     print("   ❌ Error en 0x04 Wrapper CCW")
         #     return False
-        # time.sleep(2)
-        
-        # Forward (0x11)
-        # print("   Ejecutando Forward...")
-        # if taping.forward():
-        #     print("   ✅ Forward completado")
-        # else:
-        #     print("   ❌ Error en Forward")
+        # time.sleep(0.8)
+
+        # # 0x05 Wrapper CW
+        # print("→ 0x05 Wrapper CW 1650us ~1s luego 1500us / 時計 1650us 約1秒後1500us")
+        # if not taping.step3_wrapper_cw():
+        #     print("   ❌ Error en 0x05 Wrapper CW")
         #     return False
-        # time.sleep(2)
-        
-        # Backward (0x12)
-        # print("   Ejecutando Backward...")
-        # if taping.backward():
-        #     print("   ✅ Backward completado")
-        # else:
-        #     print("   ❌ Error en Backward")
+        # time.sleep(0.8)
+
+        # 0x06 Cutter
+        print("→ 0x06 Cutter sequence / Secuencia del cutter / カッターシーケンス")
+        if not taping.step4_cutter():
+            print("   ❌ Error en 0x06 Cutter")
+            return False
+        time.sleep(1.0)
+
+        # # 0x07 Wrapper CW 3s
+        # print("→ 0x07 Wrapper CW ~3s luego 1500us / 時計 ~3秒 後1500us")
+        # if not taping.step5_wrapper_3_cw():
+        #     print("   ❌ Error en 0x07 Wrapper CW 3s")
         #     return False
-        # time.sleep(2)
-        
-        # # Prueba 5: Métodos de conveniencia
-        # print("5. Probando métodos de conveniencia...")
-        
-        # print("   Ejecutando feed_tape...")
-        # if taping.feed_tape():
-        #     print("   ✅ feed_tape completado")
-        # else:
-        #     print("   ❌ Error en feed_tape")
+        # time.sleep(1.2)
+
+        # # 0x08 Holder 1850us
+        # print("→ 0x08 Holder a 1850us / ホルダー1850us")
+        # if not taping.step6_holder_hold():
+        #     print("   ❌ Error en 0x08 Holder 1850us")
         #     return False
-        # time.sleep(1)
-        
-        # print("   Ejecutando cut_tape...")
-        # if taping.cut_tape():
-        #     print("   ✅ cut_tape completado")
-        # else:
-        #     print("   ❌ Error en cut_tape")
+        # time.sleep(0.6)
+
+        # # 0x09 Holder 1650us (home)
+        # print("→ 0x09 Holder a 1650us (home) / ホルダー1650us(ホーム)")
+        # if not taping.step7_holder_home_position():
+        #     print("   ❌ Error en 0x09 Holder 1650us")
         #     return False
-        # time.sleep(1)
-        
-        # print("   Ejecutando wrap_tape...")
-        # if taping.wrap_tape():
-        #     print("   ✅ wrap_tape completado")
-        # else:
-        #     print("   ❌ Error en wrap_tape")
+        # time.sleep(0.6)
+
+        # # 0x0A Gripper close
+        # print("→ 0x0A Cerrar gripper (1850us) / グリッパー閉じる(1850us)")
+        # if not taping.step8_gripper_close():
+        #     print("   ❌ Error en 0x0A Gripper Close")
         #     return False
-        # time.sleep(1)
-        
-        # Prueba 6: Operaciones de alto nivel
-        # print("6. Probando operaciones de alto nivel...")
-        
-        # print("   Ejecutando prepare_for_hose...")
-        # if taping.prepare_for_hose():
-        #     print("   ✅ prepare_for_hose completado")
-        # else:
-        #     print("   ❌ Error en prepare_for_hose")
+        # time.sleep(0.6)
+
+        # # 0x0B Gripper open
+        # print("→ 0x0B Abrir gripper (2000us) / グリッパー開く(2000us)")
+        # if not taping.step9_gripper_open():
+        #     print("   ❌ Error en 0x0B Gripper Open")
         #     return False
-        # time.sleep(2)
-        
-        # print("   Ejecutando complete_taping_cycle...")
-        # if taping.complete_taping_cycle():
-        #     print("   ✅ complete_taping_cycle completado")
-        # else:
-        #     print("   ❌ Error en complete_taping_cycle")
+        # time.sleep(0.6)
+
+        # # 0x0C Elevator up (gradual)
+        # print("→ 0x0C Subir elevador (rampa a 1550us) / エレベーター上昇")
+        # if not taping.step10_elevator_up():
+        #     print("   ❌ Error en 0x0C Elevator Up")
         #     return False
-        # time.sleep(2)
-        
-        # print("   Ejecutando home_all...")
-        # if taping.home_all():
-        #     print("   ✅ home_all completado")
-        # else:
-        #     print("   ❌ Error en home_all")
+        # time.sleep(1.5)
+
+        # # 0x0D Elevator home/down (gradual)
+        # print("→ 0x0D Bajar elevador (rampa a 700us) / エレベーター下降")
+        # if not taping.step11_elevator_down():
+        #     print("   ❌ Error en 0x0D Elevator Down")
         #     return False
-        # time.sleep(2)
-        
-        # Prueba final: Heartbeat para verificar que el dispositivo sigue respondiendo
-        # print("7. Verificación final de conectividad...")
-        # if taping.heartbeat():
-        #     print("   ✅ Dispositivo respondiendo correctamente")
-        # else:
-        #     print("   ❌ Error: Dispositivo no responde después de las pruebas")
-        #     return False
-        
-        # print("=== Pruebas del Taping completadas exitosamente ===")
-        # print("Resumen:")
-        # print("✅ Conectividad y reset")
-        # print("✅ 13 comandos individuales de step")
-        # print("✅ 3 secuencias completas (FullCycle, Forward, Backward)")
-        # print("✅ Métodos de conveniencia")
-        # print("✅ Operaciones de alto nivel")
-        # print("✅ Verificación final")
-        
+        # time.sleep(1.5)
+
+        print("=== ✅ Taping tests completadas / completed / 完了 ===")
         return True
-        
+
     except Exception as e:
-        print(f"❌ Error durante las pruebas del taping: {e}")
+        print(f"❌ Error durante pruebas de taping: {e}")
         return False
 
 
@@ -1314,7 +1190,7 @@ if __name__ == "__main__":
     # taping_fuyus_test()
 
     # Prueba de Taping
-    # taping_test()
+    taping_test()
 
     # stampertest()
 

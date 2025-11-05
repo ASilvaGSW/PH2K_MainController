@@ -101,7 +101,7 @@ void IRAM_ATTR hallSensorISR();                                                 
 #define stopServo     1500                                                                                    // Do not modify, this is to stop the servo
 #define zeroPosition  500                                                                                     // Do not modify, this is to place the Cutter servo in Cut position
 int angle_cut = 80;                                                                                           // Angle of the servo to reach the Cut position
-int angle_home = 0;                                                                                           // Angle of Home position
+int angle_home = 5;                                                                                           // Angle of Home position
 
 /////////////////////////////////
 //SERVO4 [Holder] & 5 [Gripper]//
@@ -455,7 +455,7 @@ void loop()
     //Serial.print("Executing step ");                                                                        // Message displayed indicating that an instruction is being executed
     //Serial.println(step);                                                                                   // Message showing the instruction ongoing
 
-    switch (step)                                                                                             // Switch Loop. State Machine
+    switch(step)                                                                                             // Switch Loop. State Machine
     {
       case 1:                                                                                                 // Case 1: Feeder moves
        //if (currentState1 == 0)
@@ -1105,10 +1105,10 @@ void process_instruction(CanFrame instruction)
     break;
 
     // ***************************** CASE 0x04 ***************************** //
-    // Execute step2 - Cutter
+    // Execute step2 - Wrapper 1/4 CCW
     case 0x04:
     {
-      Serial.println("Case 0x04: Execute step2 - Cutter");
+      Serial.println("Case 0x04: Execute step2 - Wrapper 1/4 CCW");
       step2();
       byte response[] = {0x04, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(response);
@@ -1116,10 +1116,10 @@ void process_instruction(CanFrame instruction)
     break;
 
     // ***************************** CASE 0x05 ***************************** //
-    // Execute step3 - Applicator
+    // Execute step3 - Wrapper 1/4 CW
     case 0x05:
     {
-      Serial.println("Case 0x05: Execute step3 - Applicator");
+      Serial.println("Case 0x05: Execute step3 - Wrapper 1/4 CW");
       step3();
       byte response[] = {0x05, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(response);
@@ -1127,10 +1127,10 @@ void process_instruction(CanFrame instruction)
     break;
 
     // ***************************** CASE 0x06 ***************************** //
-    // Execute step4 - Holder
+    // Execute step4 - Cutter
     case 0x06:
     {
-      Serial.println("Case 0x06: Execute step4 - Holder");
+      Serial.println("Case 0x06: Execute step4 - Cutter");
       step4();
       byte response[] = {0x06, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(response);
@@ -1138,10 +1138,10 @@ void process_instruction(CanFrame instruction)
     break;
 
     // ***************************** CASE 0x07 ***************************** //
-    // Execute step5 - Holder Home
+    // Execute step5 - Wrapper 3 CW
     case 0x07:
     {
-      Serial.println("Case 0x07: Execute step5 - Holder Home");
+      Serial.println("Case 0x07: Execute step5 - Wrapper 3 CW");
       step5();
       byte response[] = {0x07, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(response);
@@ -1149,10 +1149,10 @@ void process_instruction(CanFrame instruction)
     break;
 
     // ***************************** CASE 0x08 ***************************** //
-    // Execute step6 - Applicator Home
+    // Execute step6 - Holder Hold
     case 0x08:
     {
-      Serial.println("Case 0x08: Execute step6 - Applicator Home");
+      Serial.println("Case 0x08: Execute step6 - Holder Hold");
       step6();
       byte response[] = {0x08, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(response);
@@ -1193,10 +1193,10 @@ void process_instruction(CanFrame instruction)
     break;
 
     // ***************************** CASE 0x0C ***************************** //
-    // Execute step10 - Elevator Down
+    // Execute step10 - Elevator UP
     case 0x0C:
     {
-      Serial.println("Case 0x0C: Execute step10 - Elevator Down");
+      Serial.println("Case 0x0C: Execute step10 - Elevator UP");
       step10();
       byte response[] = {0x0C, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(response);
@@ -1204,10 +1204,10 @@ void process_instruction(CanFrame instruction)
     break;
 
     // ***************************** CASE 0x0D ***************************** //
-    // Execute step11 - Elevator Up
+    // Execute step11 - Elevator Down 
     case 0x0D:
     {
-      Serial.println("Case 0x0D: Execute step11 - Elevator Up");
+      Serial.println("Case 0x0D: Execute step11 - Elevator Down");
       step11();
       byte response[] = {0x0D, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(response);
@@ -1215,10 +1215,10 @@ void process_instruction(CanFrame instruction)
     break;
 
     // ***************************** CASE 0x0E ***************************** //
-    // Execute step12 - Feeder Reverse
+    // Execute step12 - Sync Move
     case 0x0E:
     {
-      Serial.println("Case 0x0E: Execute step12 - Feeder Reverse");
+      Serial.println("Case 0x0E: Execute step12 - Sync Move");
       step12();
       byte response[] = {0x0E, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(response);
@@ -1226,10 +1226,10 @@ void process_instruction(CanFrame instruction)
     break;
 
     // ***************************** CASE 0x0F ***************************** //
-    // Execute step13 - Feeder Reverse (Alternative)
+    // Execute step13 - Feeder Reverse 
     case 0x0F:
     {
-      Serial.println("Case 0x0F: Execute step13 - Feeder Reverse (Alternative)");
+      Serial.println("Case 0x0F: Execute step13 - Feeder Reverse ");
       step13();
       byte response[] = {0x0F, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(response);
