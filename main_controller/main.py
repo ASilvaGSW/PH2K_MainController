@@ -126,8 +126,8 @@ def checkConnectivity():
         print("=== CHECKING SECOND STATION ===")
         # print("Lubrication Stamper Connected") if lubrication_stamper.send_heartbeat() == "success" else print("Lubrication Stamper Not Connected")
         # print("Stamper Connected") if stamper.send_heartbeat() == "success" else print("Stamper Not Connected")
-        print("Taping Connected") if taping.send_heartbeat() == "success" else print("Taping Not Connected")
-        print("Taping Fuyus Connected") if taping_fuyus.send_heartbeat() == "success" else print("Taping Fuyus Not Connected")
+        # print("Taping Connected") if taping.send_heartbeat() == "success" else print("Taping Not Connected")
+        # print("Taping Fuyus Connected") if taping_fuyus.send_heartbeat() == "success" else print("Taping Fuyus Not Connected")
         # print("Transporter Fuyus Connected") if transporter_fuyus.send_heartbeat() == "success" else print("Transporter Fuyus Not Connected")
         # print("Transporter Grippers Connected") if transporter_grippers.send_heartbeat() == "success" else print("Transporter Grippers Not Connected")
 
@@ -1058,89 +1058,20 @@ def taping_test():
 
         print("=== Taping Test / Prueba Taping / テーピングテスト ===")
 
-        # Heartbeat
-        # print("→ 0x02 Heartbeat / Latido / ハートビート")
-        # if not taping.send_heartbeat():
-        #     print("   ❌ Error en heartbeat")
-        #     return False
-        # time.sleep(0.3)
-
-        # # 0x03 Feeder
-        # print("→ 0x03 Feeder (~3s) stop 1500us / Alimentador (~3s) stop 1500us / フィーダ(~3秒)1500usで停止")
-        # if not taping.step1_feeder():
-        #     print("   ❌ Error en 0x03 Feeder")
-        #     return False
-        # time.sleep(0.8)
-
-        # # 0x04 Wrapper CCW
-        # print("→ 0x04 Wrapper CCW 1200us ~1s luego 1500us / 反時計 1200us 約1秒後1500us")
-        # if not taping.step2_wrapper_ccw():
-        #     print("   ❌ Error en 0x04 Wrapper CCW")
-        #     return False
-        # time.sleep(0.8)
-
-        # # 0x05 Wrapper CW
-        # print("→ 0x05 Wrapper CW 1650us ~1s luego 1500us / 時計 1650us 約1秒後1500us")
-        # if not taping.step3_wrapper_cw():
-        #     print("   ❌ Error en 0x05 Wrapper CW")
-        #     return False
-        # time.sleep(0.8)
-
-        # 0x06 Cutter
-        print("→ 0x06 Cutter sequence / Secuencia del cutter / カッターシーケンス")
-        if not taping.step4_cutter():
-            print("   ❌ Error en 0x06 Cutter")
-            return False
-        time.sleep(1.0)
-
-        # # 0x07 Wrapper CW 3s
-        # print("→ 0x07 Wrapper CW ~3s luego 1500us / 時計 ~3秒 後1500us")
-        # if not taping.step5_wrapper_3_cw():
-        #     print("   ❌ Error en 0x07 Wrapper CW 3s")
-        #     return False
-        # time.sleep(1.2)
-
-        # # 0x08 Holder 1850us
-        # print("→ 0x08 Holder a 1850us / ホルダー1850us")
-        # if not taping.step6_holder_hold():
-        #     print("   ❌ Error en 0x08 Holder 1850us")
-        #     return False
-        # time.sleep(0.6)
-
-        # # 0x09 Holder 1650us (home)
-        # print("→ 0x09 Holder a 1650us (home) / ホルダー1650us(ホーム)")
-        # if not taping.step7_holder_home_position():
-        #     print("   ❌ Error en 0x09 Holder 1650us")
-        #     return False
-        # time.sleep(0.6)
-
-        # # 0x0A Gripper close
-        # print("→ 0x0A Cerrar gripper (1850us) / グリッパー閉じる(1850us)")
-        # if not taping.step8_gripper_close():
-        #     print("   ❌ Error en 0x0A Gripper Close")
-        #     return False
-        # time.sleep(0.6)
-
-        # # 0x0B Gripper open
-        # print("→ 0x0B Abrir gripper (2000us) / グリッパー開く(2000us)")
-        # if not taping.step9_gripper_open():
-        #     print("   ❌ Error en 0x0B Gripper Open")
-        #     return False
-        # time.sleep(0.6)
-
-        # # 0x0C Elevator up (gradual)
-        # print("→ 0x0C Subir elevador (rampa a 1550us) / エレベーター上昇")
-        # if not taping.step10_elevator_up():
-        #     print("   ❌ Error en 0x0C Elevator Up")
-        #     return False
-        # time.sleep(1.5)
-
-        # # 0x0D Elevator home/down (gradual)
-        # print("→ 0x0D Bajar elevador (rampa a 700us) / エレベーター下降")
-        # if not taping.step11_elevator_down():
-        #     print("   ❌ Error en 0x0D Elevator Down")
-        #     return False
-        # time.sleep(1.5)
+      
+        # taping.send_heartbeat()
+        # taping.step1_feeder()
+        # taping.step2_wrapper_ccw()
+        # taping.step3_wrapper_cw()
+        taping.step4_cutter()
+        # taping.step5_wrapper_3_cw()
+        # taping.step6_holder_hold()
+        # taping.step7_holder_home_position()
+        # taping.step8_gripper_close()
+        # taping.step9_gripper_open()
+        # taping.step12_sync_move()
+        # taping.step10_elevator_up()
+        # taping.step11_elevator_down()
 
         print("=== ✅ Taping tests completadas / completed / 完了 ===")
         return True

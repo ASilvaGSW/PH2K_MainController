@@ -3,6 +3,14 @@
  * English: Initializes ESP32 TWAI CAN, listens for instructions, and responds. Implements default cases 0x01 (reset) and 0x02 (heartbeat).
  * Español: Inicializa CAN TWAI en ESP32, escucha instrucciones y responde. Implementa los casos por defecto 0x01 (reset) y 0x02 (heartbeat).
  * 日本語: ESP32 の TWAI CAN を初期化し、指示を受信・返信します。デフォルトの 0x01（リセット）と 0x02（ハートビート）を実装します。
+ *
+ * Added:
+ * - 0x10: Select servo and move to microseconds (500–2500)
+ *   EN: data[1]=servoId (1 feeder, 2 wrapper, 3 cutter, 4 holder, 5 gripper, 6 elevator);
+ *       data[2]=high byte of us, data[3]=low byte of us. Constrained to 500–2500.
+ *   ES: data[1]=servoId (1 feeder, 2 wrapper, 3 cutter, 4 holder, 5 gripper, 6 elevator);
+ *       data[2]=alto, data[3]=bajo. Limitado a 500–2500.
+ *   JA: data[1]=サーボID, data[2]=上位, data[3]=下位。範囲は 500–2500。
  */
 
 #include <ESP32-TWAI-CAN.hpp>
@@ -243,13 +251,13 @@ void process_instruction(CanFrame instruction)
     case 0x06: // Cutter sequence: 500us -> wait 300ms -> 1380us -> wait 1s -> 500us
     {
       // English: Move cutter to 500us, wait 300ms, move to 1380us, wait 1s, then back to 500us
-      cutterServo.writeMicroseconds(500);
+      cutterServo.writeMicroseconds(800);
       Serial.println("Cutter moved to 500us");
       delay(300);
-      cutterServo.writeMicroseconds(1600);
+      cutterServo.writeMicroseconds(1900);
       Serial.println("Cutter moved to 1380us");
       delay(1000);
-      cutterServo.writeMicroseconds(500);
+      cutterServo.writeMicroseconds(800);
       Serial.println("Cutter returned to 500us");
       byte resp[8] = {0x06, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(resp);
@@ -282,11 +290,11 @@ void process_instruction(CanFrame instruction)
     }
 
     //Step 7
-    case 0x09: // Holder to 1650us
+    case 0x09: // Holder to 1550us
     {
-      // English: Move holder to 1650us
-      holderServo.writeMicroseconds(1650);
-      Serial.println("Holder moved to 1650us");
+      // English: Move holder to 1550us
+      holderServo.writeMicroseconds(1550);
+      Serial.println("Holder moved to 1550us");
       byte resp[8] = {0x09, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(resp);
       break;
@@ -296,7 +304,7 @@ void process_instruction(CanFrame instruction)
     case 0x0A: // Gripper close to 1850us
     {
       // English: Move gripper to 1850us (close)
-      gripperServo.writeMicroseconds(1850);
+      gripperServo.writeMicroseconds(1910);
       Serial.println("Gripper moved to 1850us (close)");
       byte resp[8] = {0x0A, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(resp);
@@ -321,7 +329,7 @@ void process_instruction(CanFrame instruction)
       if (elevator_current_us >= 1550) {
         Serial.println("Elevator already at 1550us; skipping move");
       } else {
-        for (int us = elevator_current_us; us <= 1550; us += 10) {
+        for (int us = elevator_current_us; us <= 1550; us += 20) {
           elevatorServo.writeMicroseconds(us);
           delay(15);
         }
@@ -340,7 +348,7 @@ void process_instruction(CanFrame instruction)
       if (elevator_current_us <= 700) {
         Serial.println("Elevator already at 700us; skipping move");
       } else {
-        for (int us = elevator_current_us; us >= 700; us -= 10) {
+        for (int us = elevator_current_us; us >= 700; us -= 20) {
           elevatorServo.writeMicroseconds(us);
           delay(15);
         }
@@ -352,7 +360,7 @@ void process_instruction(CanFrame instruction)
       break;
     }
 
-    //Step X
+    //Step Cutter Cut
     case 0x0E: // Cutter sequence: 500us -> wait 300ms -> 1380us -> wait 1s -> 500us
     {
       // English: Move cutter to 500us, wait 300ms, move to 1380us, wait 1s, then back to 500us
@@ -364,7 +372,7 @@ void process_instruction(CanFrame instruction)
       break;
     }
 
-      //Step Y
+    //Step Cutter Home
     case 0x0F: // Cutter sequence: 500us -> wait 300ms -> 1380us -> wait 1s -> 500us
     {
       // English: Move cutter to 500us, wait 300ms, move to 1380us, wait 1s, then back to 500us
@@ -372,6 +380,41 @@ void process_instruction(CanFrame instruction)
       Serial.println("Cutter moved to 500us");
       delay(300);
       byte resp[8] = {0x0F, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(resp);
+      break;
+    }
+
+    // Generic servo microseconds control
+    case 0x10: // Select servo and move to N microseconds (500–2500)
+    {
+      // EN: data[1]=servoId (1 feeder, 2 wrapper, 3 cutter, 4 holder, 5 gripper, 6 elevator)
+      //     data[2..3]=microseconds (high, low). Constrained to 500–2500.
+      // ES: data[1]=servoId (1 feeder, 2 wrapper, 3 cutter, 4 holder, 5 gripper, 6 elevator)
+      //     data[2..3]=microsegundos (alto, bajo). Limitado a 500–2500.
+      // JA: data[1]=サーボID、data[2..3]=マイクロ秒（上位・下位）。範囲 500–2500。
+      uint8_t sid = instruction.data[1];
+      uint16_t us = ((uint16_t)instruction.data[2] << 8) | instruction.data[3];
+      us = (uint16_t)constrain(us, 500, 2500);
+      Servo* target = nullptr;
+      switch (sid) {
+        case 1: target = &feederServo; break;
+        case 2: target = &wrapperServo; break;
+        case 3: target = &cutterServo; break;
+        case 4: target = &holderServo; break;
+        case 5: target = &gripperServo; break;
+        case 6: target = &elevatorServo; break;
+        default: target = nullptr; break;
+      }
+      if (target == nullptr) {
+        byte resp[8] = {0x10, 0x02, sid, 0x00, 0x00, 0x00, 0x00, 0x00}; // 0x02 FAIL
+        send_twai_response(resp);
+        Serial.println("0x10: Invalid servoId / ID de servo inválido / サーボID不正");
+        break;
+      }
+      target->writeMicroseconds((int)us);
+      if (sid == 6) { elevator_current_us = (int)us; }
+      Serial.print("0x10: Servo "); Serial.print(sid); Serial.print(" moved to "); Serial.print(us); Serial.println("us");
+      byte resp[8] = {0x10, 0x01, sid, (uint8_t)(us >> 8), (uint8_t)(us & 0xFF), 0x00, 0x00, 0x00}; // 0x01 OK
       send_twai_response(resp);
       break;
     }

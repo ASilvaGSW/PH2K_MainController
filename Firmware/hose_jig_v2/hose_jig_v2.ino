@@ -44,8 +44,8 @@ unsigned long servoMoveCounterJig[2] = {0, 0};
 // (MCP2515 removed in servos-only version)
 
 // Device CAN ID (only process messages with this ID)
-#define DEVICE_CAN_ID 0x0CA
-#define RESPONSE_CAN_ID 0x4CA
+#define DEVICE_CAN_ID 0x0CB
+#define RESPONSE_CAN_ID 0x4CB
 
 // (MCP2515 and LinearActuator removed)
 
@@ -431,8 +431,9 @@ void process_instruction(CanFrame instruction)
     
     // ***************************** CASE 0x0A ***************************** //
     // Move Servo to Absolute Position
-    case 0x0A:
+    case 0x1A:
     {
+
       Serial.println("Case 0x0A: Moving servos to absolute position / Posición absoluta / 絶対位置へ移動");
       // Nuevo formato: data[1]=jig (0 ambos,1 j1,2 j2), data[2]=posición 0..180
       // Compat: si data[2]==0 y data[1] en 0..180, aplica ambos con posición=data[1]
@@ -456,7 +457,7 @@ void process_instruction(CanFrame instruction)
       }
 
       delay(500);
-      byte response[] = {0x0A, 0x01, jigSel, position, 0x00, 0x00, 0x00, 0x00}; 
+      byte response[] = {0x1A, 0x01, jigSel, position, 0x00, 0x00, 0x00, 0x00}; 
       send_twai_response(response);
     }
     break;

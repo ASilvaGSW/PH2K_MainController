@@ -1,3 +1,4 @@
+import time
 # TAPING v2 0x00A
 # CAN Command Cases (input/output summary) / Resumen de comandos CAN / CANコマンド概要:
 # 0x01: Reset microcontroller | Reinicio del microcontrolador | マイコンをリセット
@@ -26,7 +27,10 @@
 #   IN: None | OUT: [0x0C, 0x01, ...]
 # 0x0D: Elevator home (gradual to 700us) | Elevador home (rampa a 700us) | エレベーター原点(段階的に700us)
 #   IN: None | OUT: [0x0D, 0x01, ...]
-# Nota/Note/注意: Comandos 0x0E–0x12 no están presentes en firmware v2.
+# 0x10: Move selected servo to microseconds (500–2500) | Mover servo seleccionado a microsegundos (500–2500) | 選択サーボをマイクロ秒へ移動（500–2500）
+#   IN: [0x10, servoId, high(us), low(us), 0,0,0,0] — servoId: 1 feeder, 2 wrapper, 3 cutter, 4 holder, 5 gripper, 6 elevator
+#   OUT: [0x10, 0x01, servoId, high(us), low(us), ...] (OK) or [0x10, 0x02, servoId, ...] (FAIL)
+# Nota/Note/注意: Las secuencias 0x10–0x12 están disponibles en el firmware taping.ino actual.
 
 class Taping:
     def __init__(self, canbus, canbus_id):
@@ -48,68 +52,98 @@ class Taping:
     # 0x03: Execute step1 - Feeder
     def step1_feeder(self):
         """Feeder run ~3s, then stop at 1500us / Alimentador ~3s, luego stop a 1500us / フィーダ約3秒動作後1500usで停止"""
-        status, reply_data = self.canbus.send_message(self.canbus_id, [0x03] + [0x00]*7)
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x03] + [0x00]*7,False)
         return status
 
     # 0x04: Execute step2 - Wrapper CCW
     def step2_wrapper_ccw(self):
         """Wrapper CCW 1200us ~1s, luego 1500us / ラッパー反時計1200us約1秒後1500us"""
-        status, reply_data = self.canbus.send_message(self.canbus_id, [0x04] + [0x00]*7)
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x04] + [0x00]*7,False)
         return status
 
     # 0x05: Execute step3 - Wrapper CW
     def step3_wrapper_cw(self):
         """Wrapper CW 1650us ~1s, luego 1500us / ラッパー時計1650us約1秒後1500us"""
-        status, reply_data = self.canbus.send_message(self.canbus_id, [0x05] + [0x00]*7)
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x05] + [0x00]*7,False)
         return status
 
     # 0x06: Execute step4 - Cutter
     def step4_cutter(self):
         """Cutter sequence (move → wait → move → wait → home) / Secuencia del cutter / カッターシーケンス"""
-        status, reply_data = self.canbus.send_message(self.canbus_id, [0x06] + [0x00]*7)
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x06] + [0x00]*7,False)
         return status
 
     # 0x07: Execute step5 - Wrapper 3 CW
     def step5_wrapper_3_cw(self):
         """Wrapper CW 1650us ~3s, luego 1500us / ラッパー時計1650us約3秒後1500us"""
-        status, reply_data = self.canbus.send_message(self.canbus_id, [0x07] + [0x00]*7)
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x07] + [0x00]*7,False)
         return status
 
     # 0x08: Execute step6 - Holder Hold
     def step6_holder_hold(self):
         """Holder a 1850us / ホルダー1850usへ"""
-        status, reply_data = self.canbus.send_message(self.canbus_id, [0x08] + [0x00]*7)
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x18] + [0x00]*7,False)
         return status
 
     # 0x09: Execute step7 - Holder Home Position
     def step7_holder_home_position(self):
         """Holder a 1650us (home) / ホルダー1650us(ホーム)"""
-        status, reply_data = self.canbus.send_message(self.canbus_id, [0x09] + [0x00]*7)
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x09] + [0x00]*7,False)
         return status
 
     # 0x0A: Execute step8 - Gripper Close
     def step8_gripper_close(self):
         """Cerrar gripper (1850us) / グリッパーを閉じる(1850us)"""
-        status, reply_data = self.canbus.send_message(self.canbus_id, [0x0A] + [0x00]*7)
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x0A] + [0x00]*7,False)
         return status
 
     # 0x0B: Execute step9 - Gripper Open
     def step9_gripper_open(self):
         """Abrir gripper (2000us) / グリッパーを開く(2000us)"""
-        status, reply_data = self.canbus.send_message(self.canbus_id, [0x0B] + [0x00]*7)
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x0B] + [0x00]*7,False)
         return status
 
     # 0x0C: Execute step10 - Elevator Up
     def step10_elevator_up(self):
         """Subir elevador (rampa a 1550us) / エレベーター上昇(段階的に1550us)"""
-        status, reply_data = self.canbus.send_message(self.canbus_id, [0x0C] + [0x00]*7)
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x0C] + [0x00]*7,False)
         return status
 
     # 0x0D: Execute step11 - Elevator Home/Down
     def step11_elevator_down(self):
         """Bajar elevador (rampa a 700us, home) / エレベーター下降(段階的に700us)"""
-        status, reply_data = self.canbus.send_message(self.canbus_id, [0x0D] + [0x00]*7)
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x0D] + [0x00]*7,False)
         return status
+
+    # 0x0E: Execute step12 - Sync Move
+    def step12_sync_move(self):
+        """Sincronizar movimiento de todos los servos / すべてのサーボを同期的に動かす"""
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x0E] + [0x00]*7,False)
+        return status
+
+    # 0x10: FullCycle sequence
+    def execute_fullcycle(self):
+        """Ejecutar secuencia FullCycle / フルサイクルのシーケンスを実行"""
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x10] + [0x00]*7, False)
+        return status
+
+    # 0x11: Forward sequence
+    def execute_forward_sequence(self):
+        """Ejecutar secuencia Adelante / 前進シーケンスを実行"""
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x11] + [0x00]*7, False)
+        return status
+
+    # 0x12: Backward sequence
+    def execute_backward_sequence(self):
+        """Ejecutar secuencia Atrás / 後退シーケンスを実行"""
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x12] + [0x00]*7, False)
+        return status
+
+    def completeCycle(self,wait=5):
+        self.execute_forward_sequence()
+        time.sleep(wait)
+        self.execute_backward_sequence()
+        return True
 
     # Convenience methods for common operations
     def feed_tape(self):
@@ -181,3 +215,5 @@ class Taping:
     def power_off(self):
         """Power off - move all components to safe positions"""
         return self.home_all()
+
+   
