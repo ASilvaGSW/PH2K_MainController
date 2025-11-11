@@ -528,7 +528,7 @@ void loop()
         break;
 
       case 15:
-        step15();
+        step15(true);
         break;
 
       case 16:
@@ -795,11 +795,11 @@ void step5()
 
   servo2.writeMicroseconds(stopServo);         // After all conditions denied the servo will stop
   
-  delay(1000);
+  // delay(1000);
 
-  step15();
+  step15(true);
 
-  step15();
+  step15(false);
   // Previous code for correction                                                               
   // if(hallCounter >= TARGET_ROTATIONS)                                                                          // Conditional to detect succesfull movement or an error based on the Hall Effect Sensor input 
   // {
@@ -1043,18 +1043,21 @@ void step13()
 
 
 
-void step15()
+void step15(bool flag)
 {                                                                                              // Case 14: Wrapper slow move until Hall trigger (servo2 @1490)
     Serial.println("Step14: Wrapper slow move until Hall trigger...");
     // If the Hall sensor is already active at the start, do not move the servo
     // HALL sensor uses INPUT_PULLUP, so LOW indicates an active trigger
     if (digitalRead(HALL_SENSOR_PIN) == LOW) {
       Serial.println("Hall sensor already active at start. Skipping servo movement.");
-      return;
+      if(!flag)
+      {
+        return;
+      }
     }
     int initialHall = hallCounter;                                                                        // Record current Hall count
     unsigned long startTime = millis();                                                                   // Start timer
-    servo2.writeMicroseconds(1550);                                                                       // Slow movement
+    servo2.writeMicroseconds(1590);                                                                       // Slow movement
     while ((millis() - startTime < timeout2) && (hallCounter == initialHall)) {                           // Move until Hall triggers or timeout
       delay(1);
     }

@@ -512,17 +512,17 @@ def oneCycle():
     home_position_z = 4200 + offset_z
     home_position_x = 0 + offset_x
 
-    lubrication_position_z = 520 + offset_z
-    lubricate_nozzle = -5080 + offset_x
+    lubrication_position_z = 550 + offset_z
+    lubricate_nozzle = -1350 + offset_x
 
-    insertion_position_z = 498 + offset_z
-    insert_nozzle = -6570 + offset_x
+    insertion_position_z = 550 + offset_z
+    insert_nozzle = -2840 + offset_x
 
-    librication_position_joint_z = 530 + offset_z
-    lubricate_joint = -11170 + offset_x
+    librication_position_joint_z = 550 + offset_z
+    lubricate_joint = -7370 + offset_x
 
-    insertion_position_joint_z = 600 + offset_z
-    insert_joint = -8950 + offset_x
+    insertion_position_joint_z = 550 + offset_z
+    insert_joint = -5190 + offset_x
 
     #****************************** Hose Puller Data ******************************
 
@@ -531,23 +531,25 @@ def oneCycle():
     home_y = 4200
     wait_y = 5930
     cutting_position = 7830
-    pickup_y = 9005
+    pickup_y = 9015
     before_rise_position = 8510
     z_home = 50
-    z_picking_position = 55
-    alignmnet_for_joint = 4865
+    z_picking_position = 75
+    alignmnet_for_joint = 4875
 
     #****************************** Custom Variables ******************************
 
     insertion_jig_safe_zone = 4000
     preefeder_speed = 50
     feed_hose_time = 3.15
-    lubricate_nozzle_time = 5
-    lubricate_joint_time = 5
-    hose_puller_y_speed = 200
-    hose_puller_y_speed_for_alignment = 100
+    lubricate_nozzle_time = 0.15
+    lubricate_joint_time = 0.15
+    hose_puller_y_speed = 20
+    hose_puller_y_speed_for_alignment = 1
 
     #****************************** Routine ******************************
+
+    if insertion_servos.slider_nozzle_receive() != "success" : return "error01"
 
     # Feed Hose
 
@@ -571,7 +573,6 @@ def oneCycle():
     if hose_jig.insertion_position(False) != "success" : return "error05"
     if insertion_jig.move_z_axis(home_position_z) != "success" : return "error01"
     if insertion_jig.move_x_axis(home_position_x) != "success" : return "error02"
-
 
     #Lubricate Hose
 
@@ -1063,7 +1064,7 @@ def taping_test():
         # taping.step1_feeder()
         # taping.step2_wrapper_ccw()
         # taping.step3_wrapper_cw()
-        taping.step4_cutter()
+        # taping.step4_cutter()
         # taping.step5_wrapper_3_cw()
         # taping.step6_holder_hold()
         # taping.step7_holder_home_position()
@@ -1093,9 +1094,9 @@ if __name__ == "__main__":
     # result = movePickandPlace(1)
     # print(f"movePickandPlace result: {result}")
     # #
-    # result = oneCycle()
-    # print(f"oneCycle result: {result}")
-    # #
+    result = oneCycle()
+    print(f"oneCycle result: {result}")
+    #
     # result = pickUpHose()
     # print(f"pickUpHose result: {result}")
     # result = insertionRoutine()
@@ -1121,7 +1122,7 @@ if __name__ == "__main__":
     # taping_fuyus_test()
 
     # Prueba de Taping
-    taping_test()
+    # taping_test()
 
     # stampertest()
 
