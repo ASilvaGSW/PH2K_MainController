@@ -375,15 +375,34 @@ void loop()
           delay(10);
           fullCycleFirstPress = false;
         } else {
-          Serial.println("FullCycle: step7(), step1(), step6(), step4()");
-          step7(); // Ensure holder is in home position
-          delay(10);
-          step1();
-          delay(200);
-          step6();
-          delay(10);
+
+          Serial.println("FullCycle: step10(), delay, step8(), step7(), step12()");
           step4();
           delay(10);
+          step10();
+          delay(100);                                                                                           // Short delay to allow elevator to settle before closing gripper
+          step8();
+          gripperClosed = true;                                                                                 // Set gripper closed flag
+          gripperReadyForHose = true;                                                                           // Set gripper ready for hose flag
+          delay(10);
+          step7();
+          delay(10);
+          step12();
+          sequenceRunning = false;
+          delay(500);
+          step9();
+
+
+          // Previous version with out gripper 
+          // Serial.println("FullCycle: step7(), step1(), step6(), step4()");
+          // step7(); // Ensure holder is in home position
+          // delay(10);
+          // step1();
+          // delay(200);
+          // step6();
+          // delay(10);
+          // step4();
+          // delay(10);
         }
         sequenceRunning = false;
       }
@@ -1344,15 +1363,32 @@ void process_instruction(CanFrame instruction)
         delay(10);
         fullCycleFirstPress = false;
       } else {
-        Serial.println("FullCycle: step7(), step1(), step6(), step4()");
-        step7(); // Ensure holder is in home position
-        delay(10);
-        step1();
-        delay(200);
-        step6();
-        delay(10);
-        step4();
-        delay(10);
+
+        Serial.println("FullCycle: step10(), delay, step8(), step7(), step12()");
+          step4();
+          delay(10);
+          step10();
+          delay(100);                                                                                           // Short delay to allow elevator to settle before closing gripper
+          step8();
+          gripperClosed = true;                                                                                 // Set gripper closed flag
+          gripperReadyForHose = true;                                                                           // Set gripper ready for hose flag
+          delay(10);
+          step7();
+          delay(10);
+          step12();
+          sequenceRunning = false;
+          delay(500);
+          step9();
+
+        // Serial.println("FullCycle: step7(), step1(), step6(), step4()");
+        // step7(); // Ensure holder is in home position
+        // delay(10);
+        // step1();
+        // delay(200);
+        // step6();
+        // delay(10);
+        // step4();
+        // delay(10);
       }
       byte response[] = {0x10, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(response);

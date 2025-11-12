@@ -43,6 +43,7 @@
  *   - 0x14: Home Z axis using go_home
  *   - 0x15: Move Y actuator to absolute position with speed control
  *   - 0x16: Move Y axis with speed mode until hose presence sensor detects no hose
+ *   - 0x17: Move Y actuator to relative position with speed and acceleration control
  *   - 0xFF: Power off, home all axes
  *
  * DEPENDENCIES:
@@ -820,6 +821,61 @@ void process_instruction(CanFrame instruction)
 
       // Send response with status
       byte statusResponse[] = {0x15, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(statusResponse);
+    }
+    break;
+
+    // ***************************** CASE 0x17 ***************************** //
+    // Move actuator Y to relative position with speed and acceleration control
+    case 0x17:
+    {
+      Serial.println("Case 0x17: Moving actuator Y to relative position with speed control");
+
+      uint8_t pos_high = instruction.data[1];
+      uint8_t pos_low = instruction.data[2];
+      uint8_t orientation = instruction.data[3]; // 0 = positivo, 1 = negativo
+      uint8_t speed_high = instruction.data[4];
+      uint8_t speed_low = instruction.data[5];
+      uint8_t acceleration = instruction.data[6]; // 0-255
+
+      int16_t angle = (pos_high << 8) | pos_low;
+      if (orientation == 1)
+      {
+        angle = angle * -1;
+      }
+
+      uint16_t local_speed = (speed_high << 8) | speed_low;
+
+      // Debug de parámetros recibidos
+      Serial.print("Ángulo relativo (grados): ");
+      Serial.println(angle);
+      Serial.print("Velocidad (RPM): ");
+      Serial.println(local_speed);
+      Serial.print("Aceleración: ");
+      Serial.println(acceleration);
+
+      uint8_t payload[8] = {0};  // Buffer para mensaje CAN
+      y_axis.relative_move_with_speed_control(angle, local_speed, acceleration, payload);  // Generar mensaje CAN F4
+
+      flushCanBuffer();
+
+      if (CAN1.sendMsgBuf(y_axis.motor_id, 0, 8, payload) != CAN_OK)
+      {
+        Serial.println("Error sending actuator command");
+        byte errorResponse[] = {0x17, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK
+        send_twai_response(errorResponse);
+        break;
+      }
+
+      // Esperar respuesta del servo y obtener estado
+      uint8_t status = waitForCanReply(y_axis.motor_id);
+
+      if (status == 0x01) {
+        incrementActuatorCounterY();
+      }
+
+      // Respuesta con estado
+      byte statusResponse[] = {0x17, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(statusResponse);
     }
     break;

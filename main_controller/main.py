@@ -23,6 +23,7 @@ else:
         sys.exit(1)
 
 from classes.hose_jig import HoseJig
+from classes.hose_jig_v2 import HoseJigV2
 from classes.hose_puller import HosePuller
 from classes.puller_extension import PullerExtension
 from classes.insertion_jig import InsertionJig
@@ -40,6 +41,7 @@ from classes.transporter_grippers import TransporterGrippers
 # Variables globales para acceder a los objetos desde cualquier función
 canbus = None
 hose_jig = None
+hose_jig_v2 = None
 hose_puller = None
 puller_extension = None
 insertion_jig = None
@@ -61,11 +63,12 @@ CHECK_ALL_DEVICES = False  # When True, checks all devices regardless of station
 
 #Initialize and setup CANbus and devices
 def my_main():
-    global canbus, hose_jig, hose_puller, puller_extension, insertion_jig, elevator_in, pick_and_place, insertion_servos
+    global canbus, hose_jig, hose_jig_v2, hose_puller, puller_extension, insertion_jig, elevator_in, pick_and_place, insertion_servos
     global lubrication_feeder, lubrication_stamper, stamper, taping, taping_fuyus, transporter_fuyus, transporter_grippers
     
     # Example CAN IDs (these should be configured according to your hardware setup)
     CANBUS_ID_JIG = 0x0CA
+    CANBUS_ID_HOSE_JIG_V2 = 0x0CB  # Adjust if needed per hardware mapping
     CANBUS_ID_PULLER = 0x192
     CANBUS_ID_EXTENSION = 0x193
     CANBUS_ID_INSERTION = 0x0C9
@@ -85,6 +88,7 @@ def my_main():
     canbus.start_canbus()
     
     hose_jig = HoseJig(canbus, CANBUS_ID_JIG)
+    hose_jig_v2 = HoseJigV2(canbus, CANBUS_ID_HOSE_JIG_V2)
     hose_puller = HosePuller(canbus, CANBUS_ID_PULLER)
     puller_extension = PullerExtension(canbus, CANBUS_ID_EXTENSION)
     insertion_jig = InsertionJig(canbus, CANBUS_ID_INSERTION)
@@ -99,13 +103,13 @@ def my_main():
     transporter_fuyus = TransporterFuyus(canbus, CANBUS_ID_TRANSPORTER_FUYUS)
     transporter_grippers = TransporterGrippers(canbus, CANBUS_ID_TRANSPORTER_GRIPPERS)
 
-    checkConnectivity()
+    # checkConnectivity()
 
 
 #Check connectivity
 def checkConnectivity():
     
-    global canbus, hose_jig, hose_puller, puller_extension, insertion_jig, elevator_in, pick_and_place, insertion_servos
+    global canbus, hose_jig, hose_jig_v2, hose_puller, puller_extension, insertion_jig, elevator_in, pick_and_place, insertion_servos
     global lubrication_feeder, lubrication_stamper, stamper, transporter_fuyus, transporter_grippers
     global CHECK_FIRST_STATION, CHECK_SECOND_STATION, CHECK_ALL_DEVICES
 
@@ -124,10 +128,11 @@ def checkConnectivity():
     # Second Station - Check only if flag is enabled or CHECK_ALL_DEVICES is True
     if CHECK_SECOND_STATION or CHECK_ALL_DEVICES:
         print("=== CHECKING SECOND STATION ===")
+        print("Hose Jig V2 Connected") if hose_jig_v2.ping() == "success" else print("Hose Jig V2 Not Connected")
         # print("Lubrication Stamper Connected") if lubrication_stamper.send_heartbeat() == "success" else print("Lubrication Stamper Not Connected")
         # print("Stamper Connected") if stamper.send_heartbeat() == "success" else print("Stamper Not Connected")
-        # print("Taping Connected") if taping.send_heartbeat() == "success" else print("Taping Not Connected")
-        # print("Taping Fuyus Connected") if taping_fuyus.send_heartbeat() == "success" else print("Taping Fuyus Not Connected")
+        print("Taping Connected") if taping.send_heartbeat() == "success" else print("Taping Not Connected")
+        print("Taping Fuyus Connected") if taping_fuyus.send_heartbeat() == "success" else print("Taping Fuyus Not Connected")
         # print("Transporter Fuyus Connected") if transporter_fuyus.send_heartbeat() == "success" else print("Transporter Fuyus Not Connected")
         # print("Transporter Grippers Connected") if transporter_grippers.send_heartbeat() == "success" else print("Transporter Grippers Not Connected")
 
@@ -621,8 +626,10 @@ def oneCycle():
     if insertion_servos.activate_cutter() != "success" : return "error12"
 
     # Alignment for Joint Insertion
-    if hose_puller.move_y_actuator_with_speed(alignmnet_for_joint,hose_puller_y_speed_for_alignment) != "success" : return "error13" #Aqui ahre el cambio
-    
+    # if hose_puller.move_y_actuator_with_speed(alignmnet_for_joint,hose_puller_y_speed_for_alignment) != "success" : return "error13" #Aqui hare el cambio
+    if hose_puller.move_y_axis_until_no_hose(100) != "success" : return "error13"
+    if hose_puller.move_y_actuator_relative_with_speed(10) != "success" : return "error13.1"
+
     # Stoping Prefeeder
     if lubrication_feeder.move_pre_feeder(0) != "success" : return "error04"
 
@@ -952,7 +959,7 @@ def taping_fuyus_test():
     Función de prueba para la clase TapingFuyus
     Prueba las funciones principales de control de actuadores Y y Z
     """
-    global taping_fuyus
+    global taping_fuyus,hose_jig_v2,taping
     
     print("=== Iniciando prueba de TapingFuyus ===")
     
@@ -964,10 +971,10 @@ def taping_fuyus_test():
     home_position = 0
     tape_position = 830
     z_speed = 250
-    tape_spot = 3100
+    tape_spot = 1600
     y_speed = 400
 
-    # # Enviar Z a Home
+    # Enviar Z a Home
     # print("Enviando Z a Home...")
     # taping_fuyus.home_z_actuator()
     # time.sleep(0.5)
@@ -979,12 +986,30 @@ def taping_fuyus_test():
 
     # Routine
     # for i in range(1):
+
+    # hose_jig_v2.gripper_open(2)
+    hose_jig_v2.move_servos_absolute(90,2)
+
+    # taping.execute_forward_sequence()
+    # taping.execute_backward_sequence()
+
+    # return ""
+
     taping_fuyus.move_z_actuator_with_speed(home_position,z_speed)
     taping_fuyus.move_y_actuator_with_speed(tape_spot,y_speed)
+
     taping_fuyus.move_z_actuator_with_speed(tape_position,z_speed)
+
     time.sleep(1)
+
+    # taping.execute_backward_sequence()
+
+    time.sleep(3)
+
     taping_fuyus.move_z_actuator_with_speed(home_position,z_speed)
     taping_fuyus.move_y_actuator_with_speed(home_position,y_speed)
+
+    hose_jig_v2.gripper_open(2)
 
     return True
 
@@ -1094,8 +1119,8 @@ if __name__ == "__main__":
     # result = movePickandPlace(1)
     # print(f"movePickandPlace result: {result}")
     # #
-    result = oneCycle()
-    print(f"oneCycle result: {result}")
+    # result = oneCycle()
+    # print(f"oneCycle result: {result}")
     #
     # result = pickUpHose()
     # print(f"pickUpHose result: {result}")
@@ -1119,7 +1144,7 @@ if __name__ == "__main__":
     # testIR()
 
     # Prueba de TapingFuyus
-    # taping_fuyus_test()
+    taping_fuyus_test()
 
     # Prueba de Taping
     # taping_test()

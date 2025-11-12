@@ -25,6 +25,8 @@ Notes:
 - JA: このクラスは hose_jig.py（アクチュエータ/MCP2515 ありの v1）とは別です。
 """
 
+from typing import Optional
+
 
 class HoseJigV2:
     def __init__(self, canbus, canbus_id=0x0CA):
@@ -57,7 +59,7 @@ class HoseJigV2:
         return status
 
     # 0x05: Move servos to open
-    def gripper_open(self, jig: int | None = None):
+    def gripper_open(self, jig: Optional[int] = None):
         """
         EN: Move left/center/right servos to SERVO_OPEN_ANGLE.
         ES: Mueve servos a SERVO_OPEN_ANGLE.
@@ -71,7 +73,7 @@ class HoseJigV2:
         return status
 
     # 0x06: Move servos to close
-    def gripper_close(self, jig: int | None = None):
+    def gripper_close(self, jig: Optional[int] = None):
         """
         EN: Move left/center/right servos to SERVO_CLOSE_ANGLE.
         ES: Mueve servos a SERVO_CLOSE_ANGLE.
@@ -82,7 +84,7 @@ class HoseJigV2:
         return status
 
     # 0x08: Read servo movement counter
-    def read_servo_move_counter(self, jig: int | None = None):
+    def read_servo_move_counter(self, jig: Optional[int] = None):
         """
         EN: Read the servo movement counter from firmware.
         ES: Lee el contador de movimientos de servos del firmware.
@@ -99,7 +101,7 @@ class HoseJigV2:
         return status, counter
 
     # 0x09: Reset servo movement counter
-    def reset_servo_move_counter(self, jig: int | None = None):
+    def reset_servo_move_counter(self, jig: Optional[int] = None):
         """
         EN: Reset the servo movement counter.
         ES: Reinicia el contador de movimientos de servos.
@@ -110,7 +112,7 @@ class HoseJigV2:
         return status
 
     # 0x0A: Move servos to absolute position
-    def move_servos_absolute(self, position, jig: int | None = None):
+    def move_servos_absolute(self, position, jig: Optional[int] = None):
         """
         EN: Move all servos to an absolute position (0–180 typical).
         ES: Mueve todos los servos a posición absoluta (0–180 típico).
@@ -118,11 +120,11 @@ class HoseJigV2:
         """
         pos = max(0, min(180, int(position)))
         j = 0 if jig is None else int(jig)
-        status, _ = self.canbus.send_message(self.canbus_id, [0x0A, j, pos, 0x00, 0x00, 0x00, 0x00, 0x00])
+        status, _ = self.canbus.send_message(self.canbus_id, [0x1A, j, pos, 0x00, 0x00, 0x00, 0x00, 0x00])
         return status
 
     # 0x10: Update SERVO_OPEN_ANGLE
-    def set_open_angle(self, value, jig: int | None = None):
+    def set_open_angle(self, value, jig: Optional[int] = None):
         """
         EN: Update SERVO_OPEN_ANGLE in EEPROM (uint16, 0–180 typical).
         ES: Actualiza SERVO_OPEN_ANGLE en EEPROM (uint16, 0–180 típico).
@@ -136,7 +138,7 @@ class HoseJigV2:
         return status
 
     # 0x11: Update SERVO_CLOSE_ANGLE
-    def set_close_angle(self, value, jig: int | None = None):
+    def set_close_angle(self, value, jig: Optional[int] = None):
         """
         EN: Update SERVO_CLOSE_ANGLE in EEPROM (uint16, 0–180 typical).
         ES: Actualiza SERVO_CLOSE_ANGLE en EEPROM (uint16, 0–180 típico).
@@ -150,7 +152,7 @@ class HoseJigV2:
         return status
 
     # 0x14: Read SERVO_OPEN_ANGLE
-    def read_open_angle(self, jig: int | None = None):
+    def read_open_angle(self, jig: Optional[int] = None):
         """
         EN: Read SERVO_OPEN_ANGLE (uint16) from firmware.
         ES: Lee SERVO_OPEN_ANGLE (uint16) del firmware.
@@ -167,7 +169,7 @@ class HoseJigV2:
         return status, value
 
     # 0x15: Read SERVO_CLOSE_ANGLE
-    def read_close_angle(self, jig: int | None = None):
+    def read_close_angle(self, jig: Optional[int] = None):
         """
         EN: Read SERVO_CLOSE_ANGLE (uint16) from firmware.
         ES: Lee SERVO_CLOSE_ANGLE (uint16) del firmware.

@@ -818,13 +818,13 @@ void process_instruction(CanFrame instruction)
       Serial.print(", Direction: ");
       Serial.println((direction > 0) ? "Forward" : "Backward");
       
-      // Set target position (non-blocking)
-       y_axis_stepper.moveTo(targetPosition);
+      // Move to target position (blocking)
+      y_axis_stepper.moveTo(targetPosition);
+      y_axis_stepper.runToPosition();
 
       incrementStepperCounter();
-      
-      delay(500);
-      // Send immediate response (movement happens asynchronously in loop())
+
+      // Send response after movement completes
       byte response[] = {0x0B, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(response);
     }
@@ -835,13 +835,13 @@ void process_instruction(CanFrame instruction)
     case 0x0C:
     {
       Serial.println("Case 0x0C: Homing Y-axis stepper");
-      // Set target position (non-blocking)
-       y_axis_stepper.moveTo(0);
+      // Move to home (blocking)
+      y_axis_stepper.moveTo(0);
+      y_axis_stepper.runToPosition();
 
       incrementStepperCounter();
-      
-      delay(500);
-      // Send immediate response (movement happens asynchronously in loop())
+
+      // Send response after movement completes
       byte response[] = {0x0C, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(response);
     }
@@ -898,13 +898,13 @@ void process_instruction(CanFrame instruction)
       Serial.print(", Direction: ");
       Serial.println((direction > 0) ? "Forward" : "Backward");
       
-      // Set target position (non-blocking)
-       z_axis_stepper.moveTo(targetPosition);
+      // Move to target position (blocking)
+      z_axis_stepper.moveTo(targetPosition);
+      z_axis_stepper.runToPosition();
 
       incrementZStepperCounter();
-      
-      delay(500);
-      // Send immediate response (movement happens asynchronously in loop())
+
+      // Send response after movement completes
       byte response[] = {0x17, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(response);
     }
@@ -915,13 +915,13 @@ void process_instruction(CanFrame instruction)
     case 0x18:
     {
       Serial.println("Case 0x18: Homing Z-axis stepper");
-      // Set target position (non-blocking)
-       z_axis_stepper.moveTo(0);
+      // Move to home (blocking)
+      z_axis_stepper.moveTo(0);
+      z_axis_stepper.runToPosition();
 
       incrementZStepperCounter();
-      
-      delay(500);
-      // Send immediate response (movement happens asynchronously in loop())
+
+      // Send response after movement completes
       byte response[] = {0x18, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(response);
     }

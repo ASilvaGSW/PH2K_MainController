@@ -13,6 +13,7 @@
 # 0x14: Home Z axis using go_home function
 # 0x15: Move Y actuator to absolute position with speed control
 # 0x16: Move Y axis with speed mode until hose presence sensor detects no hose
+# 0x17: Move Y actuator to relative position with speed and acceleration control
 # 0xFF: Power off, home all axes.
 
 class HosePuller:
@@ -125,6 +126,38 @@ class HosePuller:
             hose_detected = not bool(reply_data[2])
             return status, hose_detected
         return status, None
+
+    # Case 0x17: Move Y actuator to relative position with speed and acceleration control
+    def move_y_actuator_relative_with_speed(self, relative_position, speed=100, acceleration=236):
+        """
+        Move Y actuator by a relative amount using speed and acceleration control (F4 frame).
+
+        Args:
+            relative_position (int): Relative angle/position (signed 16-bit range).
+            speed (int): Speed in RPM (0-3000 recommended).
+            acceleration (int): Acceleration (0-255), default 2.
+
+        Returns:
+            status (str): 'success', 'fail', 'timeout', or 'no_local_network'.
+        """
+        orientation = 1 if relative_position < 0 else 0
+        abs_position = abs(relative_position)
+        position_high = abs_position >> 8
+        position_low = abs_position & 0xFF
+
+        # Compose speed bytes
+        speed_high = speed >> 8
+        speed_low = speed & 0xFF
+
+        # Acceleration constrained to one byte
+        acc_byte = acceleration & 0xFF
+
+        status = self.canbus.send_message(
+            self.canbus_id,
+            [0x17, position_high, position_low, orientation, speed_high, speed_low, acc_byte, 0x00]
+        )[0]
+        
+        return status
 
     
 

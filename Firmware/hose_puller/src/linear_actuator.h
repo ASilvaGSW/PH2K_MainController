@@ -16,6 +16,8 @@ public:
 
     void abs_mode(float angle, uint8_t* payload);
     void abs_mode_with_speed_control(float angle, uint16_t local_speed, uint8_t* payload);
+    // Movimiento relativo con control de velocidad (código F4)
+    void relative_move_with_speed_control(float angle, uint16_t local_speed, uint8_t acc, uint8_t* payload);
     void check_connection(uint8_t* payload);
     void update_id(uint16_t new_id, uint8_t* payload);
     void speed_mode(bool dir, uint16_t speed, uint8_t acc, uint8_t* payload);
