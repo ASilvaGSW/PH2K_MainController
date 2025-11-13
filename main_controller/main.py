@@ -57,8 +57,8 @@ transporter_fuyus = None
 transporter_grippers = None
 
 # Connectivity flags for different stations
-CHECK_FIRST_STATION = False
-CHECK_SECOND_STATION = True
+CHECK_FIRST_STATION = True
+CHECK_SECOND_STATION = False
 CHECK_ALL_DEVICES = False  # When True, checks all devices regardless of station flags
 
 #Initialize and setup CANbus and devices
@@ -540,7 +540,7 @@ def oneCycle():
     before_rise_position = 8510
     z_home = 50
     z_picking_position = 75
-    alignmnet_for_joint = 4875
+    alignmnet_for_joint = 4860
 
     #****************************** Custom Variables ******************************
 
@@ -549,10 +549,12 @@ def oneCycle():
     feed_hose_time = 3.15
     lubricate_nozzle_time = 0.15
     lubricate_joint_time = 0.15
-    hose_puller_y_speed = 20
-    hose_puller_y_speed_for_alignment = 1
+    hose_puller_y_speed = 200
+    hose_puller_y_speed_for_alignment = 200
 
     #****************************** Routine ******************************
+
+    if hose_jig.gripper_open() != "success" : return "error19"
 
     if insertion_servos.slider_nozzle_receive() != "success" : return "error01"
 
@@ -571,13 +573,14 @@ def oneCycle():
 
     # Homing Slider Before Movement
     if insertion_servos.slider_joint_home() != "success" : return "error08"
-    if insertion_servos.slider_nozzle_home() != "success" : return "error08"
+    if insertion_servos.slider_nozzle_receive() != "success" : return "error08"
 
     # Insertio Jig Home POsition
 
     if hose_jig.insertion_position(False) != "success" : return "error05"
     if insertion_jig.move_z_axis(home_position_z) != "success" : return "error01"
     if insertion_jig.move_x_axis(home_position_x) != "success" : return "error02"
+
 
     #Lubricate Hose
 
@@ -597,7 +600,7 @@ def oneCycle():
     if insertion_servos.holder_hose_nozzle_open() != "success" : return "error10"
     if insertion_servos.clamp_nozzle_open() != "success" : return "error11"
     time.sleep(.5)
-    if insertion_servos.slider_nozzle_home() != "success" : return "error12"
+    if insertion_servos.slider_nozzle_receive() != "success" : return "error12"
 
     # Go to Down Position for Hose Puller
     if insertion_jig.move_z_axis(insertion_jig_safe_zone) != "success" : return "error13"
@@ -668,7 +671,7 @@ def oneCycle():
     if puller_extension.open_gripper() != "success" : return "error16"
     if hose_puller.move_z_actuator(safe_position) != "success" : return "error17"
     if hose_jig.deliver_position() != "success" : return "error18"
-    # if hose_jig.gripper_open() != "success" : return "error19"
+    if hose_jig.gripper_open() != "success" : return "error19"
     if hose_puller.move_z_actuator(0) != "success" : return "error20"
 
     return "success"
@@ -769,6 +772,10 @@ def testHome():
     
     # Test ElevatorIn homing functions
     print("\n--- Testing ElevatorIn homing functions ---")
+
+    print("Testing home_elevator_z...")
+    result = elevator_in.home_elevator_z()
+    print(f"Result: {result}")
 
     print("Testing home_gantry_z...")
     result = elevator_in.home_gantry_z()
@@ -962,12 +969,12 @@ def taping_fuyus_test():
     global taping_fuyus,hose_jig_v2,taping
     
     print("=== Iniciando prueba de TapingFuyus ===")
-    
+
     # Enviar heartbeat
     # print("Enviando heartbeat...")
     # taping_fuyus.send_heartbeat()
-    # time.sleep(0.5)    
-    
+    # time.sleep(0.5)
+
     home_position = 0
     tape_position = 830
     z_speed = 250
@@ -1019,21 +1026,21 @@ def stampertest():
     Función de prueba para el stamper
     """
     global stamper
-    
+
     if stamper is None:
         print("Error: stamper no está inicializado")
         return False
-    
+
     try:
         print("=== Iniciando pruebas del Stamper ===")
-        
+
         # Prueba de conectividad
         print("1. Probando conectividad...")
         if not stamper.heartbeat():
             print("   ❌ Error: No hay respuesta del stamper")
             return False
         print("   ✅ Conectividad OK")
-        
+
         # Prueba de home
         print("2. Ejecutando home...")
         if stamper.home():
@@ -1041,7 +1048,7 @@ def stampertest():
         else:
             print("   ❌ Error en home")
             return False
-        
+
         # Prueba de movimiento hacia abajo
         print("3. Moviendo hacia abajo...")
         if stamper.move_down():
@@ -1049,10 +1056,10 @@ def stampertest():
         else:
             print("   ❌ Error en movimiento hacia abajo")
             return False
-        
+
         # Esperar un poco
         time.sleep(2)
-        
+
         # Prueba de movimiento hacia arriba
         print("4. Moviendo hacia arriba...")
         if stamper.move_up():
@@ -1060,10 +1067,10 @@ def stampertest():
         else:
             print("   ❌ Error en movimiento hacia arriba")
             return False
-        
+
         print("=== Pruebas del Stamper completadas exitosamente ===")
         return True
-        
+
     except Exception as e:
         print(f"❌ Error durante las pruebas del stamper: {e}")
         return False
@@ -1076,7 +1083,7 @@ def taping_test():
     シンプルなテストシーケンス（0x03–0x0D）
     """
     global taping
-    
+
     try:
         if taping is None:
             print("❌ taping no está inicializado / not initialized / 初期化されていません")
@@ -1084,7 +1091,7 @@ def taping_test():
 
         print("=== Taping Test / Prueba Taping / テーピングテスト ===")
 
-      
+
         # taping.send_heartbeat()
         # taping.step1_feeder()
         # taping.step2_wrapper_ccw()
@@ -1119,8 +1126,11 @@ if __name__ == "__main__":
     # result = movePickandPlace(1)
     # print(f"movePickandPlace result: {result}")
     # #
-    # result = oneCycle()
-    # print(f"oneCycle result: {result}")
+
+    # insertionServosOpen()
+
+    result = oneCycle()
+    print(f"oneCycle result: {result}")
     #
     # result = pickUpHose()
     # print(f"pickUpHose result: {result}")
@@ -1144,7 +1154,7 @@ if __name__ == "__main__":
     # testIR()
 
     # Prueba de TapingFuyus
-    taping_fuyus_test()
+    # taping_fuyus_test()
 
     # Prueba de Taping
     # taping_test()
