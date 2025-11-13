@@ -119,7 +119,7 @@ class HosePuller:
         """
         speed_high = speed >> 8
         speed_low = speed & 0xFF
-        status, reply_data = self.canbus.send_message(self.canbus_id, [0x16, speed_high, speed_low, direction, acceleration, 0x00, 0x00, 0x00])
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x16, speed_high, speed_low, direction, acceleration, 0x00, 0x00, 0x00],max_retries=30)
         
         if status == 'success' and reply_data:
             # reply_data[2] contains sensor state: 1 = no hose detected, 0 = hose still detected

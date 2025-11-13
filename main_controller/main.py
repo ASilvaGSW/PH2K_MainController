@@ -539,7 +539,7 @@ def oneCycle():
     pickup_y = 9015
     before_rise_position = 8510
     z_home = 50
-    z_picking_position = 75
+    z_picking_position = 80
     alignmnet_for_joint = 4860
 
     #****************************** Custom Variables ******************************
@@ -630,8 +630,8 @@ def oneCycle():
 
     # Alignment for Joint Insertion
     # if hose_puller.move_y_actuator_with_speed(alignmnet_for_joint,hose_puller_y_speed_for_alignment) != "success" : return "error13" #Aqui hare el cambio
-    if hose_puller.move_y_axis_until_no_hose(100) != "success" : return "error13"
-    if hose_puller.move_y_actuator_relative_with_speed(10) != "success" : return "error13.1"
+    if hose_puller.move_y_axis_until_no_hose(50) != "success" : "error13"
+    # if hose_puller.move_y_actuator_relative_with_speed(10) != "success" : return "error13.1"
 
     # Stoping Prefeeder
     if lubrication_feeder.move_pre_feeder(0) != "success" : return "error04"
@@ -1129,9 +1129,9 @@ if __name__ == "__main__":
 
     # insertionServosOpen()
 
-    result = oneCycle()
-    print(f"oneCycle result: {result}")
-    #
+    # result = oneCycle()
+    # print(f"oneCycle result: {result}")
+
     # result = pickUpHose()
     # print(f"pickUpHose result: {result}")
     # result = insertionRoutine()
@@ -1142,7 +1142,7 @@ if __name__ == "__main__":
     # result = moveHosepuller()
     # print(f"moveHosepuller result: {result}")
     
-    # testHome()
+    testHome()
 
     # insertionServosOpen()
 
