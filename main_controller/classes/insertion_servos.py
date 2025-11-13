@@ -136,6 +136,9 @@ class InsertionServos:
     def holder_hose_joint_close(self):
         return self.holder_hose_joint(self.holder_hose_close_pos)
 
+    def holder_hose_joint_semi_close(self):
+        return self.holder_hose_joint(self.holder_hose_close_pos-15)
+
     def slider_nozzle_insertion(self, position=None):
         if position is None:
             position = self.slider_nozzle_insertion_pos

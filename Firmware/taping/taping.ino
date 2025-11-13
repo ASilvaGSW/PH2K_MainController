@@ -368,7 +368,7 @@ void loop()
       {
         sequenceRunning = true;
         if (fullCycleFirstPress) {
-          Serial.println("FullCycle: First press - step7(), step1()");
+          Serial.println("FullCycle Case: First press - step7(), step1()");
           step7(); // Ensure holder is in home position
           delay(10);
           step1();

@@ -124,8 +124,8 @@ class HosePuller:
         if status == 'success' and reply_data:
             # reply_data[2] contains sensor state: 1 = no hose detected, 0 = hose still detected
             hose_detected = not bool(reply_data[2])
-            return status, hose_detected
-        return status, None
+            return status
+        return status
 
     # Case 0x17: Move Y actuator to relative position with speed and acceleration control
     def move_y_actuator_relative_with_speed(self, relative_position, speed=100, acceleration=236):
