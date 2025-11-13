@@ -1127,7 +1127,7 @@ if __name__ == "__main__":
     # print(f"movePickandPlace result: {result}")
     # #
 
-    # insertionServosOpen()
+    insertionServosOpen()
 
     # result = oneCycle()
     # print(f"oneCycle result: {result}")
@@ -1142,7 +1142,7 @@ if __name__ == "__main__":
     # result = moveHosepuller()
     # print(f"moveHosepuller result: {result}")
     
-    testHome()
+    # testHome()
 
     # insertionServosOpen()
 
