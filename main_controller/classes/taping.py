@@ -139,6 +139,11 @@ class Taping:
         status, reply_data = self.canbus.send_message(self.canbus_id, [0x12] + [0x00]*7, False)
         return status
 
+    def checkAlignment(self):
+        """Check if the tape is aligned with the holder / ホルダーと磁気センサーが一致しているか確認"""
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x15] + [0x00]*7, False)
+        return status
+
     def completeCycle(self,wait=5):
         self.execute_forward_sequence()
         time.sleep(wait)

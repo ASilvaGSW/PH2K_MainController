@@ -120,7 +120,7 @@ class HoseJigV2:
         """
         pos = max(0, min(180, int(position)))
         j = 0 if jig is None else int(jig)
-        status, _ = self.canbus.send_message(self.canbus_id, [0x1A, j, pos, 0x00, 0x00, 0x00, 0x00, 0x00])
+        status, _ = self.canbus.send_message(self.canbus_id, [0x1A, j, pos, 0x00, 0x00, 0x00, 0x00, 0x00],wait_for_reply=False)
         return status
 
     # 0x10: Update SERVO_OPEN_ANGLE

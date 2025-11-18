@@ -978,46 +978,79 @@ def taping_fuyus_test():
 
     home_position = 0
     tape_position = 830
-    z_speed = 250
-    tape_spot = 1600
+    z_speed = 150
+    tape_spot = 1640
     y_speed = 400
 
-    # Enviar Z a Home
-    # print("Enviando Z a Home...")
-    # taping_fuyus.home_z_actuator()
-    # time.sleep(0.5)
+    while True:
 
-    # # Enviar Y a Home
-    # print("Enviando Y a Home...")
-    # taping_fuyus.home_y_actuator()
-    # time.sleep(0.5)
+        print("==============================")
+        print("Seleccione una opción / Select an option / オプションを選択")
+        print("1: Enviar Z y Y a Home / Home Z & Y / ZとYホーム")
+        print("2: Mover servos a 7 y 92 / Move servos 7 & 92 / サーボ7と92")
+        print("3: Verificar alineación / Check alignment / アライメント確認")
+        print("4: Secuencia adelante con corte y regreso / Forward seq with cut / 前進シーケンス+カット")
+        print("5: Volver ambos actuadores a Home y servos 7 / Return Home / ホームに戻す")
+        print("==============================")
 
-    # Routine
-    # for i in range(1):
+        try:
+            x = int(input("Ingrese opción (1-5) / Enter option (1-5) / オプション(1-5): "))
+        except ValueError:
+            print("Entrada inválida")
+            continue
 
-    # hose_jig_v2.gripper_open(2)
-    hose_jig_v2.move_servos_absolute(90,2)
+        if x == 1:
 
-    # taping.execute_forward_sequence()
-    # taping.execute_backward_sequence()
+            # Enviar Z a Home
+            print("Enviando Z a Home...")
+            taping_fuyus.home_z_actuator()
+            time.sleep(0.5)
 
-    # return ""
+            # Enviar Y a Home
+            print("Enviando Y a Home...")
+            taping_fuyus.home_y_actuator()
+            time.sleep(0.5)
 
-    taping_fuyus.move_z_actuator_with_speed(home_position,z_speed)
-    taping_fuyus.move_y_actuator_with_speed(tape_spot,y_speed)
+        elif x == 2:
 
-    taping_fuyus.move_z_actuator_with_speed(tape_position,z_speed)
+            hose_jig_v2.move_servos_absolute(7,2)
+            hose_jig_v2.move_servos_absolute(92,2)
 
-    time.sleep(1)
+        elif x == 3:
 
-    # taping.execute_backward_sequence()
+            taping.checkAlignment()
 
-    time.sleep(3)
+        elif x == 4:
 
-    taping_fuyus.move_z_actuator_with_speed(home_position,z_speed)
-    taping_fuyus.move_y_actuator_with_speed(home_position,y_speed)
+            taping.execute_forward_sequence()
 
-    hose_jig_v2.gripper_open(2)
+            time.sleep(5)
+
+            hose_jig_v2.move_servos_absolute(92,2)
+
+            taping_fuyus.move_z_actuator_with_speed(home_position,z_speed)
+            taping_fuyus.move_y_actuator_with_speed(tape_spot,y_speed)
+
+            taping_fuyus.move_z_actuator_with_speed(tape_position-80,z_speed)
+
+            taping.open_gripper()
+            taping.cut_tape()
+            time.sleep(3)
+
+            taping_fuyus.move_z_actuator_with_speed(tape_position,z_speed)
+
+            time.sleep(1)
+
+            taping.execute_backward_sequence()
+
+        elif x == 5:
+
+            taping_fuyus.move_z_actuator_with_speed(home_position,z_speed)
+            taping_fuyus.move_y_actuator_with_speed(home_position,y_speed)
+
+            hose_jig_v2.move_servos_absolute(7,2)
+        else:
+            print("Opción no válida")
 
     return True
 
@@ -1128,7 +1161,7 @@ if __name__ == "__main__":
     # print(f"movePickandPlace result: {result}")
     # #
 
-    insertionServosOpen()
+    # insertionServosOpen()
 
     # result = oneCycle()
     # print(f"oneCycle result: {result}")
@@ -1155,7 +1188,7 @@ if __name__ == "__main__":
     # testIR()
 
     # Prueba de TapingFuyus
-    # taping_fuyus_test()
+    taping_fuyus_test()
 
     # Prueba de Taping
     # taping_test()
