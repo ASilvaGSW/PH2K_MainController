@@ -189,6 +189,8 @@ class LubricationFeeder:
     def close_hose_holder(self):
         return self.set_hose_holder_angle(17)
 
+
+
     # 0x19: Attach Electromagnet (Activate electromagnet)
     def attach_electromagnet(self):
         status = self.canbus.send_message(self.canbus_id, [0x19] + [0x00]*7)[0]

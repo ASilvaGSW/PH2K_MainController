@@ -103,7 +103,7 @@ def my_main():
     transporter_fuyus = TransporterFuyus(canbus, CANBUS_ID_TRANSPORTER_FUYUS)
     transporter_grippers = TransporterGrippers(canbus, CANBUS_ID_TRANSPORTER_GRIPPERS)
 
-    # checkConnectivity()
+    checkConnectivity()
 
 
 #Check connectivity
@@ -517,17 +517,17 @@ def oneCycle():
     home_position_z = 4200 + offset_z
     home_position_x = 0 + offset_x
 
-    lubrication_position_z = 550 + offset_z
-    lubricate_nozzle = -1350 + offset_x
+    lubrication_position_z = 380 + offset_z
+    lubricate_nozzle = 1400 + offset_x
 
-    insertion_position_z = 550 + offset_z
-    insert_nozzle = -2840 + offset_x
+    insertion_position_z = 380 + offset_z
+    insert_nozzle = 2890 + offset_x
 
-    librication_position_joint_z = 550 + offset_z
-    lubricate_joint = -7370 + offset_x
+    librication_position_joint_z = 380 + offset_z
+    lubricate_joint = 7420 + offset_x
 
-    insertion_position_joint_z = 550 + offset_z
-    insert_joint = -5190 + offset_x
+    insertion_position_joint_z = 380 + offset_z
+    insert_joint = 5240 + offset_x
 
     #****************************** Hose Puller Data ******************************
 
@@ -541,6 +541,7 @@ def oneCycle():
     z_home = 50
     z_picking_position = 80
     alignmnet_for_joint = 4860
+    alignmnet_for_joint = 5000
 
     #****************************** Custom Variables ******************************
 
@@ -548,14 +549,15 @@ def oneCycle():
     preefeder_speed = 50
     feed_hose_time = 3.15
     lubricate_nozzle_time = 0.15
-    lubricate_joint_time = 0.15
+    lubricate_joint_time = 0.11
     hose_puller_y_speed = 200
-    hose_puller_y_speed_for_alignment = 70
+    hose_puller_y_speed_for_alignment = 50
 
     #****************************** Routine ******************************
 
     if hose_jig.gripper_open() != "success" : return "error01"
 
+    if insertion_servos.activate_cutter() != "success" : return "error02"
     if insertion_servos.slider_nozzle_receive() != "success" : return "error02"
 
     # Feed Hose
@@ -627,12 +629,16 @@ def oneCycle():
     if lubrication_feeder.close_hose_holder() != "success" : return "error40"
     time.sleep(.5)
     if insertion_servos.activate_cutter() != "success" : return "error41"
+    time.sleep(.5)
+    if lubrication_feeder.open_hose_holder() != "success" : return "error40"
+
 
     # Alignment for Joint Insertion
-    # if hose_puller.move_y_actuator_with_speed(alignmnet_for_joint,hose_puller_y_speed_for_alignment) != "success" : return "error13" #Aqui hare el cambio
+    if hose_puller.move_y_actuator_with_speed(alignmnet_for_joint,hose_puller_y_speed_for_alignment) != "success" : return "error13" #Aqui hare el cambio
     if insertion_servos.holder_hose_joint_semi_close() != "success" : return "error42"
+    time.sleep(1)
     if hose_puller.move_y_axis_until_no_hose(hose_puller_y_speed_for_alignment) != "success" : return "error43"
-    # if hose_puller.move_y_actuator_relative_with_speed(10) != "success" : return "error13.1"
+    # if hose_puller.move_y_actuator_relative_with_speed(50) != "success" : return "error13.1"
 
     # Stoping Prefeeder
     if lubrication_feeder.move_pre_feeder(0) != "success" : return "error44"
@@ -1163,8 +1169,8 @@ if __name__ == "__main__":
 
     # insertionServosOpen()
 
-    # result = oneCycle()
-    # print(f"oneCycle result: {result}")
+    result = oneCycle()
+    print(f"oneCycle result: {result}")
 
     # result = pickUpHose()
     # print(f"pickUpHose result: {result}")

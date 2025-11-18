@@ -997,11 +997,11 @@ class CycleParameterTester:
         sensor_frame.pack(fill=tk.X, padx=10, pady=5)
         
         # Speed input for sensor test
-        self.hose_sensor_speed_var = tk.StringVar(value="200")
+        hose_sensor_speed_var = tk.StringVar(value="200")
         ttk.Label(sensor_frame, text="Velocidad:").pack(side=tk.LEFT, padx=5)
-        ttk.Entry(sensor_frame, textvariable=self.hose_sensor_speed_var, width=10).pack(side=tk.LEFT, padx=5)
+        ttk.Entry(sensor_frame, textvariable=hose_sensor_speed_var, width=10).pack(side=tk.LEFT, padx=5)
         ttk.Button(sensor_frame, text="Mover Y hasta No Detectar Manguera", 
-                  command=self.test_move_y_until_no_hose).pack(side=tk.LEFT, padx=5)
+                  command=lambda:self.test_move_y_until_no_hose(hose_sensor_speed_var.get())).pack(side=tk.LEFT, padx=5)
         
         # Z Axis controls
         z_frame = ttk.LabelFrame(parent, text="Actuador Z", padding=10)
@@ -1190,15 +1190,12 @@ class CycleParameterTester:
         except ValueError:
             self.log_message("Error: Posición Y o velocidad inválida")
     
-    def test_move_y_until_no_hose(self):
+    def test_move_y_until_no_hose(self,speed):
         """Test method for moving Y axis until no hose is detected"""
         try:
-            speed = int(self.hose_sensor_speed_var.get())
-            direction = 0  # Default direction (forward)
-            acceleration = 236  # Default acceleration
-            
+
             self.log_message(f"Iniciando movimiento Y hasta no detectar manguera - Velocidad: {speed}")
-            result = self.hose_puller.move_y_axis_until_no_hose(speed, direction, acceleration)
+            result = self.hose_puller.move_y_axis_until_no_hose(speed)
             
             if result:
                 status, hose_detected = result
