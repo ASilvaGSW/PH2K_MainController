@@ -1,0 +1,143 @@
+
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{longtable}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage{xurl}
+\usepackage{hyperref}
+
+\geometry{a4paper, margin=1in}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{Pick and Place Firmware Documentation}
+\fancyfoot[C]{\thepage\ of \pageref{LastPage}}
+
+\begin{document}
+
+\section{Introduction}
+This document provides a detailed overview of the firmware for the Pick and Place system, which is part of the PH2K New Protocol project. The firmware is designed to run on an ESP32 microcontroller and manages the control of actuators, conveyors, a gripper, and sensors through CAN bus communication.
+
+\section{System Architecture}
+The system utilizes a dual CAN bus architecture and FreeRTOS for multitasking.
+
+\subsection{Hardware}
+\begin{itemize}
+    \item \textbf{Microcontroller:} ESP32
+    \item \textbf{CAN Bus 1 (TWAI):} Integrated ESP32 TWAI controller for general network communication.
+    \item \textbf{CAN Bus 2 (MCP2515):} External MCP2515 CAN controller for the local network of actuators and other components.
+    \item \textbf{Actuators:} Two linear actuators for the X and Z axes.
+    \item \textbf{Conveyors:} Two conveyors, left and right.
+    \item \textbf{Gripper:} A digital gripper.
+    \item \textbf{Sensors:} Two IR sensors to detect the presence of objects on the conveyors.
+    \item \textbf{Storage:} EEPROM for non-volatile storage of movement counters.
+\end{itemize}
+
+\subsection{Software}
+\begin{itemize}
+    \item \textbf{Operating System:} FreeRTOS for managing concurrent tasks.
+    \item \textbf{CAN Communication:} ESP32-TWAI-CAN and MCP\_CAN libraries for CAN bus interaction.
+    \item \textbf{Task Management:} A dedicated task, \texttt{twai\_listener\_task}, runs on core 0 to listen for incoming CAN messages, while the main loop and instruction processing run on core 1.
+    \item \textbf{Instruction Queue:} A FreeRTOS queue, \texttt{instruction\_queue}, is used to buffer incoming commands from the main CAN bus.
+\end{itemize}
+
+\section{Core Functions}
+\subsection{\texttt{setup()}}
+The \texttt{setup()} function initializes the system:
+\begin{itemize}
+    \item Initializes serial communication.
+    \item Initializes the EEPROM and loads the movement counters.
+    \item Creates the instruction queue.
+    \item Initializes both CAN buses.
+    \item Initializes the IR sensors.
+    \item Creates the \texttt{twai\_listener\_task}.
+\end{itemize}
+
+\subsection{\texttt{loop()}}
+The \texttt{loop()} function is the main task running on core 1. It continuously checks the \texttt{instruction\_queue} for new commands and, when a command is available, calls the \texttt{process\_instruction()} function to execute it.
+
+\subsection{\texttt{twai\_listener\_task()}}
+This task runs on core 0 and is responsible for listening for incoming CAN frames on the TWAI bus. When a frame with the correct device ID is received, it is placed into the \texttt{instruction\_queue} for processing.
+
+\section{process\_instruction()}
+The \texttt{process\_instruction(CanFrame instruction)} function is the core of the firmware's logic, processing commands received from the main CAN bus.
+
+\subsection{Commands}
+The following table details the available commands, their parameters, and expected responses.
+
+\begin{longtable}{|p{0.1\textwidth}|p{0.25\textwidth}|p{0.3\textwidth}|p{0.25\textwidth}|}
+\hline
+\textbf{Command} & \textbf{Description} & \textbf{Input Parameters} & \textbf{Return Value} \\
+\hline
+\endhead
+\hline
+\multicolumn{4}{|r|}{{Continued on next page}} \\
+\hline
+\endfoot
+\hline
+\endlastfoot
+\texttt{0x01} & Reset microcontroller & None & [0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00] \\
+\hline
+\texttt{0x02} & Send Heartbeat & None & [0x02, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00] \\
+\hline
+\texttt{0x03} & Home Actuators & None & [0x03, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00] \\
+\hline
+\texttt{0x04} & Move Actuator X to Absolute Position & \url{data[1]: pos_high, data[2]: pos_low, data[3]: orientation} & [0x04, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00] \\
+\hline
+\texttt{0x05} & Move Actuator Z to Absolute Position & \url{data[1]: pos_high, data[2]: pos_low, data[3]: orientation} & [0x05, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00] \\
+\hline
+\texttt{0x06} & Read Actuator Z Movement Counter & None & \url{[0x06, 0x01, counter_high, counter_low, 0x00, 0x00, 0x00, 0x00]} \\
+\hline
+\texttt{0x07} & Read Actuator X Movement Counter & None & \url{[0x07, 0x01, counter_high, counter_low, 0x00, 0x00, 0x00, 0x00]} \\
+\hline
+\texttt{0x08} & Reset Actuator X Movement Counter & None & [0x08, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00] \\
+\hline
+\texttt{0x09} & Reset Actuator Z Movement Counter & None & [0x09, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00] \\
+\hline
+\texttt{0x0A} & Move Left Conveyor in Speed Mode & \url{data[1]: direction, data[2]: speed_high, data[3]: speed_low, data[4]: acceleration} & [0x0A, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00] \\
+\hline
+\texttt{0x0B} & Move Right Conveyor in Speed Mode & \url{data[1]: direction, data[2]: speed_high, data[3]: speed_low, data[4]: acceleration} & [0x0B, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00] \\
+\hline
+\texttt{0x0D} & Open Gripper & None & [0x0D, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00] \\
+\hline
+\texttt{0x0E} & Close Gripper & None & [0x0E, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00] \\
+\hline
+\texttt{0x0F} & Set Gripper Force & \url{data[1]: force_value} & [0x0F, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00] \\
+\hline
+\texttt{0x10} & Read Gripper Movement Counter & None & \url{[0x10, 0x01, counter_high, counter_low, 0x00, 0x00, 0x00, 0x00]} \\
+\hline
+\texttt{0x11} & Reset Gripper Movement Counter & None & [0x11, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00] \\
+\hline
+\texttt{0x12} & Read Left Conveyor Movement Counter & None & \url{[0x12, 0x01, counter_high, counter_low, 0x00, 0x00, 0x00, 0x00]} \\
+\hline
+\texttt{0x13} & Reset Left Conveyor Movement Counter & None & [0x13, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00] \\
+\hline
+\texttt{0x14} & Read Right Conveyor Movement Counter & None & \url{[0x14, 0x01, counter_high, counter_low, 0x00, 0x00, 0x00, 0x00]} \\
+\hline
+\texttt{0x15} & Reset Right Conveyor Movement Counter & None & [0x15, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00] \\
+\hline
+\texttt{0x18} & Move Left Conveyor Until IR Sensor Activation & \url{data[1]: direction, data[2]: speed_high, data[3]: speed_low, data[4]: acceleration} & [0x18, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00] \\
+\hline
+\texttt{0x19} & Move Right Conveyor Until IR Sensor Activation & \url{data[1]: direction, data[2]: speed_high, data[3]: speed_low, data[4]: acceleration} & [0x19, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00] \\
+\hline
+\texttt{0x1A} & Check Left IR Sensor Status & None & \url{[0x1A, 0x01, sensor_status, 0x00, 0x00, 0x00, 0x00, 0x00]} \\
+\hline
+\texttt{0x1B} & Check Right IR Sensor Status & None & \url{[0x1B, 0x01, sensor_status, 0x00, 0x00, 0x00, 0x00, 0x00]} \\
+\hline
+\texttt{0xFF} & Power Off (Move All to Home Position) & None & [0xFF, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00] \\
+\hline
+\end{longtable}
+
+\subsection{Status Codes}
+The \texttt{status} byte in the response message indicates the outcome of the command.
+\begin{itemize}
+    \item \texttt{0x01}: Success
+    \item \texttt{0x02}: Failure
+    \item \texttt{0x03}: Timeout
+    \item \texttt{0x04}: Network/Communication Error
+    \item \texttt{0xFF}: Unknown Command
+\end{itemize}
+
+\end{document}
