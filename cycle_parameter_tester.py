@@ -1000,8 +1000,7 @@ class CycleParameterTester:
         hose_sensor_speed_var = tk.StringVar(value="200")
         ttk.Label(sensor_frame, text="Velocidad:").pack(side=tk.LEFT, padx=5)
         ttk.Entry(sensor_frame, textvariable=hose_sensor_speed_var, width=10).pack(side=tk.LEFT, padx=5)
-        ttk.Button(sensor_frame, text="Mover Y hasta No Detectar Manguera", 
-                  command=lambda:self.test_move_y_until_no_hose(hose_sensor_speed_var.get())).pack(side=tk.LEFT, padx=5)
+        ttk.Button(sensor_frame, text="Mover Y hasta No Detectar Manguera",command=lambda:self.test_move_y_until_no_hose(hose_sensor_speed_var.get())).pack(side=tk.LEFT, padx=5)
         
         # Z Axis controls
         z_frame = ttk.LabelFrame(parent, text="Actuador Z", padding=10)
@@ -1194,8 +1193,10 @@ class CycleParameterTester:
         """Test method for moving Y axis until no hose is detected"""
         try:
 
-            self.log_message(f"Iniciando movimiento Y hasta no detectar manguera - Velocidad: {speed}")
-            result = self.hose_puller.move_y_axis_until_no_hose(speed)
+            spd = int(speed)
+
+            self.log_message(f"Iniciando movimiento Y hasta no detectar manguera - Velocidad: {spd}")
+            result = self.hose_puller.move_y_axis_until_no_hose(spd)
             
             if result:
                 status, hose_detected = result

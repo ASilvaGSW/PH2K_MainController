@@ -1203,5 +1203,3 @@ if __name__ == "__main__":
 
 
     canbus.close_canbus()
-
-
