@@ -1,0 +1,137 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{longtable}
+
+\geometry{a4paper, margin=1in}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{Firmware Documentation: \texttt{hose\_puller.ino}}
+\rhead{Page \thepage\ of \pageref{LastPage}}
+\cfoot{PH2K New Protocol}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+}
+
+\begin{document}
+
+\title{PH2K New Protocol Firmware Documentation \\ \large \texttt{hose\_puller.ino}}
+\author{Gemini}
+\date{\today}
+\maketitle
+
+\begin{abstract}
+This document provides a detailed technical overview of the \texttt{hose\_puller.ino} firmware for the PH2K New Protocol ecosystem. The firmware is designed for an ESP32 microcontroller and manages a sophisticated hose pulling mechanism involving dual linear actuators, a stepper motor, a digital gripper, and a hose presence sensor. It communicates over two independent CAN bus networks.
+\end{abstract}
+
+\section{Introduction}
+The \texttt{hose\_puller.ino} firmware orchestrates a critical assembly line task: pulling a hose to a specific length. It controls both vertical (Z-axis) and horizontal (Y-axis) movement via linear actuators, utilizes a stepper motor for the pulling action, and a digital gripper to hold the hose. A dedicated sensor confirms the hose is in position before starting the operation. All operations are commanded and monitored via CAN bus messages.
+
+\section{System Architecture}
+
+\subsection{Hardware Components}
+\begin{itemize}
+    \item \textbf{Microcontroller:} ESP32, leveraging its dual-core architecture for parallel processing.
+    \item \textbf{CAN Bus 1 (TWAI):} The ESP32's built-in CAN controller, used for primary command and control from the main system.
+    \item \textbf{CAN Bus 2 (MCP2515):} An external CAN controller connected via SPI, dedicated to controlling the linear actuators.
+    \item \textbf{Linear Actuators:} Two actuators responsible for Y-axis and Z-axis positioning.
+    \item \textbf{Stepper Motor:} An \texttt{AccelStepper} controlled motor for precise, controlled pulling of the hose.
+    \item \textbf{Digital Gripper:} A custom gripper mechanism to securely hold the hose during the pulling process.
+    \item \textbf{Hose Presence Sensor:} A digital input sensor on GPIO 32 to verify that a hose is present.
+    \item \textbf{EEPROM:} Used for non-volatile storage of operation counters.
+\end{itemize}
+
+\subsection{Software Architecture}
+The firmware uses FreeRTOS to manage multiple tasks concurrently, ensuring responsive and reliable operation.
+\begin{itemize}
+    \item \textbf{Core 0 Tasks:}
+    \begin{itemize}
+        \item \texttt{loop()}: The main Arduino task, responsible for processing instructions from the queue.
+        \item \texttt{mcp\_listener\_task()}: Dedicated to listening for messages from the linear actuators on the MCP2515 CAN bus.
+    \end{itemize}
+    \item \textbf{Core 1 Tasks:}
+    \begin{itemize}
+        \item \texttt{twai\_listener\_task()}: Dedicated to listening for incoming commands on the primary TWAI CAN bus.
+    \end{itemize}
+    \item \textbf{Instruction Queue:} A FreeRTOS queue (\texttt{xQueueReceive}) safely passes CAN frames from the listener tasks to the main processing loop, preventing race conditions.
+\end{itemize}
+
+\section{Core Functions}
+\begin{description}
+    \item[\texttt{void setup()}] Initializes serial communication, EEPROM, GPIO pins (including the hose sensor and stepper control), both CAN bus interfaces, and creates the FreeRTOS tasks, pinning them to their respective cores.
+    \item[\texttt{void loop()}] The main processing loop. It waits for an instruction to arrive in the queue and calls \texttt{process\_instruction()} to handle it.
+    \item[\texttt{void twai\_listener\_task(void* pvParameters)}] Runs on Core 1. Continuously polls the TWAI CAN bus for incoming messages and places them into the instruction queue.
+    \item[\texttt{void mcp\_listener\_task(void* pvParameters)}] Runs on Core 0. Continuously polls the MCP2515 CAN bus for incoming messages and places them into a separate queue for actuator replies.
+    \item[\texttt{void process\_instruction(CanFrame instruction)}] The central command handler. It uses a switch statement on the first byte of the CAN message payload to execute specific actions.
+\end{description}
+
+\section{CAN Command Reference: \texttt{process\_instruction}}
+The \texttt{process\_instruction} function is the heart of the firmware's logic, interpreting CAN commands to control the hardware. All responses are sent back over the TWAI CAN bus.
+
+\begin{longtable}{|p{0.05\linewidth}|p{0.2\linewidth}|p{0.3\linewidth}|p{0.3\linewidth}|}
+\hline
+\textbf{ID} & \textbf{Command} & \textbf{Input Parameters (CAN Payload)} & \textbf{Return Value (CAN Payload)} \\
+\hline
+\endfirsthead
+\hline
+\textbf{ID} & \textbf{Command} & \textbf{Input Parameters (CAN Payload)} & \textbf{Return Value (CAN Payload)} \\
+\hline
+\endhead
+\hline \multicolumn{4}{r}{{Continued on next page}} \\ 
+\endfoot
+\hline
+\endlastfoot
+
+\texttt{0x01} & Reset MCU & None. & None (device reboots). \\
+\hline
+\texttt{0x02} & Ping & None. & \texttt{\{0x02, 0x01, 0x00, ...\}} on success. \\
+\hline
+\texttt{0x03} & Home Actuators & None. & \texttt{\{0x03, status, 0x00, ...\}}, where \texttt{status} is the combined status of homing both Z and Y axes. \\
+\hline
+\texttt{0x04} & Set Actuator Position & \texttt{byte[1]}: Axis (0 for Z, 1 for Y). \newline \texttt{byte[2-5]}: Position (32-bit integer). & \texttt{\{0x04, status, 0x00, ...\}}, where \texttt{status} indicates if the command was sent successfully. \\
+\hline
+\texttt{0x05} & Read Actuator Counters & None. & \texttt{\{0x05, 0x01, z\_count(32), y\_count(32)\}}, where \texttt{z\_count} and \texttt{y\_count} are the 32-bit movement counters for each axis. \\
+\hline
+\texttt{0x06} & Reset Actuator Counters & None. & \texttt{\{0x06, 0x01, 0x00, ...\}}. \\
+\hline
+\texttt{0x07} & Open Gripper & None. & \texttt{\{0x07, 0x01, 0x00, ...\}}. \\
+\hline
+\texttt{0x08} & Close Gripper & None. & \texttt{\{0x08, 0x01, 0x00, ...\}}. \\
+\hline
+\texttt{0x09} & Read Gripper Counters & None. & \texttt{\{0x09, 0x01, open\_count(32), close\_count(32)\}}, where counts are 32-bit integers. \\
+\hline
+\texttt{0x0A} & Reset Gripper Counters & None. & \texttt{\{0x0A, 0x01, 0x00, ...\}}. \\
+\hline
+\texttt{0x0B} & Move Stepper & \texttt{byte[1-4]}: Target position (32-bit integer). & \texttt{\{0x0B, 0x01, 0x00, ...\}}. The stepper moves to the absolute target position. \\
+\hline
+\texttt{0x0C} & Read Stepper Counter & None. & \texttt{\{0x0C, 0x01, count(32), 0x00, ...\}}, where \texttt{count} is the 32-bit movement counter. \\
+\hline
+\texttt{0x0D} & Reset Stepper Counter & None. & \texttt{\{0x0D, 0x01, 0x00, ...\}}. \\
+\hline
+\texttt{0x0E} & Read Hose Presence Sensor & None. & \texttt{\{0x0E, 0x01, status, 0x00, ...\}}, where \texttt{status} is 1 if hose is present, 0 otherwise. \\
+\hline
+\texttt{0x0F} & Home Stepper & None. & \texttt{\{0x0F, 0x01, 0x00, ...\}}. The stepper's current position is set to 0. \\
+\hline
+
+\end{longtable}
+
+\subsection{Status Codes}
+The standard status codes returned in byte 1 of the response payload are:
+\begin{itemize}
+    \item \texttt{0x01}: OK - Instruction completed successfully.
+    \item \texttt{0x02}: FAIL - General failure during execution.
+    \item \texttt{0x03}: TIMEOUT - A reply from a peripheral (like an actuator) was not received in time.
+    \item \texttt{0x04}: NO LOCAL NETWORK - The command to a peripheral could not be sent.
+\end{itemize}
+
+\end{document}

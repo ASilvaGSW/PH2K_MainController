@@ -1,0 +1,131 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{longtable}
+
+\geometry{a4paper, margin=1in}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{Firmware Documentation: \texttt{insertion\_servos.ino}}
+\rhead{Page \thepage\ of \pageref{LastPage}}
+\cfoot{PH2K New Protocol}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+}
+
+\begin{document}
+
+\title{PH2K New Protocol Firmware Documentation \\ \large \texttt{insertion\_servos.ino}}
+\author{Gemini}
+\date{\today}
+\maketitle
+
+\begin{abstract}
+This document provides a detailed technical overview of the \texttt{insertion\_servos.ino} firmware. The firmware is designed for an ESP32 microcontroller to control a complex assembly of seven distinct servo motors. It communicates exclusively over the ESP32's native TWAI CAN bus and uses FreeRTOS for multitasking and EEPROM for persistent counter storage for each servo.
+\end{abstract}
+
+\section{Introduction}
+The \texttt{insertion\_servos.ino} firmware manages multiple servo motors that perform various clamping, holding, and cutting actions as part of a larger automated assembly process. The system is simplified by using a single CAN bus for command and control, and it provides robust tracking of each servo's usage via non-volatile counters.
+
+\section{System Architecture}
+
+\subsection{Hardware Components}
+\begin{itemize}
+    \item \textbf{Microcontroller:} ESP32, with its dual-core processor.
+    \item \textbf{CAN Bus (TWAI):} The ESP32's built-in CAN controller, used for all command and control communication.
+    \item \textbf{Servo Motors:} Seven servo motors are controlled:
+    \begin{itemize}
+        \item \texttt{SliderJoint}
+        \item \texttt{ClampJoint}
+        \item \texttt{HolderHoseJ}
+        \item \texttt{SliderNozzle}
+        \item \texttt{ClampNozzle}
+        \item \texttt{HolderHoseN}
+        \item \texttt{Cutter}
+    \end{itemize}
+    \item \textbf{EEPROM:} Used for non-volatile storage of an operation counter for each of the seven servos.
+\end{itemize}
+
+\subsection{Software Architecture}
+The firmware leverages FreeRTOS to ensure responsive handling of CAN commands.
+\begin{itemize}
+    \item \textbf{Core 0 Task:}
+    \begin{itemize}
+        \item \texttt{twai\_listener\_task()}: A dedicated task that listens for incoming commands on the TWAI CAN bus and places valid instructions into a queue for processing.
+    \end{itemize}
+    \item \textbf{Core 1 Task (Default Arduino Core):}
+    \begin{itemize}
+        \item \texttt{loop()}: The main task that dequeues instructions and calls \texttt{process\_instruction()} to execute them.
+    \end{itemize}
+    \item \textbf{Instruction Queue:} A FreeRTOS queue (\texttt{instruction\_queue}) acts as a thread-safe buffer between the CAN listener and the main processing loop.
+\end{itemize}
+
+\section{Core Functions}
+\begin{description}
+    \item[\texttt{void setup()}] Initializes serial communication, EEPROM (loading all seven servo counters), attaches and sets initial positions for all servos, initializes the TWAI CAN bus, and creates the \texttt{twai\_listener\_task} on Core 0.
+    \item[\texttt{void loop()}] The main application loop. It waits for a command to arrive in the instruction queue and passes it to \texttt{process\_instruction()} for execution.
+    \item[\texttt{void twai\_listener\_task(void* pvParameters)}] Runs on Core 0, continuously monitoring the TWAI bus. When a CAN frame with the correct device ID arrives, it is sent to the instruction queue.
+    \item[\texttt{void process\_instruction(CanFrame instruction)}] The central command router. It uses a switch statement on the CAN data payload to determine which servo to move or which counter to access.
+    \item[\texttt{void incrementServoCounter(int servoId)}] Increments the specified servo's movement counter and saves the new value to EEPROM.
+    \item[\texttt{void resetServoCounter(int servoId)}] Resets the specified servo's movement counter to zero in EEPROM.
+\end{description}
+
+\section{CAN Command Reference: \texttt{process\_instruction}}
+The function interprets CAN commands to control the seven servos. All responses are sent back over the TWAI CAN bus.
+
+\begin{longtable}{|p{0.05\linewidth}|p{0.2\linewidth}|p{0.3\linewidth}|p{0.3\linewidth}|}
+\hline
+\textbf{ID} & \textbf{Command} & \textbf{Input Parameters (CAN Payload)} & \textbf{Return Value (CAN Payload)} \\
+\hline
+\endfirsthead
+\hline
+\textbf{ID} & \textbf{Command} & \textbf{Input Parameters (CAN Payload)} & \textbf{Return Value (CAN Payload)} \\
+\hline
+\endhead
+\hline \multicolumn{4}{r}{{Continued on next page}} \\ 
+\endfoot
+\hline
+\endlastfoot
+
+\texttt{0x01} & Reset MCU & None. & Sends \texttt{\{0x01, 0x01, ...\}} then reboots. \\
+\hline
+\texttt{0x02} & Ping / Heartbeat & None. & \texttt{\{0x02, 0x01, 0x00, ...\}}. \\
+\hline
+\texttt{0x03} & Move Slider Joint & \texttt{byte[1-2]}: Angle (16-bit). & \texttt{\{0x03, 0x01, 0x00, ...\}}. \\
+\hline
+\texttt{0x04} & Move Clamp Joint & \texttt{byte[1-2]}: Angle (16-bit). & \texttt{\{0x04, 0x01, 0x00, ...\}}. \\
+\hline
+\texttt{0x05} & Move Holder Hose Joint & \texttt{byte[1-2]}: Angle (16-bit). & \texttt{\{0x05, 0x01, 0x00, ...\}}. \\
+\hline
+\texttt{0x06} & Move Slider Nozzle & \texttt{byte[1-2]}: Angle (16-bit). & \texttt{\{0x06, 0x01, 0x00, ...\}}. \\
+\hline
+\texttt{0x07} & Move Clamp Nozzle & \texttt{byte[1-2]}: Angle (16-bit). & \texttt{\{0x07, 0x01, 0x00, ...\}}. \\
+\hline
+\texttt{0x08} & Move Holder Hose Nozzle & \texttt{byte[1-2]}: Angle (16-bit). & \texttt{\{0x08, 0x01, 0x00, ...\}}. \\
+\hline
+\texttt{0x09} & Move Cutter & \texttt{byte[1-2]}: Angle (16-bit). & \texttt{\{0x09, 0x01, 0x00, ...\}}. \\
+\hline
+\texttt{0x0A} & Read Servo Counter & \texttt{byte[1]}: Servo ID (1-7). & \texttt{\{0x0A, 0x01, count(32), ...\}}. \\
+\hline
+\texttt{0x0B} & Reset Servo Counter & \texttt{byte[1]}: Servo ID (1-7). & \texttt{\{0x0B, 0x01, servoId, ...\}} on success. \\
+\hline
+
+\end{longtable}
+
+\subsection{Status Codes}
+\begin{itemize}
+    \item \texttt{0x01}: OK - Instruction completed successfully.
+    \item \texttt{0x02}: FAIL - Instruction failed (e.g., queue full, invalid servo ID).
+\end{itemize}
+
+\end{document}

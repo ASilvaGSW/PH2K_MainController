@@ -1,0 +1,115 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{fancyhdr}
+\usepackage{longtable}
+\usepackage{geometry}
+\usepackage{xurl}
+\usepackage{enumitem}
+\geometry{a4paper, margin=1in}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{Taping Firmware}
+\lhead{PH2K New Protocol}
+\cfoot{\thepage}
+
+\title{Firmware Documentation: Taping}
+\author{Alan Silva / Gonzalo Martinez}
+\date{December 2025}
+
+\begin{document}
+
+\maketitle
+
+\section{Overview}
+This document provides detailed technical documentation for the \texttt{taping.ino} firmware, a sophisticated control system for an automated taping machine within the PH2K New Protocol ecosystem. The firmware runs on an ESP32 and manages a complex sequence of operations involving numerous servos, sensors, and encoders to perform a complete taping cycle.
+
+The system is designed to feed a specific length of tape, wrap it around a hose, cut it, and reset for the next cycle. It uses a single CAN bus for primary command and control, and integrates a variety of sensors for precise feedback and state management.
+
+\section{Hardware Architecture}
+The firmware coordinates a large and diverse set of hardware components:
+\begin{itemize}
+    \item \textbf{Six Servo Motors:} 
+    \begin{itemize}[noitemsep,topsep=0pt]
+        \item \texttt{servo1}: Feeder - A continuous rotation servo to feed the tape.
+        \item \texttt{servo2}: Wrapper - A continuous rotation servo to wrap the tape.
+        \item \texttt{servo3}: Cutter - A standard servo for the cutting mechanism.
+        \item \texttt{servo4}: Holder - A standard servo to hold the tape.
+        \item \texttt{servo5}: Gripper - A standard servo to grip the hose.
+        \item \texttt{servo6}: Elevator - A standard servo to control the height of the mechanism.
+    \end{itemize}
+    \item \textbf{Encoders (AS5600):} Two high-precision magnetic encoders are used to monitor the exact rotation of the Feeder and Wrapper servos.
+    \item \textbf{RGB Color Sensors (TCS34725):} Two color sensors are used to detect the presence of the tape (Feeder) and the hose (Hose Sensor).
+    \item \textbf{Hall Effect Sensor:} A sensor on the Wrapper mechanism to detect full rotations.
+    \item \textbf{Position Sensors:} Digital input sensors to confirm the physical position of the Cutter and Elevator mechanisms.
+    \item \textbf{CAN Bus (TWAI):} The ESP32's integrated TWAI controller is used for all external communication. The device listens for commands on CAN ID \texttt{0x00A} and sends responses on ID \texttt{0x40A}.
+    \item \textbf{Push Buttons:} Three physical buttons for manual control: Full Cycle/Cut, Forward, and Backward.
+\end{itemize}
+
+\section{Software Architecture}
+The software is built on FreeRTOS to manage the concurrent tasks required for this complex machine.
+
+\subsection{Core Components}
+\begin{itemize}
+    \item \textbf{FreeRTOS:} Manages multitasking by running a dedicated \texttt{twai\_listener\_task} on Core 0 for CAN communication, while the main application logic and sensor polling run on Core 1.
+    \item \textbf{Instruction Queue:} A FreeRTOS queue buffers incoming CAN commands, ensuring that instructions are processed reliably without being missed.
+    \item \textbf{State-Driven Logic:} The firmware heavily relies on state variables (e.g., \texttt{gripperClosed}, \texttt{sequenceRunning}) to manage the multi-step taping process and prevent conflicting operations.
+    \item \textbf{Interrupt Service Routine (ISR):} An ISR (\texttt{hallSensorISR}) is used for the Hall effect sensor to accurately count wrapper rotations without blocking the main loop.
+\end{itemize}
+
+\subsection{Key Functions}
+\begin{description}
+    \item[\texttt{setup()}] Initializes all hardware components, including servos, sensors, encoders, and the CAN bus. It attaches the ISR for the Hall sensor and creates the FreeRTOS listener task.
+    \item[\texttt{loop()}] The main task on Core 1. It primarily checks for and processes CAN instructions. It also contains the logic for handling the physical push buttons with debouncing.
+    \item[\texttt{twai\_listener\_task()}] Runs on Core 0, continuously listening for CAN frames and placing valid commands into the instruction queue.
+    \item[\texttt{process\_instruction(CanFrame instruction)}] The main command handler. It uses a \texttt{switch} statement to execute actions based on the received CAN command. This includes initiating complex sequences like the full taping cycle.
+    \item[\texttt{stepX() functions}] The core logic is broken down into a series of \texttt{step} functions (e.g., \texttt{step1()}, \texttt{step2()}, etc.) that define the automated taping sequence. These are called in order to complete a full cycle.
+\end{description}
+
+\section{CAN Command Reference}
+The table below details the CAN commands for the taping machine.
+
+\begin{longtable}{|p{0.1\linewidth}|p{0.3\linewidth}|p{0.3\linewidth}|p{0.2\linewidth}|}
+    \hline
+    \textbf{Command} & \textbf{Description} & \textbf{Input Parameters} & \textbf{Return Value} \\
+    \hline
+    \endhead
+
+    \texttt{0x01} & Reset microcontroller. & None & \url{[0x01, 0x01, ...]} \\
+    \hline
+    \texttt{0x02} & Heartbeat check. & None & \url{[0x02, 0x01, ...]} \\
+    \hline
+    \texttt{0x03} & Set tape type for speed adjustment. & \url{data[1]: tapeType (0=19mm, 1=25mm)} & \url{[0x03, 0x01, ...]} \\
+    \hline
+    \texttt{0x04} & Start the full taping cycle (equivalent to push button). & None & \url{[0x04, 0x01, ...]} \\
+    \hline
+    \texttt{0x05} & Move Feeder (servo1) forward. & None & \url{[0x05, 0x01, ...]} \\
+    \hline
+    \texttt{0x06} & Move Feeder (servo1) backward. & None & \url{[0x06, 0x01, ...]} \\
+    \hline
+    \texttt{0x07} & Stop Feeder (servo1). & None & \url{[0x07, 0x01, ...]} \\
+    \hline
+    \texttt{0x08} & Move Elevator (servo6) up. & None & \url{[0x08, 0x01, ...]} \\
+    \hline
+    \texttt{0x09} & Move Elevator (servo6) down. & None & \url{[0x09, 0x01, ...]} \\
+    \hline
+    \texttt{0x0A} & Open Gripper (servo5). & None & \url{[0x0A, 0x01, ...]} \\
+    \hline
+    \texttt{0x0B} & Close Gripper (servo5). & None & \url{[0x0B, 0x01, ...]} \\
+    \hline
+    \texttt{0x0C} & Move Holder (servo4) to hold position. & None & \url{[0x0C, 0x01, ...]} \\
+    \hline
+    \texttt{0x0D} & Move Holder (servo4) to home position. & None & \url{[0x0D, 0x01, ...]} \\
+    \hline
+    \texttt{0x0E} & Perform the cutting action (servo3). & None & \url{[0x0E, 0x01, ...]} \\
+    \hline
+    \texttt{0x0F} & Move Cutter (servo3) to home position. & None & \url{[0x0F, 0x01, ...]} \\
+    \hline
+    \texttt{0x10} & Start the synchronized movement of Feeder and Wrapper for taping. & None & \url{[0x10, 0x01, ...]} \\
+    \hline
+    \texttt{0xFF} & Power off sequence (stops all servos). & None & \url{[0xFF, 0x01, ...]} \\
+    \hline
+
+\end{longtable}
+
+\end{document}

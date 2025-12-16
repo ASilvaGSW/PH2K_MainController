@@ -119,7 +119,8 @@ int angle_home5 = 115;                                                          
 /////////////////////
 // #define S6FinalPos 1590                                                                                       // Up
 #define S6FinalPos 1690                                                                                       // Up
-#define S6HomePos 700                                                                                         // Down   
+// #define S6HomePos 700                                                                                         // Down   
+#define S6HomePos 770                                                                                         // Down   
 const float servo6StepDelay = 1;                                                                              // Value of delay used to control speed
                                                                                                             
 ////////////
@@ -132,7 +133,7 @@ float initialAngle = 0;                                                         
 float targetAngle = 0;                                                                                        // "" it will change later on the code
 const float degreesPerFeed = 158.0;                                                                           // Adjust the angle based on the lenght of tape to feed: 60 mm = 152.2 degrees (158 value obtained during tests)
 // const float degreesPerFeedSync = 177.66;                                                                      // Lenght of the tape that will be wrapped around the hose
-const float degreesPerFeedSync = 177.66;                                                                      // Lenght of the tape that will be wrapped around the hose
+const float degreesPerFeedSync = 172.66;                                                                      // Lenght of the tape that will be wrapped around the hose
 // const float degreesPerFeedSync = 183;                                                                      // Lenght of the tape that will be wrapped around the hose
 float initialAngle2 =0;                                                                                       // To ensure that the Encoder will start with a value of 0
 float targetAngle2 = 0;                                                                                       // "" it will change later on the code
@@ -559,12 +560,10 @@ void loop()
         break;
 
       case 15:
-        align_wrapper(true);
+        align_wrapper();
         break;
 
-      case 16:
-        align_wrapper_with_encoder();
-        break;
+
     
       case 14: {                                                                                              // Case 15: Part Number selection moved from case 14
         Serial.println("Select Part Number: 1 for 19mm tape, 2 for 10mm tape");
@@ -759,6 +758,8 @@ void wrap_cw()
     Serial.println(totalMoved);
   }
 }
+
+
 //////////
 //CUTTER//
 //////////
@@ -829,45 +830,11 @@ void wrapper_3cw()
 
   servo2.writeMicroseconds(stopServo);         // After all conditions denied the servo will stop
   
-  // delay(1000);
+  delay(1000);
 
-  align_wrapper(true);
-  
-  // align_wrapper(true);
+  align_wrapper();
 
-  // align_wrapper(true);
-  // Previous code for correction                                                               
-  // if(hallCounter >= TARGET_ROTATIONS)                                                                          // Conditional to detect succesfull movement or an error based on the Hall Effect Sensor input 
-  // {
-  //   Serial.println("Stopped by Hall Sensor. 4 rotations complete!");                                           // Message printed if succcesfull movement                                            
-  //   // --- Begin CCW Correction ---
-  //   float correctionDegrees = 37.0;                                                                            // Correction value for the wrapper to coincide with the structure
-  //   float startAngle = encoder2.readAngle() * encoderRes;                                                      // Variable to save the stop position
-  //   float moved = 0.0;                                                                                         // Variable to calculate the degress moved
-  //   float prevAngle = startAngle;                                                                              // Variable to store the previous angle value
-  //   servo2.writeMicroseconds(speedServo2_CCW_C);                                                                 // Begin movement of the wrapper in CCW direction
-  //   unsigned long correctionStartTime = millis();                                                              // Reset timer for correction phase
-  //   while (moved < correctionDegrees && (millis() - correctionStartTime < timeout2))                           // Correction loop with its own timeout
-  //   {
-  //       float currAngle = encoder2.readAngle() * encoderRes;                                                   // Variable to read in real time the current position of the wrapper
-  //       float delta = currAngle - prevAngle;                                                                   // Delta calculation
-  //       if (delta < -180.0) delta += 360.0;                                                                    // Handle wrap-around
-  //       if (delta > 180.0) delta -= 360.0;                                                                     // Handle wrap-around
-  //       moved += abs(delta);                                                                                   // Updates the degrees moved value
-  //       prevAngle = currAngle;                                                                                 // Updates the previous angle value
-  //       Serial.print("Correction moved: ");                                                                    // Debug print
-  //       Serial.print(moved);
-  //       Serial.print(" / ");
-  //       Serial.println(correctionDegrees);
-  //       delay(1);                                                                                             // Short delay for stabilization
-  //   }
-  //   servo2.writeMicroseconds(stopServo);                                                                       // Stop movement after correction
-  //   Serial.println("CCW correction complete.");                                                                // Message printed indicating a succesful correction
-  // } 
-  // else 
-  // {
-  //   Serial.println("Timeout!");                                                                                // Message printed if Servo stopped due to Timeout
-  // }
+
 }
 
 ////////////////////////
@@ -1079,81 +1046,38 @@ void feeder_reverse()
 
 
 
-void align_wrapper(bool flag)
+void align_wrapper()
 {                                                                                              // Case 14: Wrapper slow move until Hall trigger (servo2 @1490)
     Serial.println("Step14: Wrapper slow move until Hall trigger...");
     // If the Hall sensor is already active at the start, do not move the servo
     // HALL sensor uses INPUT_PULLUP, so LOW indicates an active trigger
-    if (digitalRead(HALL_SENSOR_PIN) == LOW) {
+    if (digitalRead(HALL_SENSOR_PIN) == LOW)
+    {
       Serial.println("Hall sensor already active at start. Skipping servo movement.");
-      if(!flag)
-      {
-        return;
-      }
+      return ;
     }
-    int initialHall = hallCounter;                                                                        // Record current Hall count
+    
     unsigned long startTime = millis();                                                                   // Start timer
-    servo2.writeMicroseconds(1560);                                                                       // Slow movement
-    while ((millis() - startTime < timeout2) && (hallCounter == initialHall)) {                           // Move until Hall triggers or timeout
+    servo2.writeMicroseconds(1560);        
+                                                                                                              // Slow movement
+    while ((millis() - startTime < timeout2) && (digitalRead(HALL_SENSOR_PIN) != LOW))
+    {                           // Move until Hall triggers or timeout
       delayMicroseconds(10);
     }
-    servo2.writeMicroseconds(stopServo);                                                                  // Stop servo
-    if (hallCounter != initialHall) {
+
+    servo2.writeMicroseconds(stopServo);            
+                                                          // Stop servo
+    if(digitalRead(HALL_SENSOR_PIN) == LOW)
+    {
       Serial.println("Hall trigger detected. Movement stopped.");
-    } else {
+    }
+    else
+    {
       Serial.println("Timeout without Hall trigger.");
     }
     
 }
 
-void align_wrapper_with_encoder()
-{
-  // Move wrapper (servo2) slowly until encoder2 advances 80 degrees.
-  // Use 1470us while current angle is below target; switch to 1530us if it overshoots.
-  Serial.println("align_wrapper_with_encoder: Wrapper CW move at 1530us to absolute 40°...");
-
-  // Ensure encoder direction aligns with CW movement
-  encoder2.setDirection(AS5600_CLOCK_WISE);
-
-  const float targetAngle = 10.0;                       // Absolute target angle (0–360)
-  const float tolerance = 1.0;                          // Stop window ±1°
-
-  unsigned long startTime = millis();
-  servo2.writeMicroseconds(1600);                       // Slow CW movement
-
-  while (millis() - startTime < timeout2)
-  {
-    float currentAngle = encoder2.readAngle() * encoderRes;
-
-    // Normalize difference to [-180, 180] to account for wrap
-    float diff = currentAngle - targetAngle;
-    if (diff < -180.0) diff += 360.0;
-    if (diff > 180.0) diff -= 360.0;
-
-    Serial.println("currentAngle :");
-    Serial.println(currentAngle);
-
-    if (fabs(diff) <= tolerance) {
-      break;                                              // Target reached within tolerance
-    }
-
-  }
-
-  servo2.writeMicroseconds(stopServo);                   // Stop wrapper
-
-  float finalAngle = encoder2.readAngle() * encoderRes;
-  float finalDiff = finalAngle - targetAngle;
-  if (finalDiff < -180.0) finalDiff += 360.0;
-  if (finalDiff > 180.0) finalDiff -= 360.0;
-
-  if (fabs(finalDiff) <= tolerance) {
-    Serial.println("align_wrapper_with_encoder complete: Reached absolute 80°.");
-  } else if (millis() - startTime >= timeout2) {
-    Serial.println("align_wrapper_with_encoder timeout: Did not reach 80°.");
-  } else {
-    Serial.println("align_wrapper_with_encoder stopped near target but outside tolerance.");
-  }
-}
 ///////////////////////
 // CAN Bus Functions //
 ///////////////////////
@@ -1450,8 +1374,8 @@ void process_instruction(CanFrame instruction)
       delay(10);
       holder_hold();
       delay(10);
-      cut();
-      delay(10);
+      // cut();
+      // delay(10);
       wrapper_3cw();
       delay(10);
       byte response[] = {0x12, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
@@ -1463,7 +1387,7 @@ void process_instruction(CanFrame instruction)
     case 0x15:
     {
       Serial.println("Case 0x15: Check Alignment");
-      align_wrapper(true);
+      align_wrapper();
       delay(100);
       byte response[] = {0x15, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(response);

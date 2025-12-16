@@ -1,0 +1,101 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{fancyhdr}
+\usepackage{longtable}
+\usepackage{geometry}
+\usepackage{xurl}
+\usepackage{enumitem}
+\geometry{a4paper, margin=1in}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{Taping Fuyus Firmware}
+\lhead{PH2K New Protocol}
+\cfoot{\thepage}
+
+\title{Firmware Documentation: Taping Fuyus}
+\author{Alan Silva}
+\date{December 2025}
+
+\begin{document}
+
+\maketitle
+
+\section{Overview}
+This document provides detailed technical documentation for the \texttt{taping\_fuyus.ino} firmware, a control system for a dual-axis taping robot. The firmware is designed to run on an ESP32 and leverages a dual CAN bus architecture to manage communication and control two linear actuators for precise taping operations. It uses FreeRTOS for multitasking and EEPROM for persistent storage of operational data.
+
+\section{Hardware Architecture}
+The firmware is designed to control a specific set of hardware components:
+\begin{itemize}
+    \item \textbf{ESP32 Microcontroller:} The core of the system, providing processing power and integrated peripherals.
+    \item \textbf{Dual CAN Bus:}
+    \begin{itemize}[noitemsep,topsep=0pt]
+        \item \textbf{TWAI (CAN0):} The ESP32\'s integrated CAN controller, used for the general communication network.
+        \item \textbf{MCP2515 (CAN1):} An external CAN controller connected via SPI, used for the local actuator network.
+    \end{itemize}
+    \item \textbf{Linear Actuators:} Two linear actuators, one for the Y-axis and one for the Z-axis, are controlled via the local CAN bus.
+    \item \textbf{EEPROM:} On-chip EEPROM is used to store movement counters for the actuators, ensuring data persistence across power cycles.
+\end{itemize}
+
+\section{Software Architecture}
+The software is built on the FreeRTOS real-time operating system, which allows for concurrent execution of tasks.
+
+\subsection{Core Components}
+\begin{itemize}
+    \item \textbf{FreeRTOS:} Manages two primary tasks. A listener task is pinned to Core 0 to handle incoming CAN messages from the TWAI bus, while the main application logic runs on Core 1.
+    \item \textbf{Instruction Queue:} A FreeRTOS queue is used to buffer incoming CAN instructions. This decouples the message receiving from the processing and prevents instruction loss.
+    \item \textbf{Custom Classes:} The firmware uses a custom \texttt{LinearActuator} class (defined in \texttt{src/linear\_actuator.h}) to abstract the control of the actuators.
+    \item \textbf{EEPROM Management:} Functions are implemented to save and load actuator movement counters to and from the EEPROM.
+\end{itemize}
+
+\subsection{Key Functions}
+\begin{description}
+    \item[\texttt{setup()}] Initializes serial communication, EEPROM, both CAN buses, and the instruction queue. It also loads the actuator counters from EEPROM and creates the FreeRTOS listener task.
+    \item[\texttt{loop()}] The main task running on Core 1. It continuously checks the instruction queue for new commands and calls \texttt{process\_instruction()} to execute them.
+    \item[\texttt{twai\_listener\_task()}] A dedicated task running on Core 0 that listens for CAN frames on the TWAI bus. Valid instructions for the device are placed into the instruction queue.
+    \item[\texttt{process\_instruction(CanFrame instruction)}] The central command handler. It uses a \texttt{switch} statement to decode and execute commands received from the CAN bus. This includes homing, moving actuators, and managing counters.
+    \item[\texttt{saveActuatorCounterY() / saveActuatorCounterZ()}] Saves the respective actuator\'s movement counter to the EEPROM.
+    \item[\texttt{incrementActuatorCounterY() / incrementActuatorCounterZ()}] Increments the respective actuator\'s counter and saves it.
+    \item[\texttt{waitForCanReply(uint16\_t expectedId)}] A blocking function that waits for a reply from the local CAN bus (MCP2515) after sending a command to an actuator.
+    \item[\texttt{send\_twai\_response(const byte response_data[8])}] Sends a response frame back over the TWAI CAN bus.
+\end{description}
+
+\section{CAN Command Reference}
+The table below details the CAN commands for the taping fuyus machine. The device listens for commands on CAN ID \texttt{0x007} and sends responses on ID \texttt{0x407}.
+
+\begin{longtable}{|p{0.1\linewidth}|p{0.3\linewidth}|p{0.3\linewidth}|p{0.2\linewidth}|}
+    \hline
+    \textbf{Command} & \textbf{Description} & \textbf{Input Parameters} & \textbf{Return Value} \\
+    \hline
+    \endhead
+
+    \texttt{0x01} & Reset microcontroller. & None & \url{[0x01, 0x01, ...]} \\
+    \hline
+    \texttt{0x02} & Heartbeat check. & None & \url{[0x02, 0x01, ...]} \\
+    \hline
+    \texttt{0x03} & Home both Y and Z actuators. & None & \url{[0x03, status, ...]} \\
+    \hline
+    \texttt{0x04} & Move Y actuator to an absolute position. & \url{data[1:2]: angle, data[3]: orientation} & \url{[0x04, status, ...]} \\
+    \hline
+    \texttt{0x05} & Move Z actuator to an absolute position. & \url{data[1:2]: angle, data[3]: orientation} & \url{[0x05, status, ...]} \\
+    \hline
+    \texttt{0x06} & Read the Z actuator\'s movement counter. & None & \url{[0x06, 0x01, counter...]} \\
+    \hline
+    \texttt{0x07} & Read the Y actuator\'s movement counter. & None & \url{[0x07, 0x01, counter...]} \\
+    \hline
+    \texttt{0x08} & Reset the Y actuator\'s movement counter. & None & \url{[0x08, 0x01, ...]} \\
+    \hline
+    \texttt{0x09} & Reset the Z actuator\'s movement counter. & None & \url{[0x09, 0x01, ...]} \\
+    \hline
+    \texttt{0x13} & Home the Y axis actuator. & None & \url{[0x13, status, ...]} \\
+    \hline
+    \texttt{0x14} & Home the Z axis actuator. & None & \url{[0x14, status, ...]} \\
+    \hline
+    \texttt{0x15} & Move Y actuator to an absolute position with speed control. & \url{data[1:2]: angle, data[3]: orientation, data[4:5]: speed} & \url{[0x15, status, ...]} \\
+    \hline
+    \texttt{0xFF} & Power off sequence (homes all axes). & None & \url{[0xFF, status, ...]} \\
+    \hline
+
+\end{longtable}
+
+\end{document}

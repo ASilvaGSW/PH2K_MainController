@@ -1,0 +1,101 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{fancyhdr}
+\usepackage{longtable}
+\usepackage{geometry}
+\usepackage{xurl}
+\usepackage{enumitem}
+\geometry{a4paper, margin=1in}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{Transporter Grippers Firmware}
+\lhead{PH2K New Protocol}
+\cfoot{\thepage}
+
+\title{Firmware Documentation: Transporter Grippers}
+\author{Alan Silva}
+\date{December 2025}
+
+\begin{document}
+
+\maketitle
+
+\section{Overview}
+This document provides technical documentation for the \texttt{transporter\_grippers.ino} firmware. This system is designed to control three independent digital grippers using an ESP32. It operates on a single CAN bus (TWAI) and utilizes FreeRTOS for multitasking and EEPROM for the persistent storage of movement counters.
+
+\section{Hardware Architecture}
+\begin{itemize}
+    \item \textbf{ESP32 Microcontroller:} The core processing unit.
+    \item \textbf{CAN Bus (TWAI):} The ESP32\'s integrated CAN controller is used for all network communication.
+    \item \textbf{Digital Grippers:} Three digital grippers, each controlled via a set of input pins.
+    \item \textbf{EEPROM:} On-chip EEPROM is used to store movement counters for each of the three grippers.
+\end{itemize}
+
+\section{Software Architecture}
+\subsection{Core Components}
+\begin{itemize}
+    \item \textbf{FreeRTOS:} Manages a listener task on Core 0 for incoming CAN messages, with the main application logic running on Core 1.
+    \item \textbf{Instruction Queue:} A FreeRTOS queue buffers incoming CAN commands to ensure reliable processing.
+    \item \textbf{Custom Class:} A \texttt{GripperDigital} class (from \texttt{src/gripper\_digital.h}) abstracts the control logic for the grippers.
+    \item \textbf{EEPROM Management:} A set of helper functions is used to save, load, and increment the movement counters for each gripper.
+\end{itemize}
+
+\subsection{Key Functions}
+\begin{description}
+    \item[\texttt{setup()}] Initializes the serial port, EEPROM, CAN bus, and all three grippers. It loads the counters and creates the FreeRTOS listener task.
+    \item[\texttt{loop()}] The main task running on Core 1, responsible for dequeuing and processing CAN instructions.
+    \item[\texttt{twai\_listener\_task()}] A dedicated task on Core 0 that listens for CAN frames and places them in the instruction queue.
+    \item[\texttt{process\_instruction(CanFrame instruction)}] The central command handler. It uses a switch statement to execute commands, including opening/closing grippers, setting force, and managing counters.
+    \item[\texttt{send\_twai\_response(...)}] A helper function to send response frames over the CAN bus.
+\end{description}
+
+\section{CAN Command Reference}
+The device listens for commands on CAN ID \texttt{0x020} and sends responses on ID \texttt{0x420}.
+
+\begin{longtable}{|p{0.1\linewidth}|p{0.3\linewidth}|p{0.3\linewidth}|p{0.2\linewidth}|}
+    \hline
+    \textbf{Command} & \textbf{Description} & \textbf{Input Parameters} & \textbf{Return Value} \\
+    \hline
+    \endhead
+
+    \texttt{0x01} & Reset microcontroller. & None & \url{[0x01, 0x01, ...]} \\
+    \hline
+    \texttt{0x02} & Heartbeat check. & None & \url{[0x02, 0x01, ...]} \\
+    \hline
+    \texttt{0x03} & Open all grippers. & None & \url{[0x03, 0x01, ...]} \\
+    \hline
+    \texttt{0x04} & Close all grippers. & None & \url{[0x04, 0x01, ...]} \\
+    \hline
+    \texttt{0x05} & Set force for all grippers. & \url{data[1]: force} & \url{[0x05, 0x01, ...]} \\
+    \hline
+    \texttt{0x06} & Read gripper 1 counter. & None & \url{[0x06, 0x01, count_H, count_L, ...]} \\
+    \hline
+    \texttt{0x07} & Read gripper 2 counter. & None & \url{[0x07, 0x01, count_H, count_L, ...]} \\
+    \hline
+    \texttt{0x08} & Read gripper 3 counter. & None & \url{[0x08, 0x01, count_H, count_L, ...]} \\
+    \hline
+    \texttt{0x09} & Reset gripper 1 counter. & None & \url{[0x09, 0x01, ...]} \\
+    \hline
+    \texttt{0x0A} & Reset gripper 2 counter. & None & \url{[0x0A, 0x01, ...]} \\
+    \hline
+    \texttt{0x0B} & Reset gripper 3 counter. & None & \url{[0x0B, 0x01, ...]} \\
+    \hline
+    \texttt{0x0C} & Open gripper 1. & None & \url{[0x0C, 0x01, ...]} \\
+    \hline
+    \texttt{0x0D} & Close gripper 1. & None & \url{[0x0D, 0x01, ...]} \\
+    \hline
+    \texttt{0x0E} & Open gripper 2. & None & \url{[0x0E, 0x01, ...]} \\
+    \hline
+    \texttt{0x0F} & Close gripper 2. & None & \url{[0x0F, 0x01, ...]} \\
+    \hline
+    \texttt{0x10} & Open gripper 3. & None & \url{[0x10, 0x01, ...]} \\
+    \hline
+    \texttt{0x11} & Close gripper 3. & None & \url{[0x11, 0x01, ...]} \\
+    \hline
+    \texttt{0xFF} & Power off (opens all grippers). & None & \url{[0xFF, 0x01, ...]} \\
+    \hline
+
+\end{longtable}
+
+\end{document}

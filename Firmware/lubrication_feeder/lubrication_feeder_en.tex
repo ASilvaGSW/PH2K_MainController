@@ -1,0 +1,152 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{longtable}
+
+\geometry{a4paper, margin=1in}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{Firmware Documentation: \texttt{lubrication\_feeder.ino}}
+\rhead{Page \thepage\ of \pageref{LastPage}}
+\cfoot{PH2K New Protocol}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+}
+
+\begin{document}
+
+\title{PH2K New Protocol Firmware Documentation \\ \large \texttt{lubrication\_feeder.ino}}
+\author{Gemini}
+\date{\today}
+\maketitle
+
+\begin{abstract}
+This document provides a detailed technical overview of the \texttt{lubrication\_feeder.ino} firmware. This complex firmware, designed for an ESP32, manages a sophisticated lubrication and feeding system. It controls two linear actuators, two solenoid valves, a servo, and an electromagnet, while also monitoring a linear potentiometer, an IR break beam sensor, and two fluid level sensors. The system uses a dual CAN bus architecture and FreeRTOS for multitasking.
+\end{abstract}
+
+\section{Introduction}
+The \texttt{lubrication\_feeder.ino} firmware is the central controller for a station that feeds and lubricates hoses. It performs a wide array of tasks, from precise actuator movement and valve control to environmental sensing. Its extensive command set allows for fine-grained control over every component, making it one of the most versatile firmwares in the PH2K ecosystem.
+
+\section{System Architecture}
+
+\subsection{Hardware Components}
+\begin{itemize}
+    \item \textbf{Microcontroller:} ESP32.
+    \item \textbf{CAN Bus:} Dual bus setup with the integrated TWAI for primary commands and an external MCP2515 for actuator control.
+    \item \textbf{Actuators:} Two \texttt{LinearActuator} instances, \texttt{feeder} and \texttt{pre\_feeder}.
+    \item \textbf{Valves:} Two solenoid valves (\texttt{VALVE\_1}, \texttt{VALVE\_2}) for fluid control.
+    \item \textbf{Servo:} A servo motor (\texttt{hoseHolderServo}) for positioning a hose holder.
+    \item \textbf{Electromagnet:} A digital output to control an electromagnet for gripping.
+    \item \textbf{Sensors:}
+    \begin{itemize}
+        \item \textbf{Linear Potentiometer:} An analog sensor to provide feedback on linear position.
+        \item \textbf{IR Break Beam Sensor:} A digital sensor to detect the presence of a hose.
+        \item \textbf{Alcohol Level Sensors:} Two digital sensors to monitor fluid levels in a tank (Full, Medium, Empty).
+    \end{itemize}
+    \item \textbf{EEPROM:} Used for non-volatile storage of movement and activation counters for actuators, valves, and the servo.
+\end{itemize}
+
+\subsection{Software Architecture}
+\begin{itemize}
+    \item \textbf{Core 0 Task:} \texttt{twai\_listener\_task()} listens for incoming CAN commands.
+    \item \textbf{Core 1 Task:} \texttt{loop()} processes commands from the queue.
+    \item \textbf{Instruction Queue:} A FreeRTOS queue passes commands safely between cores.
+\end{itemize}
+
+\section{Core Functions}
+\begin{description}
+    \item[\texttt{void setup()}] Initializes all hardware components, including GPIOs for valves and sensors, the servo, the electromagnet, EEPROM, both CAN buses, and creates the FreeRTOS listener task.
+    \item[\texttt{void loop()}] Dequeues and processes instructions by calling \texttt{process\_instruction()}.
+    \item[\texttt{void process\_instruction(CanFrame instruction)}] A large switch statement that routes CAN commands to the appropriate functions for controlling hardware or managing counters.
+    \item[\texttt{void activateValve(int valvePin, int duration)}] A utility function to activate a specified solenoid valve for a given duration.
+\end{description}
+
+\section{CAN Command Reference: \texttt{process\_instruction}}
+This function interprets a wide range of CAN commands. An optional acknowledgment message (\texttt{0xAA}) can be enabled for debugging.
+
+\begin{longtable}{|p{0.05\linewidth}|p{0.2\linewidth}|p{0.3\linewidth}|p{0.3\linewidth}|}
+\hline
+\textbf{ID} & \textbf{Command} & \textbf{Input Parameters (CAN Payload)} & \textbf{Return Value (CAN Payload)} \\
+\hline
+\endfirsthead
+\hline
+\textbf{ID} & \textbf{Command} & \textbf{Input Parameters (CAN Payload)} & \textbf{Return Value (CAN Payload)} \\
+\hline
+\endhead
+\hline \multicolumn{4}{r}{{Continued on next page}} \\ 
+\endfoot
+\hline
+\endlastfoot
+
+\texttt{0x01} & Reset MCU & None. & Sends ack then reboots. \\
+\hline
+\texttt{0x02} & Ping / Heartbeat & None. & \texttt{\{0x02, 0x01, ...\}}. \\
+\hline
+\texttt{0x03} & Activate Valve 1 & \texttt{byte[1-2]}: Duration in ms (16-bit). & \texttt{\{0x03, 0x01, ...\}}. \\
+\hline
+\texttt{0x04} & Activate Valve 2 & \texttt{byte[1-2]}: Duration in ms (16-bit). & \texttt{\{0x04, 0x01, ...\}}. \\
+\hline
+\texttt{0x05} & Move Feeder (Speed) & \texttt{byte[1-2]}: Speed. \texttt{byte[3]}: Direction. \texttt{byte[4]}: Acceleration. & \texttt{\{0x05, status, ...\}}. \\
+\hline
+\texttt{0x06} & Move Feeder (Position) & \texttt{byte[1-4]}: Position (32-bit). & \texttt{\{0x06, status, ...\}}. \\
+\hline
+\texttt{0x07} & Move Pre-feeder (Position) & \texttt{byte[1-4]}: Position (32-bit). & \texttt{\{0x07, status, ...\}}. \\
+\hline
+\texttt{0x08} & Get Feeder Position & None. & Returns current position. \\
+\hline
+\texttt{0x09} & Get Pre-feeder Position & None. & Returns current position. \\
+\hline
+\texttt{0x0A} & Read Valve 1 Counter & None. & \texttt{\{0x0A, 0x01, count(32), ...\}}. \\
+\hline
+\texttt{0x0B} & Read Valve 2 Counter & None. & \texttt{\{0x0B, 0x01, count(32), ...\}}. \\
+\hline
+\texttt{0x0C} & Reset Valve 1 Counter & None. & \texttt{\{0x0C, 0x01, ...\}}. \\
+\hline
+\texttt{0x0D} & Reset Valve 2 Counter & None. & \texttt{\{0x0D, 0x01, ...\}}. \\
+\hline
+\texttt{0x10} & Read Feeder Counter & None. & \texttt{\{0x10, 0x01, count(32), ...\}}. \\
+\hline
+\texttt{0x11} & Read Pre-feeder Counter & None. & \texttt{\{0x11, 0x01, count(32), ...\}}. \\
+\hline
+\texttt{0x12} & Reset Feeder Counter & None. & \texttt{\{0x12, 0x01, ...\}}. \\
+\hline
+\texttt{0x13} & Move Pre-feeder (Speed) & \texttt{byte[1-2]}: Speed. \texttt{byte[3]}: Direction. \texttt{byte[4]}: Acceleration. & \texttt{\{0x13, status, ...\}}. \\
+\hline
+\texttt{0x14} & Conditional Dual Movement & Parameters for feeder movement. Pre-feeder movement is conditional on potentiometer reading. & \texttt{\{0x14, status, ...\}}. \\
+\hline
+\texttt{0x15} & Check Hose Position & None. & \texttt{\{0x15, 0x01, status, ...\}} (1 if detected, 0 if not). \\
+\hline
+\texttt{0x16} & Check Alcohol Level & None. & \texttt{\{0x16, 0x01, level, ...\}} (2=Full, 1=Medium, 0=Empty). \\
+\hline
+\texttt{0x17} & Open Hose Holder & None. & \texttt{\{0x17, 0x01, ...\}} (sets servo to 90°). \\
+\hline
+\texttt{0x18} & Close Hose Holder & None. & \texttt{\{0x18, 0x01, ...\}} (sets servo to 0°). \\
+\hline
+\texttt{0x19} & Attach Electromagnet & None. & \texttt{\{0x19, 0x01, ...\}}. \\
+\hline
+\texttt{0x1A} & Detach Electromagnet & None. & \texttt{\{0x1A, 0x01, ...\}}. \\
+\hline
+\texttt{0x1B} & Read Servo Counter & None. & \texttt{\{0x1B, 0x01, count(32), ...\}}. \\
+\hline
+\texttt{0x1C} & Reset Servo Counter & None. & \texttt{\{0x1C, 0x01, ...\}}. \\
+\hline
+\texttt{0x1D} & Acknowledge Message & None. & \texttt{\{0x1D, 0x01, ...\}}. \\
+\hline
+\texttt{0x1E} & Set Hose Holder Angle & \texttt{byte[1]}: Angle (0-180). & \texttt{\{0x1E, 0x01, ...\}}. \\
+\hline
+\texttt{0xFF} & Emergency Stop & None. & Stops all actuators. \\
+\hline
+
+\end{longtable}
+
+\end{document}

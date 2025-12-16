@@ -1,0 +1,90 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{fancyhdr}
+\usepackage{longtable}
+\usepackage{geometry}
+\usepackage{xurl}
+\usepackage{enumitem}
+\geometry{a4paper, margin=1in}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{Transporter Fuyus Firmware}
+\lhead{PH2K New Protocol}
+\cfoot{\thepage}
+
+\title{Firmware Documentation: Transporter Fuyus}
+\author{Alan Silva}
+\date{December 2025}
+
+\begin{document}
+
+\maketitle
+
+\section{Overview}
+This document provides detailed technical documentation for the \texttt{transporter\_fuyus.ino} firmware. This firmware is designed to control a complex transport system using an ESP32. The system includes a dual-motor linear actuator for the X-axis and three independent stepper motors. It utilizes a dual CAN bus architecture for robust communication and FreeRTOS for multitasking.
+
+\section{Hardware Architecture}
+\begin{itemize}
+    \item \textbf{ESP32 Microcontroller:} The central processing unit.
+    \item \textbf{Dual CAN Bus:}
+    \begin{itemize}[noitemsep,topsep=0pt]
+        \item \textbf{TWAI (CAN0):} Integrated CAN for the general network.
+        \item \textbf{MCP2515 (CAN1):} External CAN for the local actuator and motor network.
+    \end{itemize}
+    \item \textbf{Linear Actuators:} Two synchronized linear actuators for the X-axis.
+    \item \textbf{Stepper Motors:} Three independent stepper motors for precise positioning tasks.
+    \item \textbf{EEPROM:} Used for persistent storage of movement counters for all motors.
+\end{itemize}
+
+\section{Software Architecture}
+\subsection{Core Components}
+\begin{itemize}
+    \item \textbf{FreeRTOS:} Manages a listener task on Core 0 for CAN messages and the main application logic on Core 1.
+    \item \textbf{Instruction Queue:} A queue to buffer incoming CAN commands, preventing data loss.
+    \item \textbf{Custom Classes:} A \texttt{LinearActuator} class for actuator control.
+    \item \textbf{AccelStepper Library:} Used for controlling the three stepper motors.
+    \item \textbf{EEPROM Management:} Functions to save and load movement counters for both actuator and stepper motors.
+\end{itemize}
+
+\subsection{Key Functions}
+\begin{description}
+    \item[\texttt{setup()}] Initializes all hardware, including serial, EEPROM, CAN buses, and stepper motors. It loads counters and creates the FreeRTOS listener task.
+    \item[\texttt{loop()}] The main task on Core 1, which processes commands from the instruction queue.
+    \item[\texttt{twai\_listener\_task()}] A dedicated task on Core 0 that listens for and queues incoming CAN frames.
+    \item[\texttt{process\_instruction(CanFrame instruction)}] The main command handler. It decodes and executes commands for moving actuators and steppers, managing counters, and handling system resets.
+    \item[\texttt{waitForCanReplyMultiple(uint16\_t id1, uint16\_t id2)}] Waits for replies from two different CAN IDs, used for synchronized dual-motor movements.
+    \item[\texttt{saveCounter(...)}] A generic function to save movement counters to EEPROM.
+\end{description}
+
+\section{CAN Command Reference}
+The device listens on CAN ID \texttt{0x021} and responds on ID \texttt{0x421}.
+
+\begin{longtable}{|p{0.1\linewidth}|p{0.3\linewidth}|p{0.3\linewidth}|p{0.2\linewidth}|}
+    \hline
+    \textbf{Command} & \textbf{Description} & \textbf{Input Parameters} & \textbf{Return Value} \\
+    \hline
+    \endhead
+
+    \texttt{0x01} & Reset microcontroller. & None & \url{[0x01, 0x01, ...]} \\
+    \hline
+    \texttt{0x02} & Heartbeat check. & None & \url{[0x02, 0x01, ...]} \\
+    \hline
+    \texttt{0x04} & Move X-axis (dual motors). & \url{data[1:2]: angle, data[3]: orientation} & \url{[0x04, status, ...]} \\
+    \hline
+    \texttt{0x05} & Move X-axis with speed. & \url{data[1:2]: angle, data[3]: orientation, data[4:5]: speed} & \url{[0x05, status, ...]} \\
+    \hline
+    \texttt{0x06} & Get actuator/stepper counter. & \url{data[1]: motor_id (1:X, 2-4:Steppers)} & \url{[0x06, counter_H, counter_L, ...]} \\
+    \hline
+    \texttt{0x07} & Reset actuator/stepper counter. & \url{data[1]: motor_id} & \url{[0x07, 0x01, ...]} \\
+    \hline
+    \texttt{0x08} & Move all steppers to the same position. & \url{data[1:3]: position, data[4]: direction} & \url{[0x08, status, ...]} \\
+    \hline
+    \texttt{0x09} & Home the X-axis. & None & \url{[0x09, status, ...]} \\
+    \hline
+    \texttt{0xFF} & Power off (homes X-axis and steppers). & None & None \\
+    \hline
+
+\end{longtable}
+
+\end{document}

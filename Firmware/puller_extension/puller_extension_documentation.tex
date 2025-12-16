@@ -1,0 +1,94 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{fancyhdr}
+\usepackage{longtable}
+\usepackage{geometry}
+\usepackage{xurl}
+\geometry{a4paper, margin=1in}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{Puller Extension Firmware}
+\lhead{PH2K New Protocol}
+\cfoot{\thepage}
+
+\title{Firmware Documentation: Puller Extension}
+\author{Alan Silva}
+\date{December 2025}
+
+\begin{document}
+
+\maketitle
+
+\section{Overview}
+This document provides detailed technical documentation for the \texttt{puller\_extension.ino} firmware, which is designed for a single-CAN based hose pulling robotic system. The system is part of the PH2K New Protocol ecosystem and is controlled via an ESP32 microcontroller.
+
+The firmware's primary responsibilities include managing a stepper motor for an additional axis of movement, controlling a digital gripper, operating a servo motor, and communicating over a single CAN bus. It uses FreeRTOS for efficient multitasking and EEPROM for non-volatile storage of movement counters.
+
+\section{Hardware Architecture}
+The firmware is designed to run on an ESP32 and controls the following hardware components:
+\begin{itemize}
+    \item \textbf{Stepper Motor:} An \texttt{AccelStepper} motor connected to GPIO pins 25, 26, and 27 for an additional linear axis.
+    \item \textbf{Digital Gripper:} A custom \texttt{GripperDigital} component connected to GPIO pins 14, 16, and 17.
+    \item \textbf{Servo Motor:} An \texttt{ESP32Servo} motor connected to GPIO pin 18.
+    \item \textbf{CAN Bus (TWAI):} The integrated ESP32 TWAI module is used for all CAN communication, connected via GPIO 4 (TX) and 5 (RX). The device listens for commands on CAN ID \texttt{0x193} and sends responses on ID \texttt{0x593}.
+    \item \textbf{EEPROM:} The onboard EEPROM is used to store persistent movement counters for the stepper, gripper, and servo.
+\end{itemize}
+
+\section{Software Architecture}
+The firmware's software architecture is built around FreeRTOS to handle concurrent operations smoothly.
+
+\subsection{Core Components}
+\begin{itemize}
+    \item \textbf{FreeRTOS:} Manages tasks and message queuing. A dedicated task, \texttt{twai\_listener\_task}, is pinned to Core 0 to listen for incoming CAN messages, ensuring that communication is not interrupted by the main application logic.
+    \item \textbf{Instruction Queue:} A FreeRTOS queue, \texttt{instruction\_queue}, is used to buffer incoming CAN frames. This decouples the CAN listener from the command processor, preventing message loss and allowing for orderly execution.
+    \item \textbf{Libraries:} The firmware utilizes the \texttt{ESP32-TWAI-CAN}, \texttt{AccelStepper}, and \texttt{ESP32Servo} libraries for hardware interaction, along with a custom \texttt{gripper\_digital.h} library.
+\end{itemize}
+
+\subsection{Key Functions}
+\begin{description}
+    \item[\texttt{setup()}] Initializes the serial monitor, stepper motor, servo, gripper, EEPROM (loading counters), and the TWAI CAN bus. It creates the FreeRTOS instruction queue and the \texttt{twai\_listener\_task}.
+    \item[\texttt{loop()}] The main task running on Core 1. It continuously checks the \texttt{instruction\_queue} for new commands and, when available, passes them to \texttt{process\_instruction()} for execution.
+    \item[\texttt{twai\_listener\_task()}] A dedicated FreeRTOS task on Core 0 that listens for CAN frames on the TWAI bus. If a frame with the device's CAN ID (\texttt{0x193}) is received, it is placed into the \texttt{instruction\_queue}.
+    \item[\texttt{process\_instruction(CanFrame instruction)}] This is the central command handler. It decodes the command from the CAN frame's data payload and executes the corresponding action using a \texttt{switch} statement. After execution, it sends a status response via the \texttt{send\_twai\_response()} function.
+\end{description}
+
+\section{CAN Command Reference}
+The \texttt{process\_instruction} function handles commands sent to the device. The table below details each command, its purpose, input parameters, and the format of the return message.
+
+\begin{longtable}{|p{0.1\linewidth}|p{0.3\linewidth}|p{0.3\linewidth}|p{0.2\linewidth}|}
+    \hline
+    \textbf{Command} & \textbf{Description} & \textbf{Input Parameters} & \textbf{Return Value} \\
+    \hline
+    \endhead
+
+    \texttt{0x01} & Reset microcontroller. & None & \url{[0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]} \\
+    \hline
+    \texttt{0x02} & Heartbeat check. & None & \url{[0x02, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]} \\
+    \hline
+    \texttt{0x0A} & Read the stepper motor's movement counter. & None & \url{[0x0A, 0x01, counter_high, counter_low, 0x00, 0x00, 0x00, 0x00]} \\
+    \hline
+    \texttt{0x0B} & Move stepper motor to an absolute position. & \url{data[1-3]: targetPosition, data[4]: direction (0=neg, 1=pos)} & \url{[0x0B, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]} \\
+    \hline
+    \texttt{0x0C} & Home the stepper motor (moves to position 0). & None & \url{[0x0C, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]} \\
+    \hline
+    \texttt{0x0D} & Open the gripper. & None & \url{[0x0D, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]} \\
+    \hline
+    \texttt{0x0E} & Close the gripper. & None & \url{[0x0E, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]} \\
+    \hline
+    \texttt{0x0F} & Set the force for the gripper. & \url{data[1]: force} & \url{[0x0F, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]} \\
+    \hline
+    \texttt{0x10} & Read the gripper's movement counter. & None & \url{[0x10, 0x01, counter_high, counter_low, 0x00, 0x00, 0x00, 0x00]} \\
+    \hline
+    \texttt{0x11} & Reset the gripper's movement counter to zero. & None & \url{[0x11, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]} \\
+    \hline
+    \texttt{0x12} & Reset the stepper motor's movement counter to zero. & None & \url{[0x12, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]} \\
+    \hline
+    \texttt{0x13} & Move servo to a predefined position. & \url{data[1]: position (1=extended, other=retracted)} & \url{[0x13, status, position, 0x00, 0x00, 0x00, 0x00, 0x00]} \\
+    \hline
+    \texttt{0xFF} & Power off sequence: homes stepper and opens gripper. & None & \url{[0xFF, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]} \\
+    \hline
+    
+\end{longtable}
+
+\end{document}

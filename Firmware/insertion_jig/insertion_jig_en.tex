@@ -1,0 +1,131 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{longtable}
+
+\geometry{a4paper, margin=1in}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{Firmware Documentation: \texttt{insertion\_jig.ino}}
+\rhead{Page \thepage\ of \pageref{LastPage}}
+\cfoot{PH2K New Protocol}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+}
+
+\begin{document}
+
+\title{PH2K New Protocol Firmware Documentation \\ \large \texttt{insertion\_jig.ino}}
+\author{Gemini}
+\date{\today}
+\maketitle
+
+\begin{abstract}
+This document provides a detailed technical overview of the \texttt{insertion\_jig.ino} firmware. The firmware is designed for an ESP32 microcontroller to control a multi-axis insertion jig. The system features one X-axis and three Z-axis linear actuators, all managed via a dual CAN bus architecture (TWAI and MCP2515) and coordinated using FreeRTOS.
+\end{abstract}
+
+\section{Introduction}
+The \texttt{insertion\_jig.ino} firmware provides precise control over a mechanical jig used for insertion tasks. It orchestrates the movement of four linear actuators across two axes (X and Z). The system is commanded by a main controller via the ESP32's native TWAI CAN bus, and it, in turn, controls the actuators via a secondary MCP2515-based CAN bus. The use of three synchronized actuators on the Z-axis allows for stable and precise vertical operations.
+
+\section{System Architecture}
+
+\subsection{Hardware Components}
+\begin{itemize}
+    \item \textbf{Microcontroller:} ESP32, utilizing its dual-core capabilities for concurrent CAN bus handling.
+    \item \textbf{CAN Bus 1 (TWAI):} The ESP32's integrated CAN controller, receiving commands from the primary system network.
+    \item \textbf{CAN Bus 2 (MCP2515):} An external SPI-based CAN controller dedicated to the local network of linear actuators.
+    \item \textbf{Linear Actuators:} Four in total. One for the X-axis (\texttt{x\_axis}) and three for the Z-axis (\texttt{z1\_axis}, \texttt{z2\_axis}, \texttt{z3\_axis}).
+    \item \textbf{EEPROM:} On-chip non-volatile memory used to persist movement counters for both the X and Z axes, as well as configuration values like the Z-axis insertion position.
+\end{itemize}
+
+\subsection{Software Architecture}
+The firmware is built on the FreeRTOS real-time operating system to manage tasks efficiently.
+\begin{itemize}
+    \item \textbf{Core 0 Task:}
+    \begin{itemize}
+        \item \texttt{twai\_listener\_task()}: A dedicated task that continuously listens for incoming commands on the TWAI CAN bus and forwards them to a central processing queue.
+    \end{itemize}
+    \item \textbf{Core 1 Task (Default Arduino Core):}
+    \begin{itemize}
+        \item \texttt{loop()}: The main task that retrieves instructions from the queue and executes them by calling \texttt{process\_instruction()}.
+    \end{itemize}
+    \item \textbf{Instruction Queue:} A FreeRTOS queue (\texttt{instruction\_queue}) is used as a thread-safe buffer to pass CAN frames from the listener task (Core 0) to the main loop (Core 1).
+\end{itemize}
+
+\section{Core Functions}
+\begin{description}
+    \item[\texttt{void setup()}] Initializes serial communication, EEPROM (loading stored counters and configuration), both CAN bus interfaces, and creates the \texttt{twai\_listener\_task} pinned to Core 0.
+    \item[\texttt{void loop()}] The primary application loop. It continuously checks the instruction queue for new commands and, upon receiving one, calls \texttt{process\_instruction()} to handle it.
+    \item[\texttt{void twai\_listener\_task(void* pvParameters)}] This task runs in a loop on Core 0, polling the TWAI interface for new CAN frames. If a frame with the correct device ID is received, it is placed in the \texttt{instruction\_queue}.
+    \item[\texttt{void process\_instruction(CanFrame instruction)}] The core command processing function. It reads the command ID from the first byte of the CAN data payload and executes the corresponding action, such as moving actuators or retrieving counters.
+    \item[\texttt{uint8\_t waitForCanReplyMultiple(...)}] A utility function used to wait for and aggregate status responses from the three Z-axis actuators after a command has been sent.
+\end{description}
+
+\section{CAN Command Reference: \texttt{process\_instruction}}
+The function interprets CAN commands to control the jig's actuators. All responses are sent back over the primary TWAI CAN bus.
+
+\begin{longtable}{|p{0.05\linewidth}|p{0.2\linewidth}|p{0.3\linewidth}|p{0.3\linewidth}|}
+\hline
+\textbf{ID} & \textbf{Command} & \textbf{Input Parameters (CAN Payload)} & \textbf{Return Value (CAN Payload)} \\
+\hline
+\endfirsthead
+\hline
+\textbf{ID} & \textbf{Command} & \textbf{Input Parameters (CAN Payload)} & \textbf{Return Value (CAN Payload)} \\
+\hline
+\endhead
+\hline \multicolumn{4}{r}{{Continued on next page}} \\ 
+\endfoot
+\hline
+\endlastfoot
+
+\texttt{0x01} & Reset MCU & None. & Sends an acknowledgment \texttt{\{0x01, 0x01, ...\}} then reboots. \\
+\hline
+\texttt{0x02} & Ping / Heartbeat & None. & \texttt{\{0x02, 0x01, 0x00, ...\}} on success. \\
+\hline
+\texttt{0x03} & Home X-Axis & None. & \texttt{\{0x03, status, 0x00, ...\}}. \\
+\hline
+\texttt{0x04} & Move X-Axis (Absolute) & \texttt{byte[1-2]}: Position (16-bit). \newline \texttt{byte[3]}: Orientation (0 or 1). & \texttt{\{0x04, status, 0x00, ...\}}. \\
+\hline
+\texttt{0x05} & Home Z-Axis & None. & \texttt{\{0x05, status, 0x00, ...\}}. Homes all three Z-actuators. \\
+\hline
+\texttt{0x06} & Move Z-Axis (Absolute) & \texttt{byte[1-2]}: Position (16-bit). \newline \texttt{byte[3]}: Orientation (0 or 1). & \texttt{\{0x06, status, 0x00, ...\}}. Moves all three Z-actuators. \\
+\hline
+\texttt{0x08} & Get X-Axis Counter & None. & \texttt{\{0x08, 0x01, count(32), ...\}}. \\
+\hline
+\texttt{0x09} & Reset X-Axis Counter & None. & \texttt{\{0x09, 0x01, 0x00, ...\}}. \\
+\hline
+\texttt{0x0A} & Get Z-Axis Counter & None. & \texttt{\{0x0A, 0x01, count(32), ...\}}. \\
+\hline
+\texttt{0x0B} & Reset Z-Axis Counter & None. & \texttt{\{0x0B, 0x01, 0x00, ...\}}. \\
+\hline
+\texttt{0x0C} & Move to Predefined Position & \texttt{byte[1]}: Position ID. & \texttt{\{0x0C, status, 0x00, ...\}}. Moves X-axis to a stored position. \\
+\hline
+\texttt{0x0D} & Home X-Axis (Go Home) & None. & \texttt{\{0x0D, status, 0x00, ...\}}. Uses the actuator's internal `go_home` function. \\
+\hline
+\texttt{0x0E} & Home Z-Axis (Go Home) & None. & \texttt{\{0x0E, status, 0x00, ...\}}. Uses the actuator's internal `go_home` function for all three Z-actuators. \\
+\hline
+\texttt{0xFF} & Power Off Sequence & None. & \texttt{\{0xFF, status, 0x00, ...\}}. Homes all axes. \\
+\hline
+
+\end{longtable}
+
+\subsection{Status Codes}
+The standard status codes returned in byte 1 of the response payload are:
+\begin{itemize}
+    \item \texttt{0x01}: OK - Instruction completed successfully.
+    \item \texttt{0x02}: FAIL - General failure during execution.
+    \item \texttt{0x03}: TIMEOUT - A reply from a peripheral (actuator) was not received in time.
+    \item \texttt{0x04}: NO LOCAL NETWORK - The command to a peripheral could not be sent over the MCP2515 bus.
+\end{itemize}
+
+\end{document}
