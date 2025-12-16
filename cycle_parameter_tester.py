@@ -1194,8 +1194,10 @@ class CycleParameterTester:
         """Test method for moving Y axis until no hose is detected"""
         try:
 
+            spd = int(speed)
+
             self.log_message(f"Iniciando movimiento Y hasta no detectar manguera - Velocidad: {speed}")
-            result = self.hose_puller.move_y_axis_until_no_hose(speed)
+            result = self.hose_puller.move_y_axis_until_no_hose(spd)
             
             if result:
                 status, hose_detected = result

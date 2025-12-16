@@ -57,9 +57,9 @@ transporter_fuyus = None
 transporter_grippers = None
 
 # Connectivity flags for different stations
-CHECK_FIRST_STATION = True
+CHECK_FIRST_STATION = False
 CHECK_SECOND_STATION = False
-CHECK_ALL_DEVICES = False  # When True, checks all devices regardless of station flags
+CHECK_ALL_DEVICES = True  # When True, checks all devices regardless of station flags
 
 #Initialize and setup CANbus and devices
 def my_main():
@@ -128,13 +128,13 @@ def checkConnectivity():
     # Second Station - Check only if flag is enabled or CHECK_ALL_DEVICES is True
     if CHECK_SECOND_STATION or CHECK_ALL_DEVICES:
         print("=== CHECKING SECOND STATION ===")
-        print("Hose Jig V2 Connected") if hose_jig_v2.ping() == "success" else print("Hose Jig V2 Not Connected")
+        # print("Hose Jig V2 Connected") if hose_jig_v2.ping() == "success" else print("Hose Jig V2 Not Connected")
         # print("Lubrication Stamper Connected") if lubrication_stamper.send_heartbeat() == "success" else print("Lubrication Stamper Not Connected")
         # print("Stamper Connected") if stamper.send_heartbeat() == "success" else print("Stamper Not Connected")
-        print("Taping Connected") if taping.send_heartbeat() == "success" else print("Taping Not Connected")
-        print("Taping Fuyus Connected") if taping_fuyus.send_heartbeat() == "success" else print("Taping Fuyus Not Connected")
-        # print("Transporter Fuyus Connected") if transporter_fuyus.send_heartbeat() == "success" else print("Transporter Fuyus Not Connected")
-        # print("Transporter Grippers Connected") if transporter_grippers.send_heartbeat() == "success" else print("Transporter Grippers Not Connected")
+        # print("Taping Connected") if taping.send_heartbeat() == "success" else print("Taping Not Connected")
+        # print("Taping Fuyus Connected") if taping_fuyus.send_heartbeat() == "success" else print("Taping Fuyus Not Connected")
+        print("Transporter Fuyus Connected") if transporter_fuyus.send_heartbeat() == "success" else print("Transporter Fuyus Not Connected")
+        print("Transporter Grippers Connected") if transporter_grippers.send_heartbeat() == "success" else print("Transporter Grippers Not Connected")
 
     # Show current connectivity check configuration
     if not CHECK_ALL_DEVICES:
@@ -551,7 +551,7 @@ def oneCycle():
     lubricate_nozzle_time = 0.15
     lubricate_joint_time = 0.11
     hose_puller_y_speed = 200
-    hose_puller_y_speed_for_alignment = 50
+    hose_puller_y_speed_for_alignment = 20
 
     #****************************** Routine ******************************
 
@@ -592,7 +592,7 @@ def oneCycle():
     if lubrication_feeder.lubricate_nozzle(lubricate_nozzle_time) != "success" : return "error18"
 
     # Nozzle Insertion
-    if insertion_jig.move_z_axis(insertion_position_z) != "success" : return "error19"
+    insertion_jig.move_z_axis(insertion_position_z)
     if insertion_jig.move_x_axis(insert_nozzle) != "success" : return "error20"
     if insertion_servos.holder_hose_nozzle_close() != "success" : return "error21"
     if insertion_servos.clamp_nozzle_close() != "success" : return "error22"
@@ -634,7 +634,7 @@ def oneCycle():
 
 
     # Alignment for Joint Insertion
-    if hose_puller.move_y_actuator_with_speed(alignmnet_for_joint,hose_puller_y_speed_for_alignment) != "success" : return "error13" #Aqui hare el cambio
+    if hose_puller.move_y_actuator_with_speed(alignmnet_for_joint,200) != "success" : return "error13" #Aqui hare el cambio
     if insertion_servos.holder_hose_joint_semi_close() != "success" : return "error42"
     time.sleep(1)
     if hose_puller.move_y_axis_until_no_hose(hose_puller_y_speed_for_alignment) != "success" : return "error43"
@@ -652,7 +652,7 @@ def oneCycle():
 
     # Joint Insertion
     if insertion_jig.move_x_axis(insert_joint) != "success" : return "error49"
-    if insertion_jig.move_z_axis(insertion_position_joint_z) != "success" : return "error50"
+    insertion_jig.move_z_axis(insertion_position_joint_z)
     if insertion_servos.clamp_joint_close() != "success" : return "error51"
     time.sleep(0.5)
     if insertion_servos.slider_joint_insertion() != "success" : return "error52"
@@ -1169,8 +1169,8 @@ if __name__ == "__main__":
 
     # insertionServosOpen()
 
-    result = oneCycle()
-    print(f"oneCycle result: {result}")
+    # result = oneCycle()
+    # print(f"oneCycle result: {result}")
 
     # result = pickUpHose()
     # print(f"pickUpHose result: {result}")
@@ -1182,7 +1182,7 @@ if __name__ == "__main__":
     # result = moveHosepuller()
     # print(f"moveHosepuller result: {result}")
     
-    # testHome()
+    testHome()
 
     # insertionServosOpen()
 
@@ -1194,7 +1194,7 @@ if __name__ == "__main__":
     # testIR()
 
     # Prueba de TapingFuyus
-    taping_fuyus_test()
+    # taping_fuyus_test()
 
     # Prueba de Taping
     # taping_test()
