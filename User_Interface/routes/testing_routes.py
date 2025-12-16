@@ -450,7 +450,6 @@ def canbus_reinit():
         print(f"Error reinitializing CAN bus: {e}")
         return jsonify(success=False, message=f'Error reinitializing CAN bus: {str(e)}'), 500
 
-
 #****************** Core Functions ***********************
 
 #Move Elevator In
@@ -805,6 +804,10 @@ def testHome():
     
     # Test ElevatorIn homing functions
     print("\n--- Testing ElevatorIn homing functions ---")
+
+    print("Testing home_gantry_z...")
+    result = elevator_in.home_gantry_z()
+    print(f"Result: {result}")
     
     print("Testing home_gantry_x...")
     result = elevator_in.home_gantry_x()
@@ -813,16 +816,11 @@ def testHome():
     print("Testing home_gantry_y...")
     result = elevator_in.home_gantry_y()
     print(f"Result: {result}")
-    
-    print("Testing home_gantry_z...")
-    result = elevator_in.home_gantry_z()
-    print(f"Result: {result}")
-    
+        
     print("Testing home_elevator_z...")
     result = elevator_in.home_elevator_z()
     print(f"Result: {result}")
 
-    # input("Continue")
     
     # Test PickAndPlace homing functions
     print("\n--- Testing PickAndPlace homing functions ---")
@@ -836,7 +834,6 @@ def testHome():
     
     print("Testing home_z_axis...")
 
-    # input("Continue")
 
     # Test HoseJig homing function
     print("\n--- Testing HoseJig homing function ---")
@@ -845,21 +842,18 @@ def testHome():
     result = hose_jig.go_home()
     print(f"Result: {result}")
     
-    
-    # input("Continue") 
 
     # Test HosePuller homing functions
     print("\n--- Testing HosePuller homing functions ---")
+
+    print("Testing home_z_axis...")
+    result = hose_puller.home_z_axis()
+    print(f"Result: {result}")
     
     print("Testing home_y_axis...")
     result = hose_puller.home_y_axis()
     print(f"Result: {result}")
     
-    print("Testing home_z_axis...")
-    result = hose_puller.home_z_axis()
-    print(f"Result: {result}")
-    
-    # input("Continue")
 
     # Test InsertionJig homing functions
     print("\n--- Testing InsertionJig homing functions ---")
@@ -878,7 +872,6 @@ def testHome():
     print("Testing home_x_axis...")
     result = transporter_fuyus.home_x_axis()
     print(f"Result: {result}")
-
     
     print("\nAll homing tests completed!")
 

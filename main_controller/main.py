@@ -1182,7 +1182,7 @@ if __name__ == "__main__":
     # result = moveHosepuller()
     # print(f"moveHosepuller result: {result}")
     
-    testHome()
+    # testHome()
 
     # insertionServosOpen()
 
@@ -1194,7 +1194,7 @@ if __name__ == "__main__":
     # testIR()
 
     # Prueba de TapingFuyus
-    # taping_fuyus_test()
+    taping_fuyus_test()
 
     # Prueba de Taping
     # taping_test()
