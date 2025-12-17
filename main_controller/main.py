@@ -263,14 +263,9 @@ def moveElevatorIn():
 def alignCassette():
     global pick_and_place
 
-
-
     if pick_and_place.move_left_conveyor_until_sensor(0,1000) != "success" : return "error01"
     if pick_and_place.move_right_conveyor_until_sensor(0,1000) != "success" : return "error02"
-    # #
-    # # pick_and_place.move_left_conveyor(0, 50, 236)
-    # # pick_and_place.move_left_conveyor(0, 0, 236)
-    #
+
     pick_and_place.move_right_conveyor(0, 50, 236)
     time.sleep(1.3)
     pick_and_place.move_right_conveyor(0, 0, 236)
@@ -284,20 +279,12 @@ def movePickandPlace(n=1):
     receiving_z = 7000
     translation_gap = 0.73
 
-    # Homing Pick and Place
-    # insertion_jig.home_x_axis()
-    # insertion_jig.home_z_axis()
-    # if pick_and_place.home_z_axis() != "success": return "error01"
-    # if pick_and_place.home_x_axis() != "success": return "error02"
-    #
-    # # Homing Insertion Jig
+    # Initial Setup
     if insertion_servos.slider_joint_receive() != "success": return "error03"
     if insertion_servos.slider_nozzle_receive() != "success": return "error3.1"
     if insertion_jig.move_z_axis(receiving_z) != "success": return "error04"
     if insertion_jig.move_x_axis(receiving_x) != "success": return "error05"
     if pick_and_place.open_gripper() != "success": return "error06"
-
-
 
     gap = 15
     zgap = 0
@@ -319,7 +306,6 @@ def movePickandPlace(n=1):
     deliver_joint_x = -3990
     deliver_joint_z = -1005
 
-
     # Validate Home
 
     if pick_and_place.move_actuator_z(0) != "success": return "error07"
@@ -329,7 +315,6 @@ def movePickandPlace(n=1):
     if pick_and_place.move_actuator_x(nozzle_x[n]- gap) != "success": return "error09"
     if pick_and_place.move_actuator_z(nozzle_high+zgap) != "success": return "error10"
     if pick_and_place.close_gripper() != "success": return "error11"
-    #
     #
     # Deliver Nozzle
     if pick_and_place.move_actuator_z(trans_nozzle_high) != "success": return "error12"
@@ -352,7 +337,7 @@ def movePickandPlace(n=1):
 
     # Home (ensure is there before moving)
     if pick_and_place.move_actuator_z(0) != "success": return "error18"
-    if pick_and_place.move_actuator_x(0) != "success": return "error19"
+    # if pick_and_place.move_actuator_x(0) != "success": return "error19"
 
     # Pick Joint
     if pick_and_place.move_actuator_x(joint_x[n]-gap) != "success": return "error21"
@@ -556,28 +541,89 @@ def oneCycle():
 
 
 #Pick Hose
-def pickUpHose():
+def pickUpHoseFrom1stStation():
 
     global transporter_fuyus, transporter_grippers, hose_jig
 
-    # if hose_jig.gripper_close() != "success" : return "001"
-    #
-    # if transporter_fuyus.pickHome() != "success" : return "01"
-    # # if transporter_fuyus.moveToStamperHoseJig() != "success" : return "02"
+    if hose_jig.gripper_close() != "success" : return "001"
+    if transporter_fuyus.pickHome() != "success" : return "01"
+
+    # if transporter_fuyus.moveToStamperHoseJig() != "success" : return "02"
     if transporter_fuyus.moveToReceivingPosition() != "success" : return "03"
     #
-    # if transporter_fuyus.pickHoseFromFirstStation() != "success" : return "04"
-    # if transporter_grippers.close_all_grippers() != "success" : return "05"
-    #
-    # time.sleep(1)
-    #
-    # if hose_jig.gripper_open() != "success" : return "06"
-    #
-    # if transporter_fuyus.pickHome() != "success": return "07"
-    #
-    # if transporter_fuyus.moveToDeliverPosition() != "success": return "03"
-    #
-    # if transporter_grippers.open_all_grippers() != "success": return "05"
+    if transporter_fuyus.pickHoseFromFirstStation() != "success" : return "04"
+    if transporter_grippers.close_all_grippers() != "success" : return "05"
+
+    time.sleep(1)
+
+    if hose_jig.gripper_open() != "success" : return "06"
+
+    if transporter_fuyus.pickHome() != "success": return "07"
+
+    if transporter_fuyus.moveToStamperHoseJig() != "success": return "03"
+
+    if transporter_fuyus.stamperHigh() != "success": return "04"
+
+    if transporter_grippers.open_all_grippers() != "success": return "05"
+
+    if transporter_fuyus.pickHome() != "success": return "07"
+
+    if transporter_fuyus.moveToSafeSpace() != "success": return "08"
+
+    return "success"
+
+def pickUpHoseFromStamper():
+
+    global transporter_fuyus, transporter_grippers, hose_jig_v2
+
+    if hose_jig_v2.close_stamper_hose_jig() != "success": return "06"
+
+    if transporter_fuyus.pickHome() != "success" : return "01"
+
+    if transporter_fuyus.moveToStamperHoseJig() != "success" : return "02"
+    if transporter_fuyus.stamperHigh() != "success" : return "04"
+    if transporter_grippers.close_all_grippers() != "success" : return "05"
+
+    time.sleep(1)
+
+    if hose_jig_v2.open_stamper_hose_jig() != "success" : return "06"
+
+    if transporter_fuyus.pickHome() != "success": return "07"
+
+    if transporter_fuyus.moveToTapingHoseJig() != "success": return "03"
+
+    if transporter_fuyus.tapingHigh() != "success": return "04"
+
+    if transporter_grippers.open_all_grippers() != "success": return "05"
+
+    if transporter_fuyus.pickHome() != "success": return "07"
+
+    if transporter_fuyus.moveToSafeSpace() != "success": return "08"
+
+    return "success"
+
+def pickUpHoseFromTaping():
+    global transporter_fuyus, transporter_grippers, hose_jig_v2
+
+    if hose_jig_v2.close_taping_hose_jig() != "success": return "06"
+
+    if transporter_fuyus.pickHome() != "success" : return "01"
+
+    if transporter_fuyus.moveToTapingHoseJig() != "success" : return "02"
+    if transporter_fuyus.tapingHigh() != "success" : return "04"
+    if transporter_grippers.close_all_grippers() != "success" : return "05"
+
+    time.sleep(1)
+
+    if hose_jig_v2.open_taping_hose_jig() != "success" : return "06"
+
+    if transporter_fuyus.pickHome() != "success": return "07"
+
+    if transporter_fuyus.moveToDeliverPosition() != "success": return "03"
+
+    if transporter_grippers.open_all_grippers() != "success": return "05"
+
+    if transporter_fuyus.moveToSafeSpace() != "success": return "08"
 
     return "success"
 
@@ -681,19 +727,10 @@ def lubrication_test():
 
     return "success"
 
+
 def tape():
-    """
-    Función de prueba para la clase TapingFuyus
-    Prueba las funciones principales de control de actuadores Y y Z
-    """
     global taping_fuyus, hose_jig_v2, taping
 
-    print("=== Iniciando prueba de TapingFuyus ===")
-
-    # Enviar heartbeat
-    # print("Enviando heartbeat...")
-    # taping_fuyus.send_heartbeat()
-    # time.sleep(0.5)
 
     home_position = 10000
     tape_position = 830
@@ -702,77 +739,46 @@ def tape():
     y_speed = 400
 
 
-    while True:
+    #Start Feeding Routine
+    taping.execute_forward_sequence()
 
-        print("==============================")
-        print("Seleccione una opción / Select an option / オプションを選択")
-        print("1: Enviar Z y Y a Home / Home Z & Y / ZとYホーム")
-        print("2: Mover servos a 7 y 92 / Move servos 7 & 92 / サーボ7と92")
-        print("3: Verificar alineación / Check alignment / アライメント確認")
-        print("4: Secuencia adelante con corte y regreso / Forward seq with cut / 前進シーケンス+カット")
-        print("5: Volver ambos actuadores a Home y servos 7 / Return Home / ホームに戻す")
-        print("==============================")
+    time.sleep(5)
 
-        try:
-            x = int(input("Ingrese opción (1-5) / Enter option (1-5) / オプション(1-5): "))
-        except ValueError:
-            print("Entrada inválida")
-            continue
+    # Start Feeding Routine
+    hose_jig_v2.close_taping_hose_jig()
 
-        if x == 1:
+    # Go to Tape Position
+    taping_fuyus.move_z_actuator_with_speed(0, z_speed)
+    taping_fuyus.move_y_actuator_with_speed(6590, y_speed)
 
-            # Enviar Z a Home
-            print("Enviando Z a Home...")
-            taping_fuyus.home_z_actuator()
-            time.sleep(0.5)
+    # Get Lower
+    taping_fuyus.move_z_actuator_with_speed(tape_position - 80, z_speed)
 
-            # Enviar Y a Home
-            print("Enviando Y a Home...")
-            taping_fuyus.home_y_actuator()
-            time.sleep(0.5)
+    # Tape Preparation
 
-        elif x == 2:
+    taping.open_gripper()
+    taping.cut_tape()
+    time.sleep(3)
 
-            hose_jig_v2.move_servos_absolute(7, 2)
-            hose_jig_v2.move_servos_absolute(92, 2)
+    # Get to Tape Position
+    taping_fuyus.move_z_actuator_with_speed(tape_position, z_speed)
 
-        elif x == 3:
+    time.sleep(1)
 
-            taping.checkAlignment()
+    # Wrapping Routine
+    taping.execute_backward_sequence()
 
-        elif x == 4:
+    time.sleep(5)
 
-            taping.execute_forward_sequence()
+    #Returning Home
 
-            time.sleep(5)
+    taping_fuyus.move_z_actuator_with_speed(0, z_speed)
+    taping_fuyus.move_y_actuator_with_speed(home_position, y_speed)
 
-            hose_jig_v2.move_servos_absolute(92, 2)
+    #Open Hose Jig
+    hose_jig_v2.close_taping_hose_jig()
 
-            taping_fuyus.move_z_actuator_with_speed(0, z_speed)
-            taping_fuyus.move_y_actuator_with_speed(6590, y_speed)
-
-            taping_fuyus.move_z_actuator_with_speed(tape_position - 80, z_speed)
-
-            taping.open_gripper()
-            taping.cut_tape()
-            time.sleep(3)
-
-            taping_fuyus.move_z_actuator_with_speed(tape_position, z_speed)
-
-            time.sleep(1)
-
-            taping.execute_backward_sequence()
-
-        elif x == 5:
-
-            taping_fuyus.move_z_actuator_with_speed(0, z_speed)
-            taping_fuyus.move_y_actuator_with_speed(home_position, y_speed)
-
-            hose_jig_v2.move_servos_absolute(7, 2)
-        else:
-            print("Opción no válida")
-
-    return True
+    return "Success"
 
 
 # ******************************** Only Insertion Routine ********************************
@@ -893,6 +899,99 @@ def insertionRoutine():
 
 
     return "success"
+
+def taping():
+    """
+    Función de prueba para la clase TapingFuyus
+    Prueba las funciones principales de control de actuadores Y y Z
+    """
+    global taping_fuyus, hose_jig_v2, taping
+
+    print("=== Iniciando prueba de TapingFuyus ===")
+
+    # Enviar heartbeat
+    # print("Enviando heartbeat...")
+    # taping_fuyus.send_heartbeat()
+    # time.sleep(0.5)
+
+    home_position = 10000
+    tape_position = 830
+    z_speed = 150
+    tape_spot = 1640
+    y_speed = 400
+
+
+    while True:
+
+        print("==============================")
+        print("Seleccione una opción / Select an option / オプションを選択")
+        print("1: Enviar Z y Y a Home / Home Z & Y / ZとYホーム")
+        print("2: Mover servos a 7 y 92 / Move servos 7 & 92 / サーボ7と92")
+        print("3: Verificar alineación / Check alignment / アライメント確認")
+        print("4: Secuencia adelante con corte y regreso / Forward seq with cut / 前進シーケンス+カット")
+        print("5: Volver ambos actuadores a Home y servos 7 / Return Home / ホームに戻す")
+        print("==============================")
+
+        try:
+            x = int(input("Ingrese opción (1-5) / Enter option (1-5) / オプション(1-5): "))
+        except ValueError:
+            print("Entrada inválida")
+            continue
+
+        if x == 1:
+
+            # Enviar Z a Home
+            print("Enviando Z a Home...")
+            taping_fuyus.home_z_actuator()
+            time.sleep(0.5)
+
+            # Enviar Y a Home
+            print("Enviando Y a Home...")
+            taping_fuyus.home_y_actuator()
+            time.sleep(0.5)
+
+        elif x == 2:
+
+            hose_jig_v2.move_servos_absolute(7, 2)
+            hose_jig_v2.move_servos_absolute(92, 2)
+
+        elif x == 3:
+
+            taping.checkAlignment()
+
+        elif x == 4:
+
+            taping.execute_forward_sequence()
+
+            time.sleep(5)
+
+            hose_jig_v2.move_servos_absolute(92, 2)
+
+            taping_fuyus.move_z_actuator_with_speed(0, z_speed)
+            taping_fuyus.move_y_actuator_with_speed(6590, y_speed)
+
+            taping_fuyus.move_z_actuator_with_speed(tape_position - 80, z_speed)
+
+            taping.open_gripper()
+            taping.cut_tape()
+            time.sleep(3)
+
+            taping_fuyus.move_z_actuator_with_speed(tape_position, z_speed)
+
+            time.sleep(1)
+
+            taping.execute_backward_sequence()
+
+        elif x == 5:
+
+            taping_fuyus.move_z_actuator_with_speed(0, z_speed)
+            taping_fuyus.move_y_actuator_with_speed(home_position, y_speed)
+
+            hose_jig_v2.move_servos_absolute(7, 2)
+        else:
+            print("Opción no válida")
+
+    return True
 
 
 # ******************************** Helper functions to control connectivity flags ********************************
@@ -1020,15 +1119,15 @@ if __name__ == "__main__":
 
     # testHome()
 
-    # moveElevatorIn()
+    moveElevatorIn()
 
     # alignCassette()
 
-    # movePickandPlace(2)
+    movePickandPlace(1)
 
-    # oneCycle()
+    oneCycle()
 
-    pickUpHose()
+    pickUpHoseFrom1stStation()
 
     # tape()
 

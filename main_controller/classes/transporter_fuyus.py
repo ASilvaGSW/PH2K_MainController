@@ -158,5 +158,11 @@ class TransporterFuyus:
     def pickHoseFromFirstStation(self):
         return self.move_all_steppers(65500,1)
 
+    def stamperHigh(self):
+        return self.move_all_steppers(65500,1)
+
+    def tapingHigh(self):
+        return self.move_all_steppers(65500, 1)
+
     def pickHome(self):
         return self.move_all_steppers(0, 1)
