@@ -140,6 +140,9 @@ class TransporterFuyus:
     def moveToTapingHoseJig(self):
         return self.move_x_axis_with_speed(-265,300)
 
+    def moveToSafeSpace(self):
+        return self.move_x_axis_with_speed(-2200,300)
+
     def moveToStamperHoseJig(self):
         return self.move_x_axis_with_speed(-3530,300)
     
