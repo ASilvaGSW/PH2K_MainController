@@ -1,0 +1,867 @@
+
+///---Main libraries---///
+#include <ESP32-TWAI-CAN.hpp>
+#include <EEPROM.h>
+#include <Arduino.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include <MKS57_CAN.h>
+#include <ESP32Servo.h>
+#include "AccelStepper.h"
+
+///---Initial definitions---///
+#define SERIAL_BAUDRATE 115200
+#define CPU_FREQUENCY 80
+ 
+///---ID of Linear actuators---///
+#define ID_AXIS_X 0x01     //X axis
+#define ID_AXIS_Z 0x02     //Z axis
+#define ID_BOMBA_1 0x03      //BOMBA 1
+#define ID_BOMBA_2 0x04      //BOMBA 2
+#define ID_BOMBA_3 0x05      //BOMBA 3
+
+///---Speed of Linear actuators---///
+#define speedFuyus 1000
+#define accelerationFuyus 240
+
+///---Delays---///
+#define delayOfFuyuX 2500
+#define delayOfFuyuZ 1500
+#define delayOfMiniFuyus 500
+#define delayOfServos 500
+#define delayOfBomba 10000
+
+// Array con los IDs
+uint8_t axisIDs[] = 
+{
+  ID_AXIS_X,
+  ID_AXIS_Z,
+  ID_BOMBA_1,
+  ID_BOMBA_2,
+  ID_BOMBA_3
+
+};
+
+///---CAN definitions---///
+#define CAN_TX 4 //Serial pin for ESP32 TX CAN TRANSCEIVER
+#define CAN_RX 5 //Serial pin for ESP32 TX CAN TRANSCEIVER
+#define TX_QUEUE_SIZE 10 //Set buffer lenght  for TX.
+#define RX_QUEUE_SIZE 10 //Set buffer length for RX.
+#define CAN_SPEED 125 //Set CAN bus speed scaler for tx/rx data.
+#define CAN_TIMEOUT 100 //Set timeout for CAN bus transmission/reception
+#define WRITE_CAN_ID 0x402
+#define MAX_FRAMES 100
+#define DATA_SIZE 8
+
+
+///---AccelStepper definitions---///
+//Mini linear actuator axis X
+#define dirPin1 32
+#define stepPin1 27
+#define enable1 22
+AccelStepper miniStepperX(AccelStepper::DRIVER, stepPin1, dirPin1);
+ 
+//Mini linear actuator axis Z
+#define dirPin2 17
+#define stepPin2 16
+#define enable2 21
+AccelStepper miniStepperZ(AccelStepper::DRIVER, stepPin2, dirPin2);
+
+///---Servo definitions---///
+//Stamping servo
+#define Pin_Stamping 14
+#define min_pwm 500
+#define max_pwm 2500
+#define min_angle 0
+#define max_angle 270
+Servo stamping;
+ 
+//Cover servo
+#define Pin_Cover 15
+#define min_pwm1 500
+#define max_pwm1 2500
+#define min_angle1 0
+#define max_angle1 270
+Servo cover;
+
+///---Servo positions---///
+//Stamping servo positions
+#define servoStamp_home 102 //90
+#define servoStamp_takePaint 78 //65
+#define servoStamp_stamping 30
+
+//Cover servo positions
+#define servoCover_home 105
+#define servoCover_final 10
+
+///---Fuyu Nema 23 axis positions---///
+//Z axis positions
+#define axisZ_home 0  //Home position of the axis Z and position to Stamping area.
+#define axisZ_moving 800  //Position to move the axis Z above Hose Jig.
+#define axisZ_rest 8400  //Position to rest the axis Z before lubricate.
+#define axisZ_highToLubricate 8760  //Position to move the axis Z above Lubrication.   8740 
+
+//X axis positions
+#define axisX_home 0   //Home position of the axis X. 
+#define axisX_stampingArea 16777215-74700 //Position to Stamping hose 73800
+#define axisX_maximumStroke 16777215-85500  //Maximum safe position for lubrication.
+#define axisX_takeRest 16777215-92400 //Positon to take rest felpa
+#define axisX_takePaint 16777215-92670 //Positon to take ink 
+
+
+
+///---Fuyu Nema 14 axis positions---///
+//Z axis positions
+#define miniZ_home 0  //Home position of the axis Z mini fuyu.
+#define miniZ_LubricatePosition 5200  //Position to lubricate felpa.
+#define miniZ_coverInk 9000 //Position to cover servomotor.
+#define miniZ_highPosition 9500 //Maximum safe position for axis Z mini fuyu.
+
+//X axis positions
+#define miniX_home 0  //Home position of the axis X mini fuyu and lubricate felpa.
+#define miniX_takePaint 18000 //Position to lubricate plate
+
+///---Pumps positions---///
+#define pulsesPump 20000
+
+///---Vatiables---///
+bool CAN_STATUS = false;
+int instructions = 0;
+unsigned long previousMillis = 0;
+unsigned long lastMoveTimeClose = 0;  
+unsigned long lastMoveTimeOpen = 0;  
+String prev_status = "ok";
+String cur_status = "ok";
+static uint32_t lastStamp = 0;
+uint8_t canInstructions[MAX_FRAMES][DATA_SIZE];
+uint8_t currentInstruction[8];
+uint8_t emptyArray[8] = {0,0,0,0,0,0,0,0};
+
+///---Instances---///
+CanFrame rxFrame;
+
+///---Objects---///
+MKS57_CAN MKS_SERVO_57D(CAN_TX, CAN_RX,  CAN_SPEED,  TX_QUEUE_SIZE, RX_QUEUE_SIZE);
+void sendCanbus(uint8_t b0,uint8_t b1,uint8_t b2,uint8_t b3,uint8_t b4,uint8_t b5,uint8_t b6,uint8_t b7);
+void clearInstruction();
+void readCanbus();
+void movestamping(int angle);
+void moveCover(int angle);
+void setMiniStepper();
+void HomeLoop();
+void ZeroLoop();
+void OneCyle(int i);
+void RunLoop(int times);
+void TakePaintLoop();
+void LubricationLoop(int times);
+
+///---Setup function---///
+void setup() 
+{
+  // Initialize Serial communication
+  Serial.begin(SERIAL_BAUDRATE);
+
+  // Set enable pins as outputs:
+  pinMode(enable1, OUTPUT);
+  pinMode(enable2, OUTPUT);
+  // Enable the motors by setting enable pins LOW (or HIGH depending on the motor driver):
+  digitalWrite(enable1, LOW);  // Enable motor 1
+  digitalWrite(enable2, LOW);  // Enable motor 2
+  setMiniStepper();
+
+  // Initialize servos
+  stamping.attach(Pin_Stamping, min_pwm, max_pwm);
+  movestamping(servoStamp_home);
+  cover.attach(Pin_Cover, min_pwm1, max_pwm1);
+  moveCover(servoCover_home);
+  
+  MKS_SERVO_57D.begin();  //Initialize driver interface
+   
+    if(ESP32Can.begin())
+    {
+      CAN_STATUS = true;
+    }
+  else
+    {
+      CAN_STATUS = false;
+    }
+ 
+    Serial.println("System initialized");
+    sendCanbus(0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,0xAA,0xAA);
+
+}
+
+///---Loop function---///
+void loop() 
+{
+  readCanbus();
+  delay(1000);
+
+  // Leer comandos por Serial
+  if (Serial.available() > 0)
+  {
+    String command = Serial.readStringUntil('\n');  // Lee la palabra o comando
+    command.trim();  // Elimina cualquier espacio extra antes o después del comando
+ 
+    Serial.print("Comando recibido: ");
+ 
+    // Usamos if-else en lougar de switch para comparar las cadenas
+    if (command == "HOME") 
+    {  
+      HomeLoop(); 
+      Serial.println("All actuators to home position"); 
+    }
+
+    else if (command == "ZERO") 
+    {  
+      ZeroLoop(); 
+      Serial.println("All actuators to zero position"); 
+    }
+
+    else if (command == "CYCLE") 
+    {  
+      OneCyle(0); 
+      Serial.println("One cycle"); 
+    }
+
+
+  else if (command.startsWith("RUN")) 
+{
+  int times;
+  int numParams = sscanf(command.c_str(), "RUN %d", &times);
+
+  if (numParams == 1)
+  {
+    Serial.print("RUN con ciclos: ");
+    Serial.println(times);
+    RunLoop(times);
+  }
+  else
+  {
+    Serial.println("Formato inválido. Usa: RUN <veces>, ej: RUN 5");
+  }
+}
+
+
+    else if (command == "TAKE PAINT") 
+    {  
+      TakePaintLoop(); 
+      Serial.println("Taking paint"); 
+    }
+    
+    else if (command.startsWith("LUBRICATION")) 
+    {  
+      int times;
+      int numParams = sscanf(command.c_str(), "LUBRICATION %d", &times);
+      if (numParams == 1 && times > 0)
+      {
+        Serial.print("Lubrication con ciclos: ");
+        Serial.println(times);
+        LubricationLoop(times);
+        Serial.println("Lubrication process terminado");
+      }
+      else
+      {
+        Serial.println("Formato inválido. Usa: LUBRICATION <veces>, ej: LUBRICATION 5");
+      }
+    }
+
+    else if (command.startsWith("STAMP")) 
+    {
+      int position;
+      int numParams = sscanf(command.c_str(), "STAMP %d", &position);
+      if (numParams==1)
+      {
+        Serial.print("Moviendo stamp:"); Serial.println(position);
+        movestamping(position);
+        delay(delayOfServos);
+      }
+    }
+
+    else if (command.startsWith("COVER")) 
+    {
+      int position;
+      int numParams = sscanf(command.c_str(), "COVER %d", &position);
+      if (numParams==1)
+      {
+        Serial.print("Moviendo cover:"); Serial.println(position);
+        moveCover(position);
+        delay(delayOfServos);
+      }
+    }
+
+    else if (command.startsWith("MZ"))      
+    {
+      int position;
+      int numParams = sscanf(command.c_str(), "MZ %d", &position);
+      if (numParams==1)
+      {
+        Serial.print("Moviendo miniz:"); Serial.println(position);
+        miniStepperZ.moveTo(position);//400PULSE 1 REV
+        miniStepperZ.runToPosition();
+        delay(delayOfMiniFuyus);
+      }
+    }
+
+    else if (command.startsWith("MX"))      
+    {
+      int position;
+      int numParams = sscanf(command.c_str(), "MX %d", &position);
+      if (numParams==1)
+      {
+        Serial.print("Moviendo minix:"); Serial.println(position);
+        miniStepperX.moveTo(position);//400PULSE 1 REV
+        miniStepperX.runToPosition();
+        delay(delayOfMiniFuyus);
+      }
+    }
+
+    else if (command.startsWith("FUYUZ")) 
+    {
+      int speed, acceleration, pulses;
+      int numParams = sscanf(command.c_str(), "FUYUZ %d %d %d", &speed, &acceleration, &pulses);
+        
+      if (numParams == 3) 
+      {
+        // Si los tres parámetros fueron leídos correctamente
+        Serial.print("Controlando FUYUZ con: ");
+        Serial.print("Velocidad: "); Serial.print(speed);
+        Serial.print(", Aceleración: "); Serial.print(acceleration);
+        Serial.print(", Pulsos: "); Serial.println(pulses);
+ 
+        // Ejecutar movimiento con los pulsos especificados
+
+        MKS_SERVO_57D.RunAbsoluteMotionByPulses(2, speed, acceleration, pulses);
+        delay(delayOfFuyuZ);
+        Serial.println("FUYU Z MOVIMIENTO TERMINADO");
+      } 
+      }
+
+      else if (command.startsWith("FUYUX")) 
+    {
+      int speed, acceleration, pulses;
+      int numParams = sscanf(command.c_str(), "FUYUX %d %d %d", &speed, &acceleration, &pulses);
+        
+      if (numParams == 3) 
+      {
+        // Si los tres parámetros fueron leídos correctamente
+        Serial.print("Controlando FUYUX con: ");
+        Serial.print("Velocidad: "); Serial.print(speed);
+        Serial.print(", Aceleración: "); Serial.print(acceleration);
+        Serial.print(", Pulsos: "); Serial.println(pulses);
+        pulses= 16777215-pulses;
+        // Ejecutar movimiento con los pulsos especificados
+        MKS_SERVO_57D.RunAbsoluteMotionByPulses(1, speed, acceleration, pulses);
+        delay(delayOfFuyuX);
+        Serial.println("FUYU X MOVIMIENTO TERMINADO");
+      } 
+    }
+
+
+    else if (command.startsWith("BOMBA1F")) 
+    {
+      // Comando esperado: BOMBA velocidad aceleracion pulsos
+      int speed, acceleration, pulses;
+      int numParams = sscanf(command.c_str(), "BOMBA1F %d %d %d", &speed, &acceleration, &pulses);
+        
+      if (numParams == 3) 
+      {
+        // Si los tres parámetros fueron leídos correctamente
+        Serial.print("Controlando BOMBA1 Forwards con: ");
+        Serial.print("Velocidad: "); Serial.print(speed);
+        Serial.print(", Aceleración: "); Serial.print(acceleration);
+        Serial.print(", Pulsos: "); Serial.println(pulses);
+ 
+        // Ejecutar movimiento con los pulsos especificados
+
+        MKS_SERVO_57D.RunRelativeMotionByPulsesForwards(ID_BOMBA_1, speed, acceleration, pulses);
+        delay(delayOfBomba);
+        Serial.println("BOMBA 1 MOVIMIENTO TERMINADO");
+      } 
+    }
+
+    else if (command.startsWith("BOMBA1R")) 
+    {
+      // Comando esperado: BOMBA velocidad aceleracion pulsos
+      int speed, acceleration, pulses;
+      int numParams = sscanf(command.c_str(), "BOMBA1R %d %d %d", &speed, &acceleration, &pulses);
+        
+      if (numParams == 3) 
+      {
+        // Si los tres parámetros fueron leídos correctamente
+        Serial.print("Controlando BOMBA1 Reverse con: ");
+        Serial.print("Velocidad: "); Serial.print(speed);
+        Serial.print(", Aceleración: "); Serial.print(acceleration);
+        Serial.print(", Pulsos: "); Serial.println(pulses);
+ 
+        // Ejecutar movimiento con los pulsos especificados
+
+        MKS_SERVO_57D.RunRelativeMotionByPulsesReverse(ID_BOMBA_1, speed, acceleration, pulses);
+        delay(delayOfBomba);
+        Serial.println("BOMBA 1 MOVIMIENTO TERMINADO");
+      } 
+    }
+      
+    else if (command.startsWith("BOMBA2F")) 
+    {
+      // Comando esperado: BOMBA velocidad aceleracion pulsos
+      int speed, acceleration, pulses;
+      int numParams = sscanf(command.c_str(), "BOMBA2F %d %d %d", &speed, &acceleration, &pulses);
+        
+      if (numParams == 3) 
+      {
+        // Si los tres parámetros fueron leídos correctamente
+        Serial.print("Controlando BOMBA2 Forwards con: ");
+        Serial.print("Velocidad: "); Serial.print(speed);
+        Serial.print(", Aceleración: "); Serial.print(acceleration);
+        Serial.print(", Pulsos: "); Serial.println(pulses);
+ 
+        // Ejecutar movimiento con los pulsos especificados
+
+        MKS_SERVO_57D.RunRelativeMotionByPulsesForwards(ID_BOMBA_2, speed, acceleration, pulses);
+        delay(delayOfBomba);
+        Serial.println("BOMBA 2 MOVIMIENTO TERMINADO");
+      } 
+      }
+
+      else if (command.startsWith("BOMBA2R")) 
+      {
+        // Comando esperado: BOMBA velocidad aceleracion pulsos
+        int speed, acceleration, pulses;
+        int numParams = sscanf(command.c_str(), "BOMBA2R %d %d %d", &speed, &acceleration, &pulses);
+          
+        if (numParams == 3) 
+        {
+          // Si los tres parámetros fueron leídos correctamente
+          Serial.print("Controlando BOMBA2 Reverse con: ");
+          Serial.print("Velocidad: "); Serial.print(speed);
+          Serial.print(", Aceleración: "); Serial.print(acceleration);
+          Serial.print(", Pulsos: "); Serial.println(pulses);
+   
+          // Ejecutar movimiento con los pulsos especificados
+  
+          MKS_SERVO_57D.RunRelativeMotionByPulsesReverse(ID_BOMBA_2, speed, acceleration, pulses);
+          delay(delayOfBomba);
+          Serial.println("BOMBA 2 MOVIMIENTO TERMINADO");
+        } 
+        }
+
+      
+    else if (command.startsWith("BOMBA3F")) 
+    {
+      // Comando esperado: BOMBA velocidad aceleracion pulsos
+      int speed, acceleration, pulses;
+      int numParams = sscanf(command.c_str(), "BOMBA3F %d %d %d", &speed, &acceleration, &pulses);
+        
+      if (numParams == 3) 
+      {
+        // Si los tres parámetros fueron leídos correctamente
+        Serial.print("Controlando BOMBA3 Forwards con: ");
+        Serial.print("Velocidad: "); Serial.print(speed);
+        Serial.print(", Aceleración: "); Serial.print(acceleration);
+        Serial.print(", Pulsos: "); Serial.println(pulses);
+ 
+        // Ejecutar movimiento con los pulsos especificados
+
+        MKS_SERVO_57D.RunRelativeMotionByPulsesForwards(ID_BOMBA_3, speed, acceleration, pulses);
+        delay(delayOfBomba);
+        Serial.println("BOMBA 3 MOVIMIENTO TERMINADO");
+      } 
+    }
+
+    else if (command.startsWith("BOMBA3R")) 
+    {
+      // Comando esperado: BOMBA velocidad aceleracion pulsos
+      int speed, acceleration, pulses;
+      int numParams = sscanf(command.c_str(), "BOMBA3R %d %d %d", &speed, &acceleration, &pulses);
+        
+      if (numParams == 3) 
+      {
+        // Si los tres parámetros fueron leídos correctamente
+        Serial.print("Controlando BOMBA3 Reverse con: ");
+        Serial.print("Velocidad: "); Serial.print(speed);
+        Serial.print(", Aceleración: "); Serial.print(acceleration);
+        Serial.print(", Pulsos: "); Serial.println(pulses);
+ 
+        // Ejecutar movimiento con los pulsos especificados
+
+        MKS_SERVO_57D.RunRelativeMotionByPulsesReverse(ID_BOMBA_3, speed, acceleration, pulses);
+        delay(delayOfBomba);
+        Serial.println("BOMBA 3 MOVIMIENTO TERMINADO");
+      } 
+    }
+
+    else
+    {
+      Serial.println("No reconocido.");
+    }
+  }
+}
+
+
+void setMiniStepper()
+{
+  miniStepperX.setMaxSpeed(1500000);
+  miniStepperX.setAcceleration(1500000);
+ 
+  miniStepperZ.setMaxSpeed(1500000);
+  miniStepperZ.setAcceleration(1500000);
+}
+
+void movestamping(int angle)
+{
+  int target_angle = map(angle, min_angle, max_angle, min_pwm, max_pwm);
+  stamping.writeMicroseconds(target_angle);
+}
+
+void moveCover(int angle)
+{
+  int target_angle = map(angle, min_angle1, max_angle1, min_pwm1, max_pwm1);
+  cover.writeMicroseconds(target_angle);
+}
+
+void readCanbus()
+{
+  if(ESP32Can.readFrame(rxFrame, CAN_TIMEOUT))
+  {
+    // Verificar si el identificador está en el array de IDs
+    for (int i = 0; i < sizeof(axisIDs) / sizeof(axisIDs[0]); i++)
+    {
+      if (rxFrame.identifier == axisIDs[i])
+      {  
+        // Buffer Control Purpose. Si hay más de 100 instrucciones
+        instructions++;
+        if(instructions >= 100) // Reemplaza el último comando con el más nuevo.
+        {
+          instructions = 99;
+        }          
+        memcpy(canInstructions[instructions-1], rxFrame.data, DATA_SIZE);
+        break; // Salir del bucle si se encuentra el ID
+      }
+    }
+  }
+}
+
+void sendCanbus(uint8_t b0,uint8_t b1,uint8_t b2,uint8_t b3,uint8_t b4,uint8_t b5,uint8_t b6,uint8_t b7)
+  {
+    CanFrame obdFrame = { 0 };
+    obdFrame.identifier = WRITE_CAN_ID; // Default OBD2 address;
+    obdFrame.extd = 0;
+    obdFrame.data_length_code = 8;
+    obdFrame.data[0] = b0;
+    obdFrame.data[1] = b1;
+    obdFrame.data[2] = b2;
+    obdFrame.data[3] = b3;    // Best to use 0xAA (0b10101010) instead of 0
+    obdFrame.data[4] = b4;    // CAN works better this way as it needs
+    obdFrame.data[5] = b5;    // to avoid bit-stuffing
+    obdFrame.data[6] = b6;
+    obdFrame.data[7] = b7;
+      // Accepts both pointers and references
+ 
+    ESP32Can.writeFrame(obdFrame);  // timeout defaults to 1 ms
+  }
+
+  void clearInstruction()
+  {
+    memcpy(canInstructions[0], emptyArray, DATA_SIZE);
+    for (int i = 0; i <= instructions; i++)
+    {
+      memcpy(canInstructions[i], canInstructions[i+1], DATA_SIZE);
+    }
+    instructions--;
+  }
+
+void ZeroLoop()
+{
+  Serial.println("ZeroLoop starting");
+ 
+  MKS_SERVO_57D.RunAbsoluteMotionByPulses(ID_AXIS_Z,speedFuyus,accelerationFuyus,axisZ_highToLubricate);  //   ID_AXIS_Z
+  miniStepperZ.moveTo(miniZ_highPosition);    miniStepperZ.runToPosition();
+  movestamping(servoStamp_home);
+  moveCover(servoCover_home);
+  delay(delayOfFuyuZ);
+
+  MKS_SERVO_57D.RunAbsoluteMotionByPulses(ID_AXIS_X,speedFuyus,accelerationFuyus,axisX_home);  //   ID_AXIS_X
+  miniStepperX.moveTo(miniX_home);     miniStepperX.runToPosition();
+  delay(delayOfFuyuX);
+ 
+  MKS_SERVO_57D.RunAbsoluteMotionByPulses(ID_AXIS_Z,speedFuyus,accelerationFuyus,axisZ_home);  //   ID_AXIS_Z
+  moveCover(servoCover_final);
+  delay(delayOfFuyuZ);
+
+  miniStepperZ.moveTo(miniZ_coverInk);    miniStepperZ.runToPosition();
+  delay(delayOfMiniFuyus);
+
+  miniStepperZ.moveTo(miniZ_highPosition);    miniStepperZ.runToPosition();
+  delay(delayOfMiniFuyus);
+
+  moveCover(servoCover_home);
+  delay(delayOfServos);
+
+  miniStepperZ.moveTo(miniZ_home);    miniStepperZ.runToPosition();
+  delay (delayOfMiniFuyus);
+
+}
+
+void HomeLoop()
+{
+  Serial.println("HomeLoop starting");
+ 
+  MKS_SERVO_57D.RunAbsoluteMotionByPulses(ID_AXIS_Z,speedFuyus,accelerationFuyus,axisZ_highToLubricate);  //   ID_AXIS_Z
+  miniStepperZ.moveTo(miniZ_highPosition);    miniStepperZ.runToPosition();
+  movestamping(servoStamp_home);
+  moveCover(servoCover_home);
+  delay(delayOfFuyuZ);
+
+  MKS_SERVO_57D.RunAbsoluteMotionByPulses(ID_AXIS_X,speedFuyus,accelerationFuyus,axisX_takeRest);  //   ID_AXIS_X
+  miniStepperX.moveTo(miniX_takePaint);     miniStepperX.runToPosition();
+  delay(delayOfFuyuX);
+ 
+  MKS_SERVO_57D.RunAbsoluteMotionByPulses(ID_AXIS_Z,speedFuyus,accelerationFuyus,axisZ_rest);  //   ID_AXIS_Z
+  miniStepperZ.moveTo(miniZ_LubricatePosition);    miniStepperZ.runToPosition();
+  delay(delayOfFuyuZ);
+}
+
+void OneCyle(int i)
+{
+  Serial.println("One Cycle starting");
+
+  MKS_SERVO_57D.RunAbsoluteMotionByPulses(ID_AXIS_Z,speedFuyus,accelerationFuyus,axisZ_highToLubricate);  //   ID_AXIS_Z
+  miniStepperZ.moveTo(miniZ_highPosition);    miniStepperZ.runToPosition();
+  movestamping(servoStamp_home);
+  moveCover(servoCover_home);
+  delay(delayOfFuyuZ);
+
+  MKS_SERVO_57D.RunAbsoluteMotionByPulses(ID_AXIS_X,speedFuyus,accelerationFuyus,axisX_takePaint);  //   ID_AXIS_X
+  miniStepperX.moveTo(miniX_takePaint);     miniStepperX.runToPosition();
+  delay(delayOfFuyuX);
+
+  miniStepperZ.moveTo(miniZ_LubricatePosition);    miniStepperZ.runToPosition();
+  delay(delayOfMiniFuyus);
+
+  miniStepperZ.moveTo(miniZ_highPosition);    miniStepperZ.runToPosition();
+  delay(delayOfMiniFuyus);
+
+  miniStepperX.moveTo(miniX_home);     miniStepperX.runToPosition();
+  delay(delayOfMiniFuyus);
+
+  moveCover(servoCover_final);
+  delay(delayOfServos);
+
+  miniStepperZ.moveTo(miniZ_coverInk);    miniStepperZ.runToPosition();
+  movestamping(servoStamp_takePaint);
+  delay(delayOfMiniFuyus);
+
+  miniStepperZ.moveTo(miniZ_highPosition);    miniStepperZ.runToPosition();
+  movestamping(servoStamp_home);
+  moveCover(servoCover_home);
+  delay(delayOfServos);
+
+  MKS_SERVO_57D.RunAbsoluteMotionByPulses(ID_AXIS_X,speedFuyus,accelerationFuyus,axisX_stampingArea+(i*500));  //   ID_AXIS_X
+  miniStepperX.moveTo(miniX_takePaint);     miniStepperX.runToPosition();
+  delay(delayOfFuyuX);
+
+  MKS_SERVO_57D.RunAbsoluteMotionByPulses(ID_AXIS_Z,speedFuyus,accelerationFuyus,axisZ_home);  //   ID_AXIS_Z
+  miniStepperZ.moveTo(miniZ_LubricatePosition);    miniStepperZ.runToPosition();
+  delay(delayOfFuyuZ);
+
+  movestamping(servoStamp_stamping);
+  delay(delayOfServos);
+
+  movestamping(servoStamp_home);
+  delay(delayOfServos);
+
+  HomeLoop(); 
+  Serial.println("All actuators to home position"); 
+}
+
+void RunLoop(int times)
+{
+  Serial.print("Ejecutando ciclos: ");
+  Serial.println(times);
+
+  for (int i = 0; i < times; i++)
+  {
+    Serial.print("Ciclo número: ");
+    Serial.println(i + 1);
+
+    OneCyle(i);   // <-- Tu función original
+    
+    delay(1000);  // pequeño descanso entre ciclos (ajustable)
+  }
+
+  Serial.println("Ciclos finalizados.");
+}
+
+
+
+void TakePaintLoop ()
+{
+  Serial.println("Take paint starting");
+  
+  MKS_SERVO_57D.RunAbsoluteMotionByPulses(ID_AXIS_Z,speedFuyus,accelerationFuyus,axisZ_highToLubricate);  //   ID_AXIS_Z
+  miniStepperZ.moveTo(miniZ_highPosition);    miniStepperZ.runToPosition();
+  movestamping(servoStamp_home);
+  moveCover(servoCover_home);
+  delay(delayOfFuyuZ);
+
+  MKS_SERVO_57D.RunAbsoluteMotionByPulses(ID_AXIS_X,speedFuyus,accelerationFuyus,axisX_takePaint);  //   ID_AXIS_X
+  miniStepperX.moveTo(miniX_takePaint);     miniStepperX.runToPosition();
+  delay(delayOfFuyuX);
+
+  miniStepperZ.moveTo(miniZ_LubricatePosition);    miniStepperZ.runToPosition();
+  delay(delayOfMiniFuyus);
+
+  miniStepperZ.moveTo(miniZ_coverInk);    miniStepperZ.runToPosition();
+  delay(delayOfMiniFuyus);
+
+  miniStepperZ.moveTo(miniZ_LubricatePosition);    miniStepperZ.runToPosition();
+  delay(delayOfMiniFuyus);
+
+  miniStepperZ.moveTo(miniZ_coverInk);    miniStepperZ.runToPosition();
+  delay(delayOfMiniFuyus);
+
+  miniStepperZ.moveTo(miniZ_LubricatePosition);    miniStepperZ.runToPosition();
+  delay(delayOfMiniFuyus);
+
+  miniStepperZ.moveTo(miniZ_highPosition);    miniStepperZ.runToPosition();
+  delay(delayOfMiniFuyus);
+
+  miniStepperX.moveTo(miniX_home);     miniStepperX.runToPosition();
+  delay(delayOfMiniFuyus);
+
+  moveCover(servoCover_final);
+  delay(delayOfServos);
+
+  miniStepperZ.moveTo(miniZ_coverInk);    miniStepperZ.runToPosition();
+  movestamping(servoStamp_takePaint);
+  delay(delayOfMiniFuyus);
+
+  movestamping(servoStamp_home);
+  delay(delayOfServos);
+
+  movestamping(servoStamp_takePaint);
+  delay(delayOfServos);
+
+  movestamping(servoStamp_home);
+  delay(delayOfServos);
+
+  movestamping(servoStamp_takePaint);
+  delay(delayOfServos);
+
+  miniStepperZ.moveTo(miniZ_highPosition);    miniStepperZ.runToPosition();
+  movestamping(servoStamp_home);
+  moveCover(servoCover_home);
+  delay(delayOfServos);
+
+  MKS_SERVO_57D.RunAbsoluteMotionByPulses(ID_AXIS_X,speedFuyus,accelerationFuyus,axisX_takeRest);  //   ID_AXIS_X
+  miniStepperX.moveTo(miniX_takePaint);     miniStepperX.runToPosition();
+  delay(delayOfMiniFuyus);
+ 
+  MKS_SERVO_57D.RunAbsoluteMotionByPulses(ID_AXIS_Z,speedFuyus,accelerationFuyus,axisZ_rest);  //   ID_AXIS_Z
+  miniStepperZ.moveTo(miniZ_LubricatePosition);    miniStepperZ.runToPosition();
+  delay(delayOfFuyuZ);
+}
+
+void LubricationLoop (int times)
+{
+  Serial.print("Lubrication starting. Ciclos: ");
+  Serial.println(times);
+    // Bucle infinito hasta recibir STOP
+    for (int ciclo = 1; ciclo <= times; ciclo++)
+    {
+      // --- Revisar si llegó STOP por Serial ---
+      if (Serial.available() > 0)
+      {
+        String cmd = Serial.readStringUntil('\n');
+        cmd.trim();
+        if (cmd == "STOP")
+        {
+              // --- Mensaje del ciclo actual ---
+        Serial.print("STOP recibido, ciclo de lubricación: ");
+        Serial.print(ciclo);
+        Serial.print(" / ");
+        Serial.println(times);
+        break;   // salimos de la función
+        }
+      }
+
+          // --- Mensaje del ciclo actual ---
+    Serial.print("Ciclo de lubricación: ");
+    Serial.print(ciclo);
+    Serial.print(" / ");
+    Serial.println(times);
+    
+  MKS_SERVO_57D.RunAbsoluteMotionByPulses(ID_AXIS_Z,speedFuyus,accelerationFuyus,axisZ_highToLubricate);  //   ID_AXIS_Z
+  miniStepperZ.moveTo(miniZ_highPosition);    miniStepperZ.runToPosition();
+  movestamping(servoStamp_home);
+  moveCover(servoCover_home);
+  delay(delayOfFuyuZ);
+
+  MKS_SERVO_57D.RunAbsoluteMotionByPulses(ID_AXIS_X,speedFuyus,accelerationFuyus,axisX_takeRest);  //   ID_AXIS_X
+  miniStepperX.moveTo(miniX_takePaint);     miniStepperX.runToPosition();
+  delay(delayOfFuyuX);
+
+
+  MKS_SERVO_57D.RunRelativeMotionByPulsesForwards(ID_BOMBA_1,speedFuyus,accelerationFuyus,pulsesPump);  //   Bomba 1
+  delay(delayOfBomba);
+
+  miniStepperZ.moveTo(miniZ_LubricatePosition);    miniStepperZ.runToPosition();
+  delay(delayOfMiniFuyus);
+
+  miniStepperZ.moveTo(miniZ_coverInk);    miniStepperZ.runToPosition();
+  delay(delayOfMiniFuyus);
+
+  miniStepperZ.moveTo(miniZ_LubricatePosition);    miniStepperZ.runToPosition();
+  delay(delayOfMiniFuyus);
+
+  miniStepperZ.moveTo(miniZ_coverInk);    miniStepperZ.runToPosition();
+  delay(delayOfMiniFuyus);
+
+  miniStepperZ.moveTo(miniZ_LubricatePosition);    miniStepperZ.runToPosition();
+  delay(delayOfMiniFuyus);
+
+ 
+}
+
+miniStepperZ.moveTo(miniZ_highPosition);    miniStepperZ.runToPosition();
+delay(delayOfMiniFuyus);
+
+miniStepperX.moveTo(miniX_home);     miniStepperX.runToPosition();
+delay(delayOfMiniFuyus);
+
+moveCover(servoCover_final);
+delay(delayOfServos);
+
+miniStepperZ.moveTo(miniZ_coverInk);    miniStepperZ.runToPosition();
+movestamping(servoStamp_takePaint);
+delay(delayOfMiniFuyus);
+
+movestamping(servoStamp_home);
+delay(delayOfServos);
+
+movestamping(servoStamp_takePaint);
+delay(delayOfServos);
+
+movestamping(servoStamp_home);
+delay(delayOfServos);
+
+movestamping(servoStamp_takePaint);
+delay(delayOfServos);
+
+miniStepperZ.moveTo(miniZ_highPosition);    miniStepperZ.runToPosition();
+movestamping(servoStamp_home);
+moveCover(servoCover_home);
+delay(delayOfServos);
+
+MKS_SERVO_57D.RunAbsoluteMotionByPulses(ID_AXIS_X,speedFuyus,accelerationFuyus,axisX_takeRest);  //   ID_AXIS_X
+miniStepperX.moveTo(miniX_takePaint);     miniStepperX.runToPosition();
+delay(delayOfMiniFuyus);
+
+MKS_SERVO_57D.RunAbsoluteMotionByPulses(ID_AXIS_Z,speedFuyus,accelerationFuyus,axisZ_rest);  //   ID_AXIS_Z
+miniStepperZ.moveTo(miniZ_LubricatePosition);    miniStepperZ.runToPosition();
+delay(delayOfFuyuZ);
+
+Serial.println("LubricationLoop finalizada (por ciclos completados o STOP).");
+
+}

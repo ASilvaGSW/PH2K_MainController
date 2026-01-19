@@ -146,8 +146,8 @@ byte replyData[8];  // Buffer for CAN replies
 
 // Stepper Motor Configuration
 #define STEPS_PER_REVOLUTION 200  // Number of steps per revolution for your stepper motor
-#define MAX_SPEED 1000  // Maximum speed in steps per second
-#define ACCELERATION 500  // Acceleration in steps per second squared
+#define MAX_SPEED 1500000  // Maximum speed in steps per second
+#define ACCELERATION 1500000  // Acceleration in steps per second squared
 
 // Y-axis stepper motor instance
 AccelStepper y_axis_stepper(AccelStepper::DRIVER, Y_AXIS_STEPPER_STEP_PIN, Y_AXIS_STEPPER_DIR_PIN);
@@ -388,8 +388,13 @@ void setup()
   digitalWrite(Z_AXIS_STEPPER_ENABLE_PIN, LOW);
 
   // Initialize servo motors
-  servo_cover.attach(SERVO_COVER_PIN);
-  servo_stamper.attach(SERVO_STAMPER_PIN);
+  servo_cover.attach(SERVO_COVER_PIN, 500, 2500);
+  servo_stamper.attach(SERVO_STAMPER_PIN, 500, 2500);
+  
+  // Set initial positions
+  servo_cover.write(105);   // servoCover_home from main.cpp
+  servo_stamper.write(102); // servoStamp_home from main.cpp
+  
   Serial.println("Servo motors initialized");
 
   // Initialize optical sensors
@@ -798,11 +803,11 @@ void process_instruction(CanFrame instruction)
     case 0x0B:
     {
       Serial.println("Case 0x0B: Moving Y-axis stepper to position");
-      // Extract target position from the CAN message (4 bytes, little-endian)
-      long targetPosition = ((uint8_t)instruction.data[4] << 24) |
-                           ((uint8_t)instruction.data[3] << 16) |
-                           ((uint8_t)instruction.data[2] << 8) |
-                           ((uint8_t)instruction.data[1]);
+      // Extract target position from the CAN message (4 bytes, big-endian: byte 1 is MSB)
+      long targetPosition = ((uint8_t)instruction.data[1] << 24) |
+                           ((uint8_t)instruction.data[2] << 16) |
+                           ((uint8_t)instruction.data[3] << 8) |
+                           ((uint8_t)instruction.data[4]);
       
 
       // Get direction from byte 5 (0 = negative, 1 = positive, other = use sign of position)
@@ -878,11 +883,11 @@ void process_instruction(CanFrame instruction)
     case 0x17:
     {
       Serial.println("Case 0x17: Moving Z-axis stepper to position");
-      // Extract target position from the CAN message (4 bytes, little-endian)
-      long targetPosition = ((uint8_t)instruction.data[4] << 24) |
-                           ((uint8_t)instruction.data[3] << 16) |
-                           ((uint8_t)instruction.data[2] << 8) |
-                           ((uint8_t)instruction.data[1]);
+      // Extract target position from the CAN message (4 bytes, big-endian: byte 1 is MSB)
+      long targetPosition = ((uint8_t)instruction.data[1] << 24) |
+                           ((uint8_t)instruction.data[2] << 16) |
+                           ((uint8_t)instruction.data[3] << 8) |
+                           ((uint8_t)instruction.data[4]);
       
 
       // Get direction from byte 5 (0 = negative, 1 = positive, other = use sign of position)
@@ -1134,10 +1139,10 @@ void process_instruction(CanFrame instruction)
       uint8_t pumpSelection = instruction.data[0];
       // Extract direction from CAN data (byte 1: 0=reverse, 1=forward)
       bool direction = instruction.data[1] > 0;
-      // Extract speed from CAN data (bytes 2-3, little endian)
-      uint16_t speed = (instruction.data[3] << 8) | instruction.data[2];
-      // Extract time in seconds from CAN data (bytes 4-5, little endian)
-      uint16_t timeSeconds = (instruction.data[5] << 8) | instruction.data[4];
+      // Extract speed from CAN data (bytes 2-3, big-endian: byte 2 is MSB)
+      uint16_t speed = (instruction.data[2] << 8) | instruction.data[3];
+      // Extract time in seconds from CAN data (bytes 4-5, big-endian: byte 4 is MSB)
+      uint16_t timeSeconds = (instruction.data[4] << 8) | instruction.data[5];
       // Extract acceleration from CAN data (byte 6)
       uint8_t acceleration = instruction.data[6];
       
@@ -1261,13 +1266,13 @@ void process_instruction(CanFrame instruction)
       if (validSelection) {
         Serial.println(counterValue);
         
-        // Send response with counter value (4 bytes, little endian)
+        // Send response with counter value (4 bytes, big-endian)
         byte response[] = {
           0x1B, 0x01,  // Command and status (OK)
-          (byte)(counterValue & 0xFF),
-          (byte)((counterValue >> 8) & 0xFF),
-          (byte)((counterValue >> 16) & 0xFF),
           (byte)((counterValue >> 24) & 0xFF),
+          (byte)((counterValue >> 16) & 0xFF),
+          (byte)((counterValue >> 8) & 0xFF),
+          (byte)(counterValue & 0xFF),
           0x00, 0x00
         };
         send_twai_response(response);
@@ -1408,13 +1413,13 @@ void process_instruction(CanFrame instruction)
       }
       
       if (validSelection) {
-        // Send counter value as 4-byte little-endian response
+        // Send counter value as 4-byte big-endian response
         byte response[] = {
           0x1E, 0x01,  // Command and status
-          (byte)(counterValue & 0xFF),
-          (byte)((counterValue >> 8) & 0xFF),
-          (byte)((counterValue >> 16) & 0xFF),
           (byte)((counterValue >> 24) & 0xFF),
+          (byte)((counterValue >> 16) & 0xFF),
+          (byte)((counterValue >> 8) & 0xFF),
+          (byte)(counterValue & 0xFF),
           0x00, 0x00
         };
         send_twai_response(response);
@@ -1473,7 +1478,7 @@ void process_instruction(CanFrame instruction)
       uint8_t stepperSelection = instruction.data[0];  // 1=X-axis, 2=Y-axis, 3=Z-axis
       uint8_t sensorSelection = instruction.data[1];   // 1=optical_sensor_1, 2=optical_sensor_2
       uint8_t direction = instruction.data[2];         // 0=negative, 1=positive
-      uint16_t maxSteps = (instruction.data[4] << 8) | instruction.data[3];  // Maximum steps to move
+      uint16_t maxSteps = (instruction.data[3] << 8) | instruction.data[4];  // Maximum steps to move
       
       bool validParameters = true;
       AccelStepper* selectedStepper = nullptr;
@@ -1558,8 +1563,8 @@ void process_instruction(CanFrame instruction)
       byte response[8];
       response[0] = 0x20;  // Command ID
       response[1] = sensorActivated ? 0x01 : 0x00;  // Status: 1=sensor activated, 0=max steps reached
-      response[2] = stepsMoved & 0xFF;        // Steps moved (low byte)
-      response[3] = (stepsMoved >> 8) & 0xFF; // Steps moved (high byte)
+      response[2] = (stepsMoved >> 8) & 0xFF; // Steps moved (high byte)
+      response[3] = stepsMoved & 0xFF;        // Steps moved (low byte)
       response[4] = 0x00;
       response[5] = 0x00;
       response[6] = 0x00;
@@ -1607,14 +1612,14 @@ void process_instruction(CanFrame instruction)
       }
       
       if (validSelection) {
-        // Send counter value as 4-byte little-endian response
+        // Send counter value as 4-byte big-endian response
         byte response[8];
         response[0] = 0x21;  // Command ID
         response[1] = 0x01;  // Status: OK
-        response[2] = counterValue & 0xFF;         // Counter byte 0 (LSB)
-        response[3] = (counterValue >> 8) & 0xFF;  // Counter byte 1
-        response[4] = (counterValue >> 16) & 0xFF; // Counter byte 2
-        response[5] = (counterValue >> 24) & 0xFF; // Counter byte 3 (MSB)
+        response[2] = (counterValue >> 24) & 0xFF; // Counter byte 3 (MSB)
+        response[3] = (counterValue >> 16) & 0xFF; // Counter byte 2
+        response[4] = (counterValue >> 8) & 0xFF;  // Counter byte 1
+        response[5] = counterValue & 0xFF;         // Counter byte 0 (LSB)
         response[6] = 0x00;
         response[7] = 0x00;
         
