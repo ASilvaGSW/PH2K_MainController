@@ -123,22 +123,22 @@ byte replyData[8];  // Buffer for CAN replies
 #define CAN1_INT 25  // GPIO25 - INT pin for MCP2515
 
 // Y-axis Stepper Motor Pins
-#define Y_AXIS_STEPPER_STEP_PIN 16  // GPIO16 - Step pin for Y-axis stepper
-#define Y_AXIS_STEPPER_DIR_PIN 17   // GPIO17 - Direction pin for Y-axis stepper
-#define Y_AXIS_STEPPER_ENABLE_PIN 21 // GPIO21 - Enable pin for Y-axis stepper
+#define Y_AXIS_STEPPER_STEP_PIN 27  // GPIO27 - Step pin for Y-axis stepper (Swapped with Z)
+#define Y_AXIS_STEPPER_DIR_PIN 32   // GPIO32 - Direction pin for Y-axis stepper (Swapped with Z)
+#define Y_AXIS_STEPPER_ENABLE_PIN 22 // GPIO22 - Enable pin for Y-axis stepper (Swapped with Z)
 
 // Z-axis Stepper Motor Pins
-#define Z_AXIS_STEPPER_STEP_PIN 27  // GPIO27 - Step pin for Z-axis stepper
-#define Z_AXIS_STEPPER_DIR_PIN 32   // GPIO32 - Direction pin for Z-axis stepper
-#define Z_AXIS_STEPPER_ENABLE_PIN 22 // GPIO22 - Enable pin for Z-axis stepper
+#define Z_AXIS_STEPPER_STEP_PIN 16  // GPIO16 - Step pin for Z-axis stepper (Swapped with Y)
+#define Z_AXIS_STEPPER_DIR_PIN 17   // GPIO17 - Direction pin for Z-axis stepper (Swapped with Y)
+#define Z_AXIS_STEPPER_ENABLE_PIN 21 // GPIO21 - Enable pin for Z-axis stepper (Swapped with Y)
 
 // Servo Motor Pins
 #define SERVO_COVER_PIN 15    // GPIO15 - PWM pin for servo cover
 #define SERVO_STAMPER_PIN 14  // GPIO14 - PWM pin for servo stamper
 
 // Optical Sensor Pins
-#define OPTICAL_SENSOR_1_PIN 13  // GPIO13 - Digital input for optical sensor 1 (Y-axis)
-#define OPTICAL_SENSOR_2_PIN 33  // GPIO33 - Digital input for optical sensor 2 (Z-axis)
+#define OPTICAL_SENSOR_1_PIN 33  // GPIO33 - Digital input for optical sensor 1 (Y-axis) (Swapped with Sensor 2)
+#define OPTICAL_SENSOR_2_PIN 13  // GPIO13 - Digital input for optical sensor 2 (Z-axis) (Swapped with Sensor 1)
 
 // Device CAN ID (only process messages with this ID)
 #define DEVICE_CAN_ID 0x005
@@ -808,15 +808,11 @@ void process_instruction(CanFrame instruction)
                            ((uint8_t)instruction.data[2] << 16) |
                            ((uint8_t)instruction.data[3] << 8) |
                            ((uint8_t)instruction.data[4]);
-      
 
       // Get direction from byte 5 (0 = negative, 1 = positive, other = use sign of position)
       int direction = instruction.data[5];
-      
       // Apply direction
-      if (direction == 1) {
-        targetPosition = -targetPosition;
-      }
+      if (direction == 1) { targetPosition = -targetPosition;}
       
       Serial.print("Case 0x0B: Moving Y-axis stepper to position: ");
       Serial.print(targetPosition);
@@ -828,7 +824,6 @@ void process_instruction(CanFrame instruction)
       y_axis_stepper.runToPosition();
 
       incrementStepperCounter();
-
       // Send response after movement completes
       byte response[] = {0x0B, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(response);
