@@ -17,6 +17,7 @@ Supported CAN commands (firmware v2):
 - 0x11 Update SERVO_CLOSE_ANGLE
 - 0x14 Read SERVO_OPEN_ANGLE
 - 0x15 Read SERVO_CLOSE_ANGLE
+- 0x20 Move Hose Holder servos
 - 0xFF Power off - move servos to home
 
 Notes:
@@ -121,6 +122,21 @@ class HoseJigV2:
         pos = max(0, min(180, int(position)))
         j = 0 if jig is None else int(jig)
         status, _ = self.canbus.send_message(self.canbus_id, [0x1A, j, pos, 0x00, 0x00, 0x00, 0x00, 0x00],wait_for_reply=False)
+        return status
+
+    # 0x20: Move Hose Holder servos
+    def move_hose_holder(self, angle, selector: Optional[int] = None):
+        """
+        EN: Move Hose Holder servos (Pins 21, 22).
+        ES: Mueve los servos del Hose Holder (Pines 21, 22).
+        JA: ホースホルダーのサーボ（ピン21、22）を動かします。
+
+        :param angle: Target angle (0-180)
+        :param selector: 0=Both (default), 1=Servo1(21), 2=Servo2(22)
+        """
+        sel = 0 if selector is None else int(selector)
+        ang = max(0, min(180, int(angle)))
+        status, _ = self.canbus.send_message(self.canbus_id, [0x20, sel, ang, 0x00, 0x00, 0x00, 0x00, 0x00])
         return status
 
     def close_stamper_hose_jig(self):

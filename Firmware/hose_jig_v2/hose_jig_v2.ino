@@ -12,6 +12,7 @@
  * 0x11: Update SERVO_CLOSE_ANGLE
  * 0x14: Read SERVO_OPEN_ANGLE
  * 0x15: Read SERVO_CLOSE_ANGLE
+ * 0x20: Move Hose Holder servos (Pins 21, 22)
  * 0xFF: Power off - Move all servos to home position
  */
 
@@ -53,10 +54,12 @@ unsigned long servoMoveCounterJig[2] = {0, 0};
 ESP32PWM pwm;
 Servo jig1_servos[3];
 Servo jig2_servos[3];
+Servo hose_holder_servos[2];
 
 // Servo pins (Jig 1 and Jig 2)
 const int JIG1_SERVO_PINS[3] = {14, 15, 16};
 const int JIG2_SERVO_PINS[3] = {17, 18, 19};
+const int HOSE_HOLDER_SERVO_PINS[2] = {21, 22};
 
 // Inductive sensors (Jig 1 and Jig 2)
 const int JIG1_SENSOR_PINS[3] = {23, 25, 26};
@@ -194,6 +197,12 @@ void setup()
     jig1_servos[i].attach(JIG1_SERVO_PINS[i], 500, 2500);
     jig2_servos[i].setPeriodHertz(50);
     jig2_servos[i].attach(JIG2_SERVO_PINS[i], 500, 2500);
+  }
+
+  // Attach Hose Holder servos (Pins 21, 22)
+  for (int i = 0; i < 2; i++) {
+    hose_holder_servos[i].setPeriodHertz(50);
+    hose_holder_servos[i].attach(HOSE_HOLDER_SERVO_PINS[i], 500, 2500);
   }
 
   // Configure inductive sensors as inputs with pullup for both jigs
@@ -625,6 +634,31 @@ void process_instruction(CanFrame instruction)
     {
       Serial.println("Case 0x18: Actuator not supported in v2 / Actuador no soportado / アクチュエータ非対応");
       byte response[] = {0x18, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x20 ***************************** //
+    // Move Hose Holder Servos (Pins 21, 22)
+    case 0x20:
+    {
+      Serial.println("Case 0x20: Move Hose Holder Servos / Mover Hose Holder");
+      uint8_t selector = instruction.data[1]; // 0=Both, 1=Servo1(21), 2=Servo2(22)
+      uint8_t angle = instruction.data[2];
+      angle = constrain(angle, 0, 180);
+
+      if (selector == 1) {
+        hose_holder_servos[0].write(angle);
+      } else if (selector == 2) {
+        hose_holder_servos[1].write(angle);
+      } else {
+        // Default to both
+        hose_holder_servos[0].write(angle);
+        hose_holder_servos[1].write(angle);
+      }
+      
+      delay(200); // Small delay for movement
+      byte response[] = {0x20, 0x01, selector, angle, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(response);
     }
     break;
