@@ -34,6 +34,7 @@
 #define SERVO_OPEN_ANGLE_JIG2_ADDR 12
 #define SERVO_CLOSE_ANGLE_JIG2_ADDR 14
 
+// 78 hex open 0 close 
 
 // Global variables
 unsigned long servoMoveCounterJig[2] = {0, 0};
