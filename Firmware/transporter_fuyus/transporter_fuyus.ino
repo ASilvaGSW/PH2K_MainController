@@ -80,6 +80,11 @@ byte replyData[8];  // Buffer for CAN replies
 #define STEPPER3_DIR_PIN 32
 #define STEPPER3_ENABLE_PIN 33
 
+// Limit Switches (Using free pins with internal pull-up capability)
+#define STEPPER1_HOME_PIN 34
+#define STEPPER2_HOME_PIN 35
+#define STEPPER3_HOME_PIN 39
+
 // Stepper Motor Configuration
 #define STEPS_PER_REVOLUTION 200  // Number of steps per revolution
 #define MAX_SPEED 100000  // Maximum speed in steps per second (para 100mm en 2 segundos)
@@ -226,6 +231,11 @@ void setup()
   digitalWrite(STEPPER1_ENABLE_PIN, LOW);
   digitalWrite(STEPPER2_ENABLE_PIN, LOW);
   digitalWrite(STEPPER3_ENABLE_PIN, LOW);
+
+  // Initialize Limit Switches
+  pinMode(STEPPER1_HOME_PIN, INPUT_PULLUP);
+  pinMode(STEPPER2_HOME_PIN, INPUT_PULLUP);
+  pinMode(STEPPER3_HOME_PIN, INPUT_PULLUP);
 
   Serial.println("Stepper motors initialized successfully");
   
@@ -594,6 +604,117 @@ void process_instruction(CanFrame instruction)
     }
     break;
 
+    // ***************************** CASE 0x0A ***************************** //
+    // Home Stepper 1 (Right until limit switch)
+    case 0x0A:
+    {
+      Serial.println("Case 0x0A: Home Stepper 1");
+      
+      float homingSpeed = 5000.0; // Positive for Right
+      stepper1.setSpeed(homingSpeed);
+
+      if (digitalRead(STEPPER1_HOME_PIN) == LOW) {
+        Serial.println("Sensor 1 already activated. Backing off...");
+        stepper1.setSpeed(-homingSpeed);
+        while (digitalRead(STEPPER1_HOME_PIN) == LOW) {
+            stepper1.runSpeed();
+        }
+        stepper1.setCurrentPosition(0);
+        stepper1.setSpeed(homingSpeed);
+        delay(100);
+      }
+
+      Serial.println("Starting homing move Stepper 1...");
+      while (digitalRead(STEPPER1_HOME_PIN) == HIGH) {
+        stepper1.runSpeed();
+      }
+
+      stepper1.setSpeed(0);
+      stepper1.setCurrentPosition(0);
+      stepper1.moveTo(0);
+      Serial.println("Homing Stepper 1 complete.");
+      
+      delay(200);
+      byte response[] = {0x0A, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x0B ***************************** //
+    // Home Stepper 2 (Right until limit switch)
+    case 0x0B:
+    {
+      Serial.println("Case 0x0B: Home Stepper 2");
+      
+      float homingSpeed = 5000.0; // Positive for Right
+      stepper2.setSpeed(homingSpeed);
+
+      if (digitalRead(STEPPER2_HOME_PIN) == LOW) {
+        Serial.println("Sensor 2 already activated. Backing off...");
+        stepper2.setSpeed(-homingSpeed);
+        while (digitalRead(STEPPER2_HOME_PIN) == LOW) {
+            stepper2.runSpeed();
+        }
+        stepper2.setCurrentPosition(0);
+        stepper2.setSpeed(homingSpeed);
+        delay(100);
+      }
+
+      Serial.println("Starting homing move Stepper 2...");
+      while (digitalRead(STEPPER2_HOME_PIN) == HIGH) {
+        stepper2.runSpeed();
+      }
+
+      stepper2.setSpeed(0);
+      stepper2.setCurrentPosition(0);
+      stepper2.moveTo(0);
+      Serial.println("Homing Stepper 2 complete.");
+      
+      delay(200);
+      byte response[] = {0x0B, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x0C ***************************** //
+    // Home Stepper 3 (Right until limit switch)
+    case 0x0C:
+    {
+      Serial.println("Case 0x0C: Home Stepper 3");
+      
+      float homingSpeed = 5000.0; // Positive for Right
+      stepper3.setSpeed(homingSpeed);
+
+      if (digitalRead(STEPPER3_HOME_PIN) == LOW) {
+        Serial.println("Sensor 3 already activated. Backing off...");
+        stepper3.setSpeed(-homingSpeed);
+        while (digitalRead(STEPPER3_HOME_PIN) == LOW) {
+            stepper3.runSpeed();
+        }
+        stepper3.setCurrentPosition(0);
+        stepper3.setSpeed(homingSpeed);
+        delay(100);
+      }
+
+      Serial.println("Starting homing move Stepper 3...");
+      while (digitalRead(STEPPER3_HOME_PIN) == HIGH) {
+        stepper3.runSpeed();
+      }
+
+      stepper3.setSpeed(0);
+      stepper3.setCurrentPosition(0);
+      stepper3.moveTo(0);
+      Serial.println("Homing Stepper 3 complete.");
+      
+      delay(200);
+      byte response[] = {0x0C, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+
+
+    
     // ***************************** CASE 0xFF ***************************** //
     // Power off - Move all to home position
     case 0xFF:

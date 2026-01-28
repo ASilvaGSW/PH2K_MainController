@@ -68,3 +68,30 @@ void LinearActuator::go_home(uint8_t* payload) {
     payload[0] = byte1;
     payload[1] = crc;
 }
+
+void LinearActuator::relative_move_with_speed_control(float angle, uint16_t local_speed, uint8_t acc, uint8_t* payload) {
+    // Convertir ángulo a pasos relativos (int24 con signo)
+    int32_t steps = round(angle * angle_ratio);
+    if (steps < 0) {
+        // Representación en 24 bits con signo (consistente con funciones existentes)
+        steps = 16777215 + steps; // 0xFFFFFF + steps
+    }
+
+    uint8_t byte1 = 0xF4;
+    uint8_t byte2 = (local_speed >> 8) & 0xFF;
+    uint8_t byte3 = local_speed & 0xFF;
+    uint8_t byte4 = acc & 0xFF;
+    uint8_t byte5 = (steps >> 16) & 0xFF;
+    uint8_t byte6 = (steps >> 8) & 0xFF;
+    uint8_t byte7 = steps & 0xFF;
+    uint8_t crc = (byte1 + byte2 + byte3 + byte4 + byte5 + byte6 + byte7 + motor_id) & 0xFF;
+
+    payload[0] = byte1;
+    payload[1] = byte2;
+    payload[2] = byte3;
+    payload[3] = byte4;
+    payload[4] = byte5;
+    payload[5] = byte6;
+    payload[6] = byte7;
+    payload[7] = crc;
+}

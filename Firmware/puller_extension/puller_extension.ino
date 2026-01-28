@@ -65,7 +65,7 @@
 #define STEPPER_COUNTER_ADDR 4 // Address in EEPROM to store the stepper counter
 #define GRIPPER_COUNTER_ADDR 8 // Address in EEPROM to store the gripper counter
 #define SERVO_COUNTER_ADDR 0 // Address in EEPROM to store the servo counter
-
+#define OPTICAL_HOME_SENSOR_PIN 32
 // Global variables
 unsigned long stepperMoveCounter = 0;
 unsigned long gripperMoveCounter = 0;
@@ -182,12 +182,15 @@ void setup()
   stepper.setMaxSpeed(MAX_SPEED);
   stepper.setAcceleration(ACCELERATION);
   stepper.setEnablePin(STEPPER_ENABLE_PIN);
-  stepper.setPinsInverted(false, false, true);  // Invert enable pin
+  // stepper.setPinsInverted(false, false, true);  // Removed to match stamper configuration (Active LOW)
   stepper.enableOutputs();
   stepper.moveTo(0);  // Set initial position
 
   pinMode(STEPPER_ENABLE_PIN, OUTPUT);
   digitalWrite(STEPPER_ENABLE_PIN, LOW);
+
+  // Initialize Optical Home Sensor
+  pinMode(OPTICAL_HOME_SENSOR_PIN, INPUT_PULLUP);
   
   // Initialize EEPROM
   EEPROM.begin(EEPROM_SIZE);
@@ -545,6 +548,42 @@ void process_instruction(CanFrame instruction)
       byte statusResponse[] = {0xFF, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(statusResponse);
       
+    }
+    break;
+
+    // ***************************** CASE 0x14 ***************************** //
+    // Auto Home Stepper (Move Left until Sensor)
+    case 0x14:
+    {
+      Serial.println("Case 0x14: Auto Homing Stepper (Move Left)");
+
+      float homingSpeed = -5000.0; 
+      stepper.setSpeed(homingSpeed);
+
+      if (digitalRead(OPTICAL_HOME_SENSOR_PIN) == LOW) {
+        Serial.println("Sensor already activated. Backing off...");
+        stepper.setSpeed(-homingSpeed); // Velocidad positiva
+        while (digitalRead(OPTICAL_HOME_SENSOR_PIN) == LOW) {
+            stepper.runSpeed();
+        }
+        stepper.setCurrentPosition(0);
+        stepper.setSpeed(homingSpeed); // Restaurar velocidad de homing
+        delay(100);
+      }
+
+      Serial.println("Starting homing move...");
+      while (digitalRead(OPTICAL_HOME_SENSOR_PIN) == HIGH) {
+        stepper.runSpeed();
+      }
+
+      stepper.setSpeed(0);
+      stepper.setCurrentPosition(0);
+      stepper.moveTo(0); // Asegurar que el target también sea 0
+      Serial.println("Homing complete. Position set to 0.");
+
+      delay(200);
+      byte response[] = {0x14, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
     }
     break;
 

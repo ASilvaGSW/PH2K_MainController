@@ -37,6 +37,7 @@ from classes.taping import Taping
 from classes.taping_fuyus import TapingFuyus
 from classes.transporter_fuyus import TransporterFuyus
 from classes.transporter_grippers import TransporterGrippers
+from classes.pick_and_place_camera import PickAndPlaceCamera
 
 # Variables globales para acceder a los objetos desde cualquier función
 canbus = None
@@ -47,6 +48,7 @@ puller_extension = None
 insertion_jig = None
 elevator_in = None
 pick_and_place = None
+pick_and_place_camera = None
 insertion_servos = None
 lubrication_feeder = None
 lubrication_stamper = None
@@ -63,7 +65,7 @@ CHECK_ALL_DEVICES = True  # When True, checks all devices regardless of station 
 
 #Initialize and setup CANbus and devices
 def my_main(check):
-    global canbus, hose_jig, hose_jig_v2, hose_puller, puller_extension, insertion_jig, elevator_in, pick_and_place, insertion_servos
+    global canbus, hose_jig, hose_jig_v2, hose_puller, puller_extension, insertion_jig, elevator_in, pick_and_place, insertion_servos, pick_and_place_camera
     global lubrication_feeder, lubrication_stamper, stamper, taping, taping_fuyus, transporter_fuyus, transporter_grippers
     
     # Example CAN IDs (these should be configured according to your hardware setup)
@@ -74,6 +76,7 @@ def my_main(check):
     CANBUS_ID_INSERTION = 0x0C9
     CANBUS_ID_ELEVATOR_IN = 0x189   
     CANBUS_ID_PICK_AND_PLACE = 0x191
+    CANBUS_ID_PICK_AND_PLACE_CAMERA = 0x001
     CANBUS_ID_INSERTION_SERVOS = 0x002
     CANBUS_ID_LUBRICATION_FEEDER = 0x019
     CANBUS_ID_LUBRICATION_STAMPER = 0x004
@@ -94,6 +97,7 @@ def my_main(check):
     insertion_jig = InsertionJig(canbus, CANBUS_ID_INSERTION)
     elevator_in = ElevatorIn(canbus, CANBUS_ID_ELEVATOR_IN)
     pick_and_place = PickAndPlace(canbus, CANBUS_ID_PICK_AND_PLACE)
+    pick_and_place_camera = PickAndPlaceCamera(canbus, CANBUS_ID_PICK_AND_PLACE_CAMERA)
     insertion_servos = InsertionServos(canbus, CANBUS_ID_INSERTION_SERVOS)
     lubrication_feeder = LubricationFeeder(canbus, CANBUS_ID_LUBRICATION_FEEDER)
     lubrication_stamper = LubricationStamper(canbus, CANBUS_ID_LUBRICATION_STAMPER)
@@ -261,15 +265,18 @@ def moveElevatorIn():
 
 #Align Cassette:
 def alignCassette():
-    global pick_and_place
+    global pick_and_place,pick_and_place_camera
 
     if pick_and_place.move_left_conveyor_until_sensor(0,1000) != "success" : return "error01"
     if pick_and_place.move_right_conveyor_until_sensor(0,1000) != "success" : return "error02"
 
-    pick_and_place.move_right_conveyor(0, 50, 236)
-    time.sleep(1.3)
-    pick_and_place.move_right_conveyor(0, 0, 236)
+    time.sleep(1)
 
+    alignComponent()
+
+def alignComponent():
+    if pick_and_place_camera.alignment_joint() == None: return "error03"
+    if pick_and_place_camera.alignment_nozzle() == None: return "error03"
 
 #Move Pick and Place
 def movePickandPlace(n=1):
@@ -291,7 +298,7 @@ def movePickandPlace(n=1):
 
     #Nozzle Data
     nozzle_high = -962
-    nozzle_x = [-640,-502,-347,-220,-70]
+    nozzle_x = [-580,-450,-300,-170,-20,110]
     trans_nozzle_high = -600
 
     deliver_nozzle_x = -3697
@@ -300,7 +307,7 @@ def movePickandPlace(n=1):
     # Joint Data
     # joint_high = -1243
     joint_high = -967
-    joint_x = [-1800,-1715,-1635,-1555,-1475]
+    joint_x = [-1770,-1690,-1610,-1530,-1450,-1370,-1290,-1210,-1130,-1050]
     trans_joint_high = -600
 
     deliver_joint_x = -3990
@@ -1121,7 +1128,8 @@ if __name__ == "__main__":
 
     moveElevatorIn()
 
-    # alignCassette()
+    alignCassette()
+
 
     movePickandPlace(1)
 

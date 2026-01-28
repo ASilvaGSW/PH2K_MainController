@@ -6,19 +6,28 @@
  * 0x04 - NO LOCAL NETWORK
  * 
  * CAN Commands:
+ * 0x01 - Reset microcontroller
+ * 0x02 - Heartbeat
+ * 0x03 - Move Individual Actuator
+ * 0x05 - Move Elevator Z
+ * 0x0B - Get Actuator Counter
+ * 0x0C - Reset Actuator Counter
  * 0x10 - Home Individual Actuator (by actuator_id)
- * 0x11 - Home All Gantry Axes (gantryX, gantryY, gantryY2, gantryZ)
- * 0x12 - Home All Axes (all gantry axes + elevatorZ)
+ * 0x12 - Home All Axes (elevatorZ)
  * 0x13 - Control Servo
  * 0x14 - Get Servo Counter
  * 0x15 - Reset Servo Counter
+ * 0x16 - Get Optical Sensor Status
+ * 0x17 - Move Elevator to Reception
+ * 0x18 - Set Servo State (Home/Open)
+ * 0x19 - Move Elevator Relative (Jog)
+ * 0xFF - Power off
 */
 
 #include <ESP32-TWAI-CAN.hpp>
 #include <mcp_can.h>
 #include <SPI.h>
 #include "src/linear_actuator.h"
-#include "src/gripper_digital.h"
 #include <ESP32Servo.h>
 
 // FreeRTOS
@@ -29,67 +38,57 @@
 
 // EEPROM Configuration
 #define EEPROM_SIZE 32 // 4 bytes for each counter (servos + actuator)
-#define GANTRY_COUNTER_X_ADDR 4  // Address in EEPROM to store the actuator counter
-#define GANTRY_COUNTER_Y_ADDR 8 // Address in EEPROM to store the actuator counter
-#define GANTRY_COUNTER_Z_ADDR 12 // Address in EEPROM to store the actuator counter
 #define ELEVATOR_COUNTER_Z_ADDR 16 // Address in EEPROM to store the actuator counter
-#define GRIPPER_COUNTER_ADDR 20 // Address in EEPROM to store the gripper counter
-#define GRIPPER_FORCE_ADDR 24 // Address in EEPROM to store the gripper force
+#define SERVO2_COUNTER_ADDR 20 // Address in EEPROM to store the second servo counter
 #define SERVO_COUNTER_ADDR 28 // Address in EEPROM to store the servo counter
+
 // Global variables
-unsigned long counter_gantryX = 0;
-unsigned long counter_gantryY = 0;
-unsigned long counter_gantryZ = 0;
 unsigned long counter_elevatorZ = 0;
-unsigned long counter_gripper = 0;
 unsigned long counter_servo = 0;
-int gripperForce = 4;
+unsigned long counter_servo2 = 0;
 
 byte replyData[8];  // Buffer for CAN replies
 
 // Pins for the first CAN bus (TWAI - ESP32 Integrated)
 #define CAN0_TX 4  // GPIO4 - TX for CAN0 (General Network)
+#define CAN0_RX 5  // GPIO4 - TX for CAN0 (General Network)
 
 // Servo configuration
-#define SERVO_PIN 13  // Pin where the servo is connected
+#define SERVO_PIN 14  // Pin where the servo is connected
+#define SERVO2_PIN 15 // Pin where the second servo is connected
+
+// Configuración de goBILDA para el modo "Servo" (Posicional)
+const int minPulse = 500;  // Pulso mínimo en microsegundos
+const int maxPulse = 2500; // Pulso máximo en microsegundos
+
+#define SERVO_PWM_HOME 0x360 // 864 us
+#define SERVO_PWM_OPEN 0x9C0 // 2464 us
+
 Servo gobilda;  // Create servo object to control a servo
-#define CAN0_RX 5  // GPIO5 - RX for CAN0 (General Network)
+Servo gobilda2; // Create second servo object object to control a servo1
+
+// Optical Sensor
+#define OPTICAL_SENSOR_PIN 21
 
 // Pins for the second CAN bus (MCP2515)
 #define CAN1_CS 26  // Changed from 15 to 26 to avoid upload issues
 #define CAN1_INT 25  // Changed from 2 to 25 to avoid boot issues
-//The rest keep standard MCP2515 configuration
-// MOSI = 23
-// MISO = 19
-// SCK = 18
-// CS = 26
-// INT = 25
 
 // Device CAN ID (only process messages with this ID)
 #define DEVICE_CAN_ID 0x188
-#define RESPONSE_CAN_ID 0x589
+#define RESPONSE_CAN_ID 0x588
 
 // Instance for the second CAN bus (MCP2515)
 MCP_CAN CAN1(CAN1_CS);
 
 // Instance of LinearActuator
-LinearActuator gantryX(0x001);
-LinearActuator gantryY(0x002);
-LinearActuator gantryY2(0x003);
-LinearActuator gantryZ(0x004);
-LinearActuator elevatorZ(0x005);
-
-GripperDigital gripper(31, 32, 33);
+LinearActuator elevatorZ(0x001);
 
 void loadConfigValues()
 {
-  counter_gantryX = EEPROM.readULong(GANTRY_COUNTER_X_ADDR);
-  counter_gantryY = EEPROM.readULong(GANTRY_COUNTER_Y_ADDR);
-  counter_gantryZ = EEPROM.readULong(GANTRY_COUNTER_Z_ADDR);
   counter_elevatorZ = EEPROM.readULong(ELEVATOR_COUNTER_Z_ADDR);
-  counter_gripper = EEPROM.readULong(GRIPPER_COUNTER_ADDR);
   counter_servo = EEPROM.readULong(SERVO_COUNTER_ADDR);
-  gripperForce = EEPROM.readUShort(GRIPPER_FORCE_ADDR);
+  counter_servo2 = EEPROM.readULong(SERVO2_COUNTER_ADDR);
 }
 
 // Queue to store instructions received from the main CAN bus (TWAI)
@@ -99,10 +98,10 @@ QueueHandle_t instruction_queue;
 void process_instruction(CanFrame instruction);
 uint8_t waitForCanReply(uint16_t expectedId);
 void send_twai_response(const byte response_data[8]);
-
+uint8_t moveIndividualActuator(uint8_t actuator_id, int16_t angle, uint8_t orientation);
 
 // Generic function to save counter to EEPROM
-void saveCounter(const char* name, uint32_t address, unsigned long counter)
+void saveCounter(const char* name, uint32_t address, unsigned long &counter)
 {
   counter++;
   EEPROM.writeULong(address, counter);
@@ -113,29 +112,15 @@ void saveCounter(const char* name, uint32_t address, unsigned long counter)
 }
 
 // Wrapper functions for each counter
-void saveGantryXCounter() { saveCounter("Gantry X", GANTRY_COUNTER_X_ADDR, counter_gantryX); }
-void saveGantryYCounter() { saveCounter("Gantry Y", GANTRY_COUNTER_Y_ADDR, counter_gantryY); }
-void saveGantryZCounter() { saveCounter("Gantry Z", GANTRY_COUNTER_Z_ADDR, counter_gantryZ); }
 void saveElevatorZCounter() { saveCounter("Elevator Z", ELEVATOR_COUNTER_Z_ADDR, counter_elevatorZ); }
-void saveGripperCounter() { saveCounter("Gripper", GRIPPER_COUNTER_ADDR, counter_gripper); }
 void saveServoCounter() { saveCounter("Servo", SERVO_COUNTER_ADDR, counter_servo); }
-
-void saveGripperForce()
-{ 
-  EEPROM.writeUShort(GRIPPER_FORCE_ADDR, gripperForce);
-  EEPROM.commit();
-  Serial.print("Gripper Force saved: ");
-  Serial.println(gripperForce);
-}
+void saveServo2Counter() { saveCounter("Servo 2", SERVO2_COUNTER_ADDR, counter_servo2); }
 
 void SaveCounter(int id)
 {
   switch (id)
   {
-    case 1: saveGantryXCounter(); break;
-    case 2: saveGantryYCounter(); break;
-    case 3: saveGantryZCounter(); break;
-    case 4: saveElevatorZCounter(); break;
+    case 1: saveElevatorZCounter(); break;
     default: break;
   }
 }
@@ -143,7 +128,15 @@ void SaveCounter(int id)
 void setup()
 {
   Serial.begin(115200);
-  gobilda.attach(SERVO_PIN);  // Attach servo to pin
+
+  // Asignar el pin y definir los límites de pulso específicos de goBILDA
+  gobilda.setPeriodHertz(50); // Frecuencia estándar de 50Hz para servos
+  gobilda.attach(SERVO_PIN, minPulse, maxPulse);  // Attach servo to pin
+
+  gobilda2.setPeriodHertz(50); // Frecuencia estándar de 50Hz para servos
+  gobilda2.attach(SERVO2_PIN, minPulse, maxPulse); // Attach second servo to pin
+
+  pinMode(OPTICAL_SENSOR_PIN, INPUT); // Initialize optical sensor pin as input
   while (!Serial) { delay(10); }
   Serial.println("Initializing dual CAN system with FreeRTOS");
 
@@ -153,11 +146,7 @@ void setup()
   // Load persistent config values
   loadConfigValues();
 
-  Serial.print("Loaded Gantry X counter from EEPROM: "); Serial.println(counter_gantryX);
-  Serial.print("Loaded Gantry Y counter from EEPROM: "); Serial.println(counter_gantryY);
-  Serial.print("Loaded Gantry Z counter from EEPROM: "); Serial.println(counter_gantryZ);
   Serial.print("Loaded Elevator Z counter from EEPROM: "); Serial.println(counter_elevatorZ);
-  Serial.print("Loaded Gripper counter from EEPROM: "); Serial.println(counter_gripper);
   
   // Create the instruction queue
   instruction_queue = xQueueCreate(10, sizeof(CanFrame));
@@ -199,14 +188,10 @@ void setup()
 
   Serial.println("CAN system ready. Main loop running on core 1.");
 
-  gripper.setFuerza(gripperForce);
-
   // Send startup message
   byte startup_msg[] = {0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
   send_twai_response(startup_msg);
   delay(100); // Give some time for the message to be sent
-
-
 }
 
 // Task running on core 0 to listen to the TWAI bus
@@ -251,8 +236,6 @@ void process_instruction(CanFrame instruction)
   Serial.println(instruction.data[0], HEX);
 
   byte response_data[8] = {0};
-  bool success = false;
-
 
   switch (instruction.data[0])
   {
@@ -261,7 +244,7 @@ void process_instruction(CanFrame instruction)
     // Reset microcontroller
     case 0x01: 
     {
-      Serial.println("Case 0x01: Read X axis position");
+      Serial.println("Case 0x01: Reset");
       byte response[] = {0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(response);
       delay(100);
@@ -279,71 +262,6 @@ void process_instruction(CanFrame instruction)
     }
     break;
 
-    // ***************************** CASE 0x03 ***************************** //
-    // Move Individual Actuator
-    case 0x03:
-    { 
-      Serial.println("Case 0x03: Move Individual Axis");
-
-      uint8_t actuator_id = instruction.data[1];
-      int16_t angle = instruction.data[2] << 8 | instruction.data[3];
-      uint8_t orientation = instruction.data[4];
-
-      uint8_t status = moveIndividualActuator(actuator_id, angle, orientation);
-
-      // Send response with status
-      byte statusResponse[] = {0x03, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-      send_twai_response(statusResponse);
-    }
-    break;
-
-    // ***************************** CASE 0x04 ***************************** //
-    // Move Gantry XYZ
-    case 0x04:
-    {
-      Serial.println("Case 0x04: Move Gantry XYZ");
-
-      uint16_t x_angle = instruction.data[1] << 8 | instruction.data[2];
-      uint16_t y_angle = instruction.data[3] << 8 | instruction.data[4];
-      uint16_t z_angle = instruction.data[5] << 8 | instruction.data[6];
-      uint8_t orientation = instruction.data[7];
-      
-      int ori1 = 0;
-      int ori2 = 0;
-      int ori3 = 0;
-      
-      if (orientation & 0x04) ori1 = 1;
-      if (orientation & 0x02) ori2 = 1;
-      if (orientation & 0x01) ori3 = 1;
-
-      uint8_t status = moveIndividualActuator(gantryX.motor_id, x_angle, ori1);
-      if (status != 0x01)
-      {
-        byte errorResponse[] = {0x04, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK
-        send_twai_response(errorResponse);
-        break;
-      }
-
-      uint8_t status = moveIndividualActuator(gantryY.motor_id, y_angle, ori2);
-      if (status != 0x01)
-      {
-        byte errorResponse[] = {0x04, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK
-        send_twai_response(errorResponse);
-        break;
-      }
-
-      uint8_t status = moveIndividualActuator(gantryZ.motor_id, z_angle, ori3);
-      if (status != 0x01)
-      {
-        byte errorResponse[] = {0x04, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  // NO LOCAL NETWORK
-        send_twai_response(errorResponse);
-        break;
-      }
-
-      byte statusResponse[] = {0x04, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-      send_twai_response(statusResponse);
-    }
-    break;
 
     // ***************************** CASE 0x05 ***************************** //
     // Move Elevator Z
@@ -354,7 +272,6 @@ void process_instruction(CanFrame instruction)
       uint16_t angle = instruction.data[1] << 8 | instruction.data[2];
       uint8_t orientation = instruction.data[3];
       
-
       uint8_t status = moveIndividualActuator(elevatorZ.motor_id, angle, orientation);
       
       byte statusResponse[] = {0x05, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
@@ -362,84 +279,6 @@ void process_instruction(CanFrame instruction)
     }
     break;
     
-    // ***************************** CASE 0x06 ***************************** //
-    // Move Gripper
-    case 0x06:
-    {
-      uint8_t action = instruction.data[1];
-      
-      if (action == 0x01)
-      {
-        gripper.open();
-      }
-      else if (action == 0x02)
-      {
-        gripper.close();
-      }
-
-      saveGripperCounter();
-
-      delay(500);
-      byte statusResponse[] = {0x06, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-      send_twai_response(statusResponse);
-    }
-    break;
-
-    // ***************************** CASE 0x07 ***************************** //
-    // Set gripper force
-    case 0x07:
-    {
-      Serial.println("Case 0x07: Set gripper force");
-      
-      uint8_t newGripperForce = instruction.data[1];
-
-      if (newGripperForce >= 4 && newGripperForce <= 7)
-      {
-        gripperForce = newGripperForce;      
-        gripper.setFuerza(gripperForce);
-        saveGripperForce();
-        byte statusResponse[] = {0x07, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-        send_twai_response(statusResponse);
-      }
-    }
-    break;
-
-    // ***************************** CASE 0x08 ***************************** //
-    // Get gripper force
-    case 0x08:
-    {
-      Serial.println("Case 0x08: Get gripper force");
-      byte response[] = {0x08, gripperForce, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-      send_twai_response(response);
-    }
-    break;
-    
-    // ***************************** CASE 0x09 ***************************** //
-    // Get gripper counter
-    case 0x09:
-    {
-      Serial.println("Case 0x09: Get gripper counter");
-
-      uint8_t counter_high = counter_gripper >> 8;
-      uint8_t counter_low = counter_gripper & 0xFF;
-
-      byte response[] = {0x09, counter_high, counter_low, 0x00, 0x00, 0x00, 0x00, 0x00};
-      send_twai_response(response);
-    }
-    break;
-
-    // ***************************** CASE 0x0A ***************************** //
-    // Reset gripper counter
-    case 0x0A:
-    {
-      Serial.println("Case 0x0A: Reset gripper counter");
-      counter_gripper = 0;
-      saveGripperCounter();
-      byte statusResponse[] = {0x0A, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-      send_twai_response(statusResponse);
-    }
-    break;
-
     // ***************************** CASE 0x0B ***************************** //
     // Get Actuator Counter
     case 0x0B:
@@ -447,15 +286,11 @@ void process_instruction(CanFrame instruction)
       Serial.println("Case 0x0B: Get Actuator Counter");
 
       uint8_t actuator_id = instruction.data[1];
-
       uint16_t counter = 0;
 
       switch (actuator_id)
       {
-        case 1: counter = counter_gantryX; break;
-        case 2: counter = counter_gantryY; break;
-        case 3: counter = counter_gantryZ; break;
-        case 4: counter = counter_elevatorZ; break;
+        case 1: counter = counter_elevatorZ; break;
         default: break;
       }
 
@@ -477,10 +312,7 @@ void process_instruction(CanFrame instruction)
 
       switch (actuator_id)
       {
-        case 1: counter_gantryX = 0; break;
-        case 2: counter_gantryY = 0; break;
-        case 3: counter_gantryZ = 0; break;
-        case 4: counter_elevatorZ = 0; break;
+        case 1: counter_elevatorZ = 0; break;
         default: break;
       }
 
@@ -498,28 +330,10 @@ void process_instruction(CanFrame instruction)
       uint8_t actuator_id = instruction.data[1];
       
       uint8_t payload[2] = {0};
-      uint8_t payload2[2] = {0};
-      bool dual_axis = false;
       uint16_t expected_id = 0;
-      uint16_t expected_id2 = 0;
       
       // Generate go_home command based on actuator ID
       if (actuator_id == 1) {
-        gantryX.go_home(payload);
-        expected_id = gantryX.motor_id + 0x580;
-      }
-      else if (actuator_id == 2) {
-        gantryY.go_home(payload);
-        gantryY2.go_home(payload2);
-        expected_id = gantryY.motor_id + 0x580;
-        expected_id2 = gantryY2.motor_id + 0x580;
-        dual_axis = true;
-      }
-      else if (actuator_id == 3) {
-        gantryZ.go_home(payload);
-        expected_id = gantryZ.motor_id + 0x580;
-      }
-      else if (actuator_id == 4) {
         elevatorZ.go_home(payload);
         expected_id = elevatorZ.motor_id + 0x580;
       }
@@ -533,15 +347,9 @@ void process_instruction(CanFrame instruction)
       // Send CAN message(s)
       uint8_t status = 0x04; // Default to NO LOCAL NETWORK
       
-      if (dual_axis) {
-        if (CAN1.sendMsgBuf(gantryY.motor_id, 0, 2, payload) == CAN_OK &&
-            CAN1.sendMsgBuf(gantryY2.motor_id, 0, 2, payload2) == CAN_OK) {
-          status = waitForCanReplyMultiple(expected_id, expected_id2);
-        }
-      } else {
-        if (CAN1.sendMsgBuf(actuator_id, 0, 2, payload) == CAN_OK) {
+      if (CAN1.sendMsgBuf(elevatorZ.motor_id, 0, 2, payload) == CAN_OK)
+      {
           status = waitForCanReply(expected_id);
-        }
       }
       
       byte statusResponse[] = {0x10, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
@@ -549,169 +357,45 @@ void process_instruction(CanFrame instruction)
     }
     break;
 
-    // ***************************** CASE 0x11 ***************************** //
-    // Home All Gantry Axes
-    case 0x11:
-    {
-      Serial.println("Case 0x11: Home All Gantry Axes");
-      
-      uint8_t payload_x[2] = {0};
-      uint8_t payload_y[2] = {0};
-      uint8_t payload_y2[2] = {0};
-      uint8_t payload_z[2] = {0};
-      
-      // Generate go_home commands for all gantry axes
-      gantryX.go_home(payload_x);
-      gantryY.go_home(payload_y);
-      gantryY2.go_home(payload_y2);
-      gantryZ.go_home(payload_z);
-      
-      // Send CAN messages
-      bool can_success = true;
-      can_success &= (CAN1.sendMsgBuf(gantryX.motor_id, 0, 2, payload_x) == CAN_OK);
-      can_success &= (CAN1.sendMsgBuf(gantryY.motor_id, 0, 2, payload_y) == CAN_OK);
-      can_success &= (CAN1.sendMsgBuf(gantryY2.motor_id, 0, 2, payload_y2) == CAN_OK);
-      can_success &= (CAN1.sendMsgBuf(gantryZ.motor_id, 0, 2, payload_z) == CAN_OK);
-      
-      uint8_t status = 0x04; // Default to NO LOCAL NETWORK
-      
-      if (can_success) {
-        // Wait for replies from all gantry actuators
-        bool all_replies_received = true;
-        unsigned long startTime = millis();
-        const unsigned long timeout = 6000;
-        
-        bool received_x = false, received_y = false, received_y2 = false, received_z = false;
-        
-        while (millis() - startTime < timeout && !all_replies_received) {
-          if (CAN1.checkReceive() == CAN_MSGAVAIL) {
-            unsigned long canId;
-            byte len = 0;
-            CAN1.readMsgBuf(&canId, &len, replyData);
-            
-            if (canId == (gantryX.motor_id + 0x580) && (replyData[1] == 0x02 || replyData[1] == 0x03)) received_x = true;
-            else if (canId == (gantryY.motor_id + 0x580) && (replyData[1] == 0x02 || replyData[1] == 0x03)) received_y = true;
-            else if (canId == (gantryY2.motor_id + 0x580) && (replyData[1] == 0x02 || replyData[1] == 0x03)) received_y2 = true;
-            else if (canId == (gantryZ.motor_id + 0x580) && (replyData[1] == 0x02 || replyData[1] == 0x03)) received_z = true;
-            
-            // Check for failure responses
-            if ((canId == (gantryX.motor_id + 0x580) || canId == (gantryY.motor_id + 0x580) || 
-                 canId == (gantryY2.motor_id + 0x580) || canId == (gantryZ.motor_id + 0x580)) && 
-                replyData[1] == 0x00) {
-              status = 0x02; // FAIL
-              break;
-            }
-            
-            all_replies_received = received_x && received_y && received_y2 && received_z;
-          }
-          vTaskDelay(1);
-        }
-        
-        if (status != 0x02) {
-          status = all_replies_received ? 0x01 : 0x03; // OK or TIMEOUT
-        }
-      }
-      
-      byte statusResponse[] = {0x11, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-      send_twai_response(statusResponse);
-    }
-    break;
-
-    // ***************************** CASE 0x12 ***************************** //
-    // Home All Axes
-    case 0x12:
-    {
-      Serial.println("Case 0x12: Home All Axes");
-      
-      uint8_t payload_x[2] = {0};
-      uint8_t payload_y[2] = {0};
-      uint8_t payload_y2[2] = {0};
-      uint8_t payload_z[2] = {0};
-      uint8_t payload_elevator[2] = {0};
-      
-      // Generate go_home commands for all axes
-      gantryX.go_home(payload_x);
-      gantryY.go_home(payload_y);
-      gantryY2.go_home(payload_y2);
-      gantryZ.go_home(payload_z);
-      elevatorZ.go_home(payload_elevator);
-      
-      // Send CAN messages
-      bool can_success = true;
-      can_success &= (CAN1.sendMsgBuf(gantryX.motor_id, 0, 2, payload_x) == CAN_OK);
-      can_success &= (CAN1.sendMsgBuf(gantryY.motor_id, 0, 2, payload_y) == CAN_OK);
-      can_success &= (CAN1.sendMsgBuf(gantryY2.motor_id, 0, 2, payload_y2) == CAN_OK);
-      can_success &= (CAN1.sendMsgBuf(gantryZ.motor_id, 0, 2, payload_z) == CAN_OK);
-      can_success &= (CAN1.sendMsgBuf(elevatorZ.motor_id, 0, 2, payload_elevator) == CAN_OK);
-      
-      uint8_t status = 0x04; // Default to NO LOCAL NETWORK
-      
-      if (can_success) {
-        // Wait for replies from all actuators
-        bool all_replies_received = true;
-        unsigned long startTime = millis();
-        const unsigned long timeout = 6000;
-        
-        bool received_x = false, received_y = false, received_y2 = false, received_z = false, received_elevator = false;
-        
-        while (millis() - startTime < timeout && !all_replies_received) {
-          if (CAN1.checkReceive() == CAN_MSGAVAIL) {
-            unsigned long canId;
-            byte len = 0;
-            CAN1.readMsgBuf(&canId, &len, replyData);
-            
-            if (canId == (gantryX.motor_id + 0x580) && (replyData[1] == 0x02 || replyData[1] == 0x03)) received_x = true;
-            else if (canId == (gantryY.motor_id + 0x580) && (replyData[1] == 0x02 || replyData[1] == 0x03)) received_y = true;
-            else if (canId == (gantryY2.motor_id + 0x580) && (replyData[1] == 0x02 || replyData[1] == 0x03)) received_y2 = true;
-            else if (canId == (gantryZ.motor_id + 0x580) && (replyData[1] == 0x02 || replyData[1] == 0x03)) received_z = true;
-            else if (canId == (elevatorZ.motor_id + 0x580) && (replyData[1] == 0x02 || replyData[1] == 0x03)) received_elevator = true;
-            
-            // Check for failure responses
-            if ((canId == (gantryX.motor_id + 0x580) || canId == (gantryY.motor_id + 0x580) || 
-                 canId == (gantryY2.motor_id + 0x580) || canId == (gantryZ.motor_id + 0x580) || 
-                 canId == (elevatorZ.motor_id + 0x580)) && replyData[1] == 0x00) {
-              status = 0x02; // FAIL
-              break;
-            }
-            
-            all_replies_received = received_x && received_y && received_y2 && received_z && received_elevator;
-          }
-          vTaskDelay(1);
-        }
-        
-        if (status != 0x02) {
-          status = all_replies_received ? 0x01 : 0x03; // OK or TIMEOUT
-        }
-      }
-      
-      byte statusResponse[] = {0x12, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-      send_twai_response(statusResponse);
-    }
-    break;
 
     // ***************************** CASE 0x13 ***************************** //
     // Control servo
     case 0x13:
     {
+
+      // home 2500 open 850 
       Serial.println("Case 0x13: Control servo");
-      uint8_t action = instruction.data[1];
+      uint16_t pwm_value = instruction.data[1] << 8 | instruction.data[2]; // Target PWM
+      uint8_t mode = instruction.data[3];  // 0: Both, 1: Servo 1, 2: Servo 2
       
-      if (action == 1) {
-        gobilda.write(0);  // Move to 0 degrees
-        Serial.println("Servo moved to 0 degrees");
+      if (mode == 0) // Move Both
+      {
+          gobilda.writeMicroseconds(pwm_value);
+          gobilda2.writeMicroseconds(pwm_value);
+          Serial.print("Both servos moved to PWM "); Serial.println(pwm_value);
+          saveServoCounter();
+          saveServo2Counter();
       }
-      else if (action == 2) {
-        gobilda.write(90);  // Move to 90 degrees
-        Serial.println("Servo moved to 90 degrees");
+      else if (mode == 1) // Move Servo 1
+      {
+          gobilda.writeMicroseconds(pwm_value);
+          Serial.print("Servo 1 moved to PWM "); Serial.println(pwm_value);
+          saveServoCounter();
       }
-      else {
-        Serial.println("Invalid servo action");
-        byte errorResponse[] = {0x13, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-        send_twai_response(errorResponse);
-        break;
+      else if (mode == 2) // Move Servo 2
+      {
+          gobilda2.writeMicroseconds(pwm_value);
+          Serial.print("Servo 2 moved to PWM "); Serial.println(pwm_value);
+          saveServo2Counter();
+      }
+      else
+      {
+          Serial.println("Invalid servo mode");
+          byte errorResponse[] = {0x13, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+          send_twai_response(errorResponse);
+          break;
       }
       
-      saveServoCounter();
       byte statusResponse[] = {0x13, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(statusResponse);
     }
@@ -722,8 +406,19 @@ void process_instruction(CanFrame instruction)
     case 0x14:
     {
       Serial.println("Case 0x14: Get Servo Counter");
-      uint8_t counter_high = counter_servo >> 8;
-      uint8_t counter_low = counter_servo & 0xFF;
+      uint8_t servo_id = instruction.data[1]; // Wait, protocol check.
+      // If we follow pattern, data[1] might be servo id if we redefine. 
+      // But currently 0x14 ignores data[1].
+      // To support 2nd servo, we should check data[1] or data[2]. 
+      // Let's use data[1] as ID if provided, consistent with other commands?
+      // Case 0x13 used data[2] because data[1] was action.
+      // Case 0x14 has no other data. So data[1] is fine for ID.
+      // Default to servo 1 if 0.
+      
+      uint16_t current_counter = (servo_id == 2) ? counter_servo2 : counter_servo;
+      
+      uint8_t counter_high = current_counter >> 8;
+      uint8_t counter_low = current_counter & 0xFF;
       byte response[] = {0x14, counter_high, counter_low, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(response);
     }
@@ -734,9 +429,130 @@ void process_instruction(CanFrame instruction)
     case 0x15:
     {
       Serial.println("Case 0x15: Reset Servo Counter");
-      counter_servo = 0;
-      saveServoCounter();
+      uint8_t servo_id = instruction.data[1];
+      
+      if (servo_id == 2) {
+        counter_servo2 = 0;
+        saveServo2Counter();
+      } else {
+        counter_servo = 0;
+        saveServoCounter();
+      }
+      
       byte statusResponse[] = {0x15, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(statusResponse);
+    }
+    break;
+
+    // ***************************** CASE 0x16 ***************************** //
+    // Get Optical Sensor Status
+    case 0x16:
+    {
+      Serial.println("Case 0x16: Get Optical Sensor Status");
+      uint8_t sensor_status = digitalRead(OPTICAL_SENSOR_PIN);
+      Serial.print("Sensor Status: "); Serial.println(sensor_status);
+      
+      byte response[] = {0x16, sensor_status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x17 ***************************** //
+    // Move Elevator to Reception
+    case 0x17:
+    {
+      Serial.println("Case 0x17: Move Elevator to Reception");
+      
+      uint16_t angle = 0x3300; // 0x33 << 8 | 0x00
+      uint8_t orientation = 0x01;
+      
+      uint8_t status = moveIndividualActuator(elevatorZ.motor_id, angle, orientation);
+      
+      byte statusResponse[] = {0x17, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(statusResponse);
+    }
+    break;
+
+    // ***************************** CASE 0x18 ***************************** //
+    // Set Servo State (Home/Open)
+    case 0x18:
+    {
+      Serial.println("Case 0x18: Set Servo State");
+      uint8_t state = instruction.data[1]; // 0: Home, 1: Open
+      uint8_t mode = instruction.data[2];  // 0: Both, 1: Servo 1, 2: Servo 2
+      
+      uint16_t target_pwm = (state == 1) ? SERVO_PWM_OPEN : SERVO_PWM_HOME;
+      
+      if (mode == 0) // Move Both
+      {
+          gobilda.writeMicroseconds(target_pwm);
+          gobilda2.writeMicroseconds(target_pwm);
+          Serial.print("Both servos moved to "); Serial.println(target_pwm);
+          saveServoCounter();
+          saveServo2Counter();
+      }
+      else if (mode == 1) // Move Servo 1
+      {
+          gobilda.writeMicroseconds(target_pwm);
+          Serial.print("Servo 1 moved to "); Serial.println(target_pwm);
+          saveServoCounter();
+      }
+      else if (mode == 2) // Move Servo 2
+      {
+          gobilda2.writeMicroseconds(target_pwm);
+          Serial.print("Servo 2 moved to "); Serial.println(target_pwm);
+          saveServo2Counter();
+      }
+      
+      byte statusResponse[] = {0x18, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      send_twai_response(statusResponse);
+    }
+    break;
+
+    // ***************************** CASE 0x19 ***************************** //
+    // Move Elevator Relative
+    case 0x19:
+    {
+      Serial.println("Case 0x19: Move Elevator Relative");
+      
+      // Use a fixed small angle for jogging or read from data if provided
+      // For "small movements", let's use data[1] and data[2] as the relative amount
+      // If data is 0, default to a small step like 10 degrees (approx 0.1 turns)
+      
+      int16_t angle = instruction.data[1] << 8 | instruction.data[2];
+      if (angle == 0) angle = 3600; // Default small move if 0 sent (approx 10 degrees? No, unit depends on motor)
+                                    // Assuming 3600 is significant enough based on previous 0x3300 reception pos.
+                                    // Actually, let's look at 0x3300 = 13056. 
+                                    // If 360 degrees = 36000 (0.01 deg units?), then 0x3300 is ~130 deg.
+                                    // Let's assume user sends the delta.
+      
+      uint8_t orientation = 0; // Fixed orientation 0 as requested
+      
+      // We need to use relative_move_with_speed_control from LinearActuator
+      // But we need to implement the wrapper to send it via CAN1
+      
+      uint8_t payload[8] = {0};
+      // Default speed/acc from class are 1500/236. Let's use them or pass specific ones.
+      elevatorZ.relative_move_with_speed_control(angle, 1500, 236, payload);
+      
+      if (CAN1.sendMsgBuf(elevatorZ.motor_id, 0, 8, payload) != CAN_OK)
+      {
+        Serial.println("Error sending relative move command");
+        byte errorResponse[] = {0x19, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+        send_twai_response(errorResponse);
+        break;
+      }
+
+      // Wait for reply
+      uint8_t status = waitForCanReply(elevatorZ.motor_id);
+      
+      if (status == 0x01) { 
+        // Update counter if needed, though relative moves might make absolute counter tracking tricky 
+        // unless we read back position. For now, just save as success.
+        saveElevatorZCounter(); 
+      }
+      
+      byte statusResponse[] = {0x19, status, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
       send_twai_response(statusResponse);
     }
     break;
@@ -746,6 +562,11 @@ void process_instruction(CanFrame instruction)
     case 0xFF:
     {
         Serial.println("Case 0xFF: Powering off - Moving all to home position");
+        
+        // Move servos to HOME
+        gobilda.writeMicroseconds(SERVO_PWM_HOME);
+        gobilda2.writeMicroseconds(SERVO_PWM_HOME);
+        Serial.println("Servos moved to HOME position");
         
     }
     break;
@@ -787,54 +608,6 @@ uint8_t waitForCanReply(uint16_t expectedId)
   return 0x03;  // Timeout
 }
 
-// Helper function to wait for multiple CAN replies
-uint8_t waitForCanReplyMultiple(uint16_t expectedId1, uint16_t expectedId2)
-{
-
-  bool received1 = false;
-  bool received2 = false;
-
-  memset(replyData, 0, sizeof(replyData)); // Clear the buffer before waiting
-  unsigned long startTime = millis();
-  const unsigned long timeout = 6000;  // 6 second timeout
-  
-  while (millis() - startTime < timeout)
-  {
-    if (CAN1.checkReceive() == CAN_MSGAVAIL) {
-      unsigned long canId;
-      byte len = 0;
-      CAN1.readMsgBuf(&canId, &len, replyData);
-
-      // replyData[1] = 0x02;
-      
-      if (canId == expectedId1 && (replyData[1] == 0x02 || replyData[1] == 0x03))
-      {
-        received1 = true;
-      }
-      else if (canId == expectedId1 && replyData[1] == 0x00)
-      {
-        return 0x02;  // FAIL
-      }
-      
-      else if (canId == expectedId2 && (replyData[1] == 0x02 || replyData[1] == 0x03))
-      {
-        received2 = true;
-      }
-      else if (canId == expectedId2 && replyData[1] == 0x00)
-      {
-        return 0x02;  // FAIL
-      }
-      
-      if (received1 && received2)
-      {
-        return 0x01;  // Success
-      }
-    }
-    vTaskDelay(1);  // Small delay to prevent busy-waiting
-  }
-  return 0x03;  // Timeout
-}     
-
 // Helper function to send response via TWAI
 void send_twai_response(const byte response_data[8])
 {
@@ -854,57 +627,25 @@ uint8_t moveIndividualActuator(uint8_t actuator_id, int16_t angle, uint8_t orien
   }
 
   uint8_t payload[8] = {0};  // Initialize buffer for CAN message
-  uint8_t payload2[8] = {0};
 
-  bool dual_axis = false;
-
+  // Filter for ElevatorZ (Accept ID 1)
   if (actuator_id == 1)
   {
-    gantryX.abs_mode(angle, payload);  // Generate the CAN message
-  }
-  else if (actuator_id == 2)
-  {
-    gantryY.abs_mode(angle, payload);  // Generate the CAN message
-    gantryY2.abs_mode(angle, payload2);  // Generate the CAN message
-    dual_axis = true;
-  }
-  else if (actuator_id == 4)
-  {
-    gantryZ.abs_mode(angle, payload);  // Generate the CAN message
-  }
-  else if (actuator_id == 5)
-  {
     elevatorZ.abs_mode(angle, payload);  // Generate the CAN message
-  }
-
-
-  if (CAN1.sendMsgBuf(actuator_id, 0, 8, payload) != CAN_OK)
-  {
-    Serial.println("Error sending actuator command");
-    return 0x04;
-  }
-
-  if(actuator_id == 2)
-  {
-    if (CAN1.sendMsgBuf(gantryY2.motor_id, 0, 8, payload2) != CAN_OK)
+    
+    if (CAN1.sendMsgBuf(elevatorZ.motor_id, 0, 8, payload) != CAN_OK)
     {
       Serial.println("Error sending actuator command");
       return 0x04;
     }
-  }
 
-  // Wait for reply and get status
-  if(dual_axis)
-  {
-    uint8_t status = waitForCanReplyMultiple(gantryY.motor_id, gantryY2.motor_id);
-  }
-  else
-  {
-    uint8_t status = waitForCanReply(actuator_id);
+    // Wait for reply (using elevatorZ.motor_id)
+    uint8_t status = waitForCanReply(elevatorZ.motor_id);
+    
+    if (status == 0x01) { SaveCounter(actuator_id); }
+
+    return status;
   }
   
-
-  if (status == 0x01) { SaveCounter(actuator_id); }
-
-  return status;
+  return 0x04; // Error for other IDs
 }
