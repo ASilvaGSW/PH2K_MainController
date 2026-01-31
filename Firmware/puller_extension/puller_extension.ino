@@ -69,10 +69,7 @@
 // Global variables
 unsigned long stepperMoveCounter = 0;
 unsigned long gripperMoveCounter = 0;
-unsigned long servoMoveCounter = 0;
-byte replyData[8];  // Buffer for CAN replies
-
-// Servo motor configuration
+unsigned long servoMoveCounte
 #define SERVO_PIN 18  // GPIO18 for servo control
 Servo servoMotor;
 
@@ -175,7 +172,7 @@ void setup()
 
   // Initialize servo motor
   servoMotor.setPeriodHertz(50); // Standard 50Hz servo
-  servoMotor.attach(14, 900, 2100);
+  servoMotor.attach(SERVO_PIN, 900, 2100);
   servoMotor.writeMicroseconds(900);  // Start at neutral position (90 degrees)
 
   // Initialize stepper motor

@@ -17,7 +17,7 @@ class InsertionServos:
 
         self.slider_joint_home_pos = 160
         self.slider_joint_receive_pos = 150
-        self.slider_joint_insertion_pos = 6
+        self.slider_joint_insertion_pos = 8
 
         self.clamp_joint_open_pos = 20
         self.clamp_joint_close_pos = 108
@@ -28,11 +28,11 @@ class InsertionServos:
         self.holder_hose_close_pos2 = 125
 
         self.slider_nozzle_home_pos = 125
-        self.slider_nozzle_receive_pos = 120
+        self.slider_nozzle_receive_pos = 125
         self.slider_nozzle_insertion_pos = 0
 
-        self.clamp_nozzle_open_pos = 130
-        self.clamp_nozzle_close_pos = 45
+        self.clamp_nozzle_open_pos = 110
+        self.clamp_nozzle_close_pos = 41
 
         self.cutter_open_pos = 0
         self.cutter_close_pos = 80
@@ -137,7 +137,7 @@ class InsertionServos:
         return self.holder_hose_joint(self.holder_hose_close_pos)
 
     def holder_hose_joint_semi_close(self):
-        return self.holder_hose_joint(self.holder_hose_close_pos-15)
+        return self.holder_hose_joint(self.holder_hose_close_pos-11)
 
     def slider_nozzle_insertion(self, position=None):
         if position is None:

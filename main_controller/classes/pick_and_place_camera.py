@@ -47,7 +47,7 @@ class PickAndPlaceCamera:
     # 0x07: Alignment Nozzle
     def alignment_nozzle(self):
         # Alignment can take time, so we increase retries significantly
-        status, data = self.canbus.send_message(self.canbus_id, [0x07] + [0x00]*7, max_retries=5000)
+        status, data = self.canbus.send_message(self.canbus_id, [0x07] + [0x00]*7, max_retries=50)
         if status == 'success' and data and len(data) >= 3:
             if data[1] == 0xFF and data[2] == 0xFF: return None # Error/Not found
             if data[1] == 0xFF and data[2] == 0xFE: return None # Model not loaded
@@ -59,7 +59,7 @@ class PickAndPlaceCamera:
 
     # 0x08: Alignment Joint
     def alignment_joint(self):
-        status, data = self.canbus.send_message(self.canbus_id, [0x08] + [0x00]*7, max_retries=5000)
+        status, data = self.canbus.send_message(self.canbus_id, [0x08] + [0x00]*7, max_retries=50)
         if status == 'success' and data and len(data) >= 3:
             if data[1] == 0xFF and data[2] == 0xFF: return None
             if data[1] == 0xFF and data[2] == 0xFE: return None

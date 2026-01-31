@@ -140,17 +140,18 @@ class HoseJigV2:
         return status
 
     def close_stamper_hose_jig(self):
-        self.move_servos_absolute(92, 1)
+        return self.move_servos_absolute(92, 1)
+
 
     def close_taping_hose_jig(self):
-        self.move_servos_absolute(92, 2)
+        return self.move_servos_absolute(92, 2)
 
 
     def open_stamper_hose_jig(self):
-        self.move_servos_absolute(7, 1)
+        return self.move_servos_absolute(0, 1)
 
     def open_taping_hose_jig(self):
-        self.move_servos_absolute(7, 2)
+        return self.move_servos_absolute(7, 2)
 
     # 0x10: Update SERVO_OPEN_ANGLE
     def set_open_angle(self, value, jig: Optional[int] = None):

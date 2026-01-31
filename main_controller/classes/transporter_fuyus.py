@@ -138,7 +138,7 @@ class TransporterFuyus:
         return self.reset_actuator_counter(4)
 
     def moveToTapingHoseJig(self):
-        return self.move_x_axis_with_speed(-265,300)
+        return self.move_x_axis_with_speed(-300,300)
 
     def moveToSafeSpace(self):
         return self.move_x_axis_with_speed(-2200,300)
@@ -147,7 +147,7 @@ class TransporterFuyus:
         return self.move_x_axis_with_speed(-3530,300)
     
     def moveToReceivingPosition(self,speed=300):
-        return self.move_x_axis_with_speed(-5235,speed)
+        return self.move_x_axis_with_speed(-5230,speed)
     
     def moveToDeliverPosition(self):
         return self.move_x_axis_with_speed(350,300)
@@ -156,13 +156,13 @@ class TransporterFuyus:
         return self.move_all_steppers(150000,1)
 
     def pickHoseFromFirstStation(self):
-        return self.move_all_steppers(65500,1)
+        return self.move_all_steppers(10500,1)
 
     def stamperHigh(self):
-        return self.move_all_steppers(65500,1)
+        return self.move_all_steppers(29500,1)
 
     def tapingHigh(self):
-        return self.move_all_steppers(65500, 1)
+        return self.move_all_steppers(29000, 1)
 
     def pickHome(self):
         return self.move_all_steppers(0, 1)

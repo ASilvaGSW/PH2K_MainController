@@ -132,11 +132,11 @@ def checkConnectivity():
     # Second Station - Check only if flag is enabled or CHECK_ALL_DEVICES is True
     if CHECK_SECOND_STATION or CHECK_ALL_DEVICES:
         print("=== CHECKING SECOND STATION ===")
-        print("Hose Jig V2 Connected") if hose_jig_v2.ping() == "success" else print("Hose Jig V2 Not Connected")
+        # print("Hose Jig V2 Connected") if hose_jig_v2.ping() == "success" else print("Hose Jig V2 Not Connected")
         # print("Lubrication Stamper Connected") if lubrication_stamper.send_heartbeat() == "success" else print("Lubrication Stamper Not Connected")
         # print("Stamper Connected") if stamper.send_heartbeat() == "success" else print("Stamper Not Connected")
-        print("Taping Connected") if taping.send_heartbeat() == "success" else print("Taping Not Connected")
-        print("Taping Fuyus Connected") if taping_fuyus.send_heartbeat() == "success" else print("Taping Fuyus Not Connected")
+        # print("Taping Connected") if taping.send_heartbeat() == "success" else print("Taping Not Connected")
+        # print("Taping Fuyus Connected") if taping_fuyus.send_heartbeat() == "success" else print("Taping Fuyus Not Connected")
         print("Transporter Fuyus Connected") if transporter_fuyus.send_heartbeat() == "success" else print("Transporter Fuyus Not Connected")
         print("Transporter Grippers Connected") if transporter_grippers.send_heartbeat() == "success" else print("Transporter Grippers Not Connected")
 
@@ -203,60 +203,70 @@ def moveElevatorIn():
 
     home = [0,0,0]
     safety_high = -300
-    cassette_deliver_high = -610
+    cassette_deliver_high = -600
     transportation_high = -500
 
     #left
-    pick_left = [-225,-315,-820]
-    deliver_left = [-225,-1800,-500]
+    pick_left = [-225,-319,-815]
+    pick_left = [-225,-314,-815]
+    deliver_left = [-250,-1800,-500]
     
     #Right
-    pick_right = [-1358,-317,-850]
-    deliver_right = [-1353,-1800,-500]
+    pick_right = [-1358,-319,-835]
+    pick_right = [-1355,-319,-835]
+    deliver_right = [-1365,-1800,-500]
+    deliver_right2 = [-1410,-1800,-500]
 
-    # ReceiveMaterial()
+    # if elevator_in.move_elevator_z(-5000) != "success": return "error05"
+    # return ReceiveMaterial()
 
-    # return ""
-
-    #Homing
+    # #Homing
     # if elevator_in.home_gantry_z() != "success": return "error01"
     # if elevator_in.home_gantry_x() != "success": return "error02"
     # if elevator_in.home_gantry_y() != "success": return "error03"
     # if elevator_in.home_elevator_z() != "success": return "error04"
 
-    #Alignment For 4 Cassettes, Will change by IR Sensor on Saturday
-    # if elevator_in.move_elevator_z(-12500) != "success": return "error05"
+    # return ""
+
+    #Aligning Cassette
     if elevator_in.move_elevator_until_sensor(0, 200) != "success": return "error05"
 
 
     #Left Side
     if elevator_in.move_gantry_array(pick_left) != "success": return "error06"
+
+    # return ""
+
     if elevator_in.close_gripper() != "success": return "error07"
+    time.sleep(.25)
     if elevator_in.move_gantry_z(transportation_high) != "success": return "error08"
     if elevator_in.move_gantry_array(deliver_left) != "success": return "error09"
-    if elevator_in.move_gantry_z(cassette_deliver_high) != "success": return "error10"
+    if elevator_in.move_gantry_z(cassette_deliver_high+10) != "success": return "error10"
     if elevator_in.open_gripper() != "success": return "error11"
-    time.sleep(1)
+    time.sleep(.25)
     if elevator_in.move_gantry_z(safety_high) != "success": return "error12"
     if elevator_in.move_gantry_array(home) != "success": return "error13"
+
 
     #Right Side
     if elevator_in.move_gantry_array(pick_right) != "success": return "error14"
     if elevator_in.close_gripper() != "success": return "error15"
+    time.sleep(.25)
     if elevator_in.move_gantry_z(transportation_high) != "success": return "error16"
     if elevator_in.move_gantry_array(deliver_right) != "success": return "error17"
+    if elevator_in.move_gantry_array(deliver_right2) != "success": return "error17"
     if elevator_in.move_gantry_z(cassette_deliver_high) != "success": return "error18"
     if elevator_in.open_gripper() != "success": return "error19"
-    time.sleep(1)
+    time.sleep(.25)
     if elevator_in.move_gantry_z(safety_high) != "success": return "error20"
     if elevator_in.move_gantry_array(home) != "success": return "error21"
 
     #conveyors
-    # if pick_and_place.start_left_conveyor() != "success": return "error22"
-    # if pick_and_place.start_right_conveyor() != "success": return "error23"
-    # time.sleep(3)
-    # if pick_and_place.stop_left_conveyor() != "success": return "error24"
-    # if pick_and_place.stop_right_conveyor() != "success": return "error25"
+    if pick_and_place.start_left_conveyor() != "success": return "error22"
+    if pick_and_place.start_right_conveyor() != "success": return "error23"
+    time.sleep(3)
+    if pick_and_place.stop_left_conveyor() != "success": return "error24"
+    if pick_and_place.stop_right_conveyor() != "success": return "error25"
 
     # alignCassette()
 
@@ -272,14 +282,15 @@ def alignCassette():
 
     time.sleep(1)
 
-    alignComponent()
+    # alignComponent()
 
 def alignComponent():
-    if pick_and_place_camera.alignment_joint() == None: return "error03"
-    if pick_and_place_camera.alignment_nozzle() == None: return "error03"
+    pick_and_place_camera.alignment_joint()
+    time.sleep(3)
+    pick_and_place_camera.alignment_nozzle()
 
 #Move Pick and Place
-def movePickandPlace(n=1):
+def movePickandPlace(n=1,need=False):
     global pick_and_place, insertion_servos, insertion_jig
 
     receiving_x = 6500
@@ -293,39 +304,52 @@ def movePickandPlace(n=1):
     if insertion_jig.move_x_axis(receiving_x) != "success": return "error05"
     if pick_and_place.open_gripper() != "success": return "error06"
 
-    gap = 15
+    gap = 0
     zgap = 0
 
     #Nozzle Data
-    nozzle_high = -962
+    nozzle_high = -965
     nozzle_x = [-580,-450,-300,-170,-20,110]
     trans_nozzle_high = -600
 
-    deliver_nozzle_x = -3697
+    # deliver_nozzle_x = -3697
+    deliver_nozzle_x = -3633
     deliver_nozzle_z = -1005
 
     # Joint Data
     # joint_high = -1243
-    joint_high = -967
+    joint_high = -965
     joint_x = [-1770,-1690,-1610,-1530,-1450,-1370,-1290,-1210,-1130,-1050]
     trans_joint_high = -600
 
-    deliver_joint_x = -3990
+    # deliver_joint_x = -3990
+    deliver_joint_x = -3919
     deliver_joint_z = -1005
 
     # Validate Home
 
     if pick_and_place.move_actuator_z(0) != "success": return "error07"
     if pick_and_place.move_actuator_x(0) != "success": return "error08"
-
-    # Pick Nozzle
-    if pick_and_place.move_actuator_x(nozzle_x[n]- gap) != "success": return "error09"
-    if pick_and_place.move_actuator_z(nozzle_high+zgap) != "success": return "error10"
-    if pick_and_place.close_gripper() != "success": return "error11"
     #
-    # Deliver Nozzle
+    # # Pick Nozzle
+    if pick_and_place.move_actuator_x(nozzle_x[n]- gap) != "success": return "error09"
+
+
+    if need:
+        if pick_and_place.move_actuator_z(nozzle_high + 100) != "success": return "error10"
+        input("continue?")
+
+    if pick_and_place.move_actuator_z(nozzle_high+zgap) != "success": return "error10"
+    #
+
+
+
+    if pick_and_place.close_gripper() != "success": return "error11"
+    # #
+    # # Deliver Nozzle
     if pick_and_place.move_actuator_z(trans_nozzle_high) != "success": return "error12"
     if pick_and_place.move_actuator_x(deliver_nozzle_x - gap) != "success": return "error13"
+
     if pick_and_place.move_actuator_z(deliver_nozzle_z+zgap) != "success": return "error14"
 
     if pick_and_place.open_gripper() != "success": return "error15"
@@ -348,8 +372,12 @@ def movePickandPlace(n=1):
 
     # Pick Joint
     if pick_and_place.move_actuator_x(joint_x[n]-gap) != "success": return "error21"
-    if pick_and_place.move_actuator_z(joint_high+zgap) != "success": return "error22"
 
+    if need:
+        if pick_and_place.move_actuator_z(joint_high + 100) != "success": return "error22"
+        input("continue?")
+
+    if pick_and_place.move_actuator_z(joint_high+zgap) != "success": return "error22"
     if pick_and_place.close_gripper() != "success": return "error23"
 
     # Deliver Joint
@@ -396,7 +424,7 @@ def oneCycle():
 
     safe_position = 200
     safe_position_over_hose_jig = 242
-    home_y = 4200
+    home_y = 4210
     wait_y = 5930
     cutting_position = 7830
     pickup_y = 9015
@@ -410,9 +438,9 @@ def oneCycle():
 
     insertion_jig_safe_zone = 4000
     preefeder_speed = 50
-    feed_hose_time = 3.15
+    feed_hose_time = 3.1
     lubricate_nozzle_time = 0.15
-    lubricate_joint_time = 0.11
+    lubricate_joint_time = 0.08
     hose_puller_y_speed = 200
     hose_puller_y_speed_for_alignment = 20
 
@@ -420,13 +448,17 @@ def oneCycle():
 
     if hose_jig.gripper_open() != "success" : return "error01"
 
-    if insertion_servos.activate_cutter() != "success" : return "error02"
+    # if insertion_servos.activate_cutter() != "success" : return "error02"
     if insertion_servos.slider_nozzle_receive() != "success" : return "error02"
 
     # Feed Hose
 
     if lubrication_feeder.close_hose_holder() != "success" : return "error03"
-    if lubrication_feeder.feed_hose(duration=feed_hose_time) != "success" : return "error04"
+    if lubrication_feeder.feed_hose(duration=feed_hose_time,speed=520) != "success" : return "error04"
+    # if insertion_servos.activate_cutter() != "success": return "error02"
+
+    # return ""
+
     time.sleep(1)
     if insertion_servos.holder_hose_nozzle_close() != "success" : return "error05"
     if lubrication_feeder.open_hose_holder() != "success" : return "error06"
@@ -493,7 +525,7 @@ def oneCycle():
     time.sleep(.5)
     if insertion_servos.activate_cutter() != "success" : return "error41"
     time.sleep(.5)
-    if lubrication_feeder.open_hose_holder() != "success" : return "error40"
+    # if lubrication_feeder.open_hose_holder() != "success" : return "error40"
 
 
     # Alignment for Joint Insertion
@@ -524,7 +556,7 @@ def oneCycle():
     if insertion_servos.clamp_joint_open() != "success" : return "error54"
     time.sleep(0.5)
     if insertion_servos.slider_joint_home() != "success" : return "error55"
-
+    time.sleep(0.2)
 
     # Finish Pulling Action
 
@@ -550,15 +582,19 @@ def oneCycle():
 #Pick Hose
 def pickUpHoseFrom1stStation():
 
-    global transporter_fuyus, transporter_grippers, hose_jig
+    global transporter_fuyus, transporter_grippers, hose_jig,hose_jig_v2
+
+    # transporter_fuyus.home_x_axis()
+
+    if hose_jig_v2.open_stamper_hose_jig() != "success": return "06"
 
     if hose_jig.gripper_close() != "success" : return "001"
     if transporter_fuyus.pickHome() != "success" : return "01"
 
-    # if transporter_fuyus.moveToStamperHoseJig() != "success" : return "02"
     if transporter_fuyus.moveToReceivingPosition() != "success" : return "03"
-    #
+
     if transporter_fuyus.pickHoseFromFirstStation() != "success" : return "04"
+
     if transporter_grippers.close_all_grippers() != "success" : return "05"
 
     time.sleep(1)
@@ -567,7 +603,7 @@ def pickUpHoseFrom1stStation():
 
     if transporter_fuyus.pickHome() != "success": return "07"
 
-    if transporter_fuyus.moveToStamperHoseJig() != "success": return "03"
+    if transporter_fuyus.moveToDeliverPosition() != "success": return "03"
 
     if transporter_fuyus.stamperHigh() != "success": return "04"
 
@@ -576,6 +612,8 @@ def pickUpHoseFrom1stStation():
     if transporter_fuyus.pickHome() != "success": return "07"
 
     if transporter_fuyus.moveToSafeSpace() != "success": return "08"
+
+    if hose_jig_v2.close_stamper_hose_jig() != "success": return "06"
 
     return "success"
 
@@ -642,9 +680,9 @@ def testHome():
 
     insertionServosOpen()
     insertion_servos.slider_joint_home()
-    
+
     print("Testing new go home functions...")
-    
+
     # Test ElevatorIn homing functions
     print("\n--- Testing ElevatorIn homing functions ---")
 
@@ -659,12 +697,12 @@ def testHome():
     print("Testing home_gantry_x...")
     result = elevator_in.home_gantry_x()
     print(f"Result: {result}")
-    
+
     print("Testing home_gantry_y...")
     result = elevator_in.home_gantry_y()
     print(f"Result: {result}")
 
-    
+
     print("Testing home_elevator_z...")
     result = elevator_in.home_elevator_z()
     print(f"Result: {result}")
@@ -679,39 +717,50 @@ def testHome():
     print("Testing home_x_axis...")
     result = pick_and_place.home_x_axis()
     print(f"Result: {result}")
-    
+
     print("Testing home_z_axis...")
 
 
     # Test HoseJig homing function
     print("\n--- Testing HoseJig homing function ---")
-    
+
     print("Testing home_actuator...")
     result = hose_jig.go_home()
     print(f"Result: {result}")
-    
+
     # Test HosePuller homing functions
     print("\n--- Testing HosePuller homing functions ---")
-    
+
     print("Testing home_y_axis...")
     result = hose_puller.home_y_axis()
     print(f"Result: {result}")
-    
+
     print("Testing home_z_axis...")
     result = hose_puller.home_z_axis()
     print(f"Result: {result}")
-    
+
 
     # Test InsertionJig homing functions
     print("\n--- Testing InsertionJig homing functions ---")
-    
+
     print("Testing home_x_axis...")
     result = insertion_jig.home_x_axis_go_home()
     print(f"Result: {result}")
-    
+
     print("Testing home_z_axis...")
     result = insertion_jig.home_z_axis_go_home()
     print(f"Result: {result}")
+
+    # # Enviar Z a Home
+    # print("Enviando Z a Home...")
+    # taping_fuyus.home_z_actuator()
+    #
+    # # Enviar Y a Home
+    # print("Enviando Y a Home...")
+    # taping_fuyus.home_y_actuator()
+    #
+    # taping_fuyus.move_y_actuator_with_speed(10000, 400)
+
 
     # Test Transporter homing functions
     print("\n--- Testing Transporter homing functions ---")
@@ -742,8 +791,23 @@ def tape():
     home_position = 10000
     tape_position = 830
     z_speed = 150
-    tape_spot = 1640
+    tape_spot = 6980
     y_speed = 400
+
+    # # Enviar Z a Home
+    # print("Enviando Z a Home...")
+    # taping_fuyus.home_z_actuator()
+    # time.sleep(0.5)
+    #
+    # # Enviar Y a Home
+    # print("Enviando Y a Home...")
+    # taping_fuyus.home_y_actuator()
+    # time.sleep(0.5)
+    #
+    taping_fuyus.move_y_actuator_with_speed(home_position, y_speed)
+
+    # taping_fuyus.move_z_actuator_with_speed(0, z_speed)
+    # taping_fuyus.move_y_actuator_with_speed(tape_spot, y_speed)
 
 
     #Start Feeding Routine
@@ -756,7 +820,7 @@ def tape():
 
     # Go to Tape Position
     taping_fuyus.move_z_actuator_with_speed(0, z_speed)
-    taping_fuyus.move_y_actuator_with_speed(6590, y_speed)
+    taping_fuyus.move_y_actuator_with_speed(tape_spot, y_speed)
 
     # Get Lower
     taping_fuyus.move_z_actuator_with_speed(tape_position - 80, z_speed)
@@ -775,7 +839,7 @@ def tape():
     # Wrapping Routine
     taping.execute_backward_sequence()
 
-    time.sleep(5)
+    time.sleep(8)
 
     #Returning Home
 
@@ -783,7 +847,7 @@ def tape():
     taping_fuyus.move_y_actuator_with_speed(home_position, y_speed)
 
     #Open Hose Jig
-    hose_jig_v2.close_taping_hose_jig()
+    hose_jig_v2.open_taping_hose_jig()
 
     return "Success"
 
@@ -1120,23 +1184,55 @@ def stampertest():
         return False
 
 
+def testFeed():
+    global lubrication_feeder,insertion_servos
+
+    # Feed Hose
+    if lubrication_feeder.close_hose_holder() != "success": return "error03"
+    if lubrication_feeder.feed_hose(duration=3.1, speed=520) != "success": return "error04"
+    time.sleep(1)
+    if insertion_servos.activate_cutter() != "success": return "error02"
+    if lubrication_feeder.open_hose_holder() != "success": return "error06"
+
 if __name__ == "__main__":
-   
-    my_main(False)
 
-    # testHome()
+    my_main(True)
 
-    moveElevatorIn()
+    testHome()
 
-    alignCassette()
+    # testFeed()
 
+    # moveElevatorIn()
+    #
+    # alignCassette()
 
-    movePickandPlace(1)
+    # alignComponent()
 
-    oneCycle()
+    # input("Continue?")
 
-    pickUpHoseFrom1stStation()
+    # for i in range(0,6):
+    #     movePickandPlace(i,i==0)
+    #     print(oneCycle())
+    #
+    # input("Continue?")
+    #
+    # print(oneCycle())
+    #
+    # input("Continue?")
+    #
+    # pickUpHoseFrom1stStation()
+    #
+    # input("Continue?")
+    #
+    # pickUpHoseFromStamper()
+
+    # input("Continue?")
 
     # tape()
+
+    # input("Continue?")
+
+    # pickUpHoseFromTaping()
+
 
     canbus.close_canbus()
