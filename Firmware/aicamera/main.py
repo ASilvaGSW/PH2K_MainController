@@ -16,25 +16,26 @@ pick_and_place = PickAndPlace(canbus, 0x191)
 canbus_id = 0x001
 reply_id = 0x401
 
+
 def initialize_canbus():
-    
     if canbus.start_canbus():
         print("Canbus started successfully")
     else:
         print("Failed to start Canbus")
 
+
 # Inicializar cámaras
 # Valores de pick_up actualizados para coincidir con webtester_real.py (Nozzle=94, Joint=80)
 # Configuración de cámaras: Nozzle=0, Joint=2 (Joint probado en webtester con índice 2)
-cameraN = AICamera(2, pick_up=91)
-cameraJ = AICamera(0, 'joint', pick_up=80, total=50, positions=10)
+cameraN = AICamera(2, pick_up=94)
+cameraJ = AICamera(0, 'joint', pick_up=84, total=50, positions=10)
+
 
 def debug():
-
     # Cargar Modelo
     cameraN.load_model(0)
     cameraJ.load_model(1)
-    
+
     # Capturar frames de ambas cámaras
     frameN = cameraN.capture_frame()
     frameJ = cameraJ.capture_frame()
@@ -42,23 +43,23 @@ def debug():
     # Contar objetos en cada frame
     countN = cameraN.count_objects()
     countJ = cameraJ.count_objects()
-    
+
     print(f"Objects in Nozzle Camera: {countN}")
     print(f"Objects in Joint Camera: {countJ}")
 
     # Obtener y mostrar matrices de detección
     matrixN = cameraN.get_detection_matrix()
     matrixJ = cameraJ.get_detection_matrix()
-    
+
     print("\nMatrix Nozzle:")
     for row in matrixN:
         print(row)
-        
+
     print("\nMatrix Joint:")
     for row in matrixJ:
         print(row)
 
-    # Closest Distance for Alignment 
+    # Closest Distance for Alignment
     closest_obj_N = cameraN.get_y_distance_to_closest()
     closest_obj_J = cameraJ.get_y_distance_to_closest()
     print(f"Closest object in Nozzle Camera: {closest_obj_N}")
@@ -70,6 +71,7 @@ def debug():
     print(f"Closest pickup in Nozzle Camera: {closes_pickup}")
     print(f"Closest joint in Joint Camera: {closes_joint}")
 
+
 def process_can_instruction(message):
     if message.data:
         b0 = message.data[0]
@@ -78,64 +80,62 @@ def process_can_instruction(message):
         # Reset not needed
         if b0 == 0x01:
             pass
-        
+
         # Heartbit
         elif b0 == 0x02:
-            canbus.send_message(reply_id, [0x02])
+            canbus.send_message(reply_id, [0x02,0x01,0x00,0x00,0x00,0x00,0x00,0x00])
 
         # Load Model Nozzle
         elif b0 == 0x03:
             cameraN.load_model(0)
             if cameraN.model:
-                canbus.send_message(reply_id, [b0, 0x01]) # Success
+                canbus.send_message(reply_id, [b0, 0x01,0x00,0x00,0x00,0x00,0x00,0x00])  # Success
             else:
-                canbus.send_message(reply_id, [b0, 0x00]) # Fail
+                canbus.send_message(reply_id, [b0, 0x00,0x00,0x00,0x00,0x00,0x00,0x00])  # Fail
 
         # Load Model Joint
         elif b0 == 0x04:
             cameraJ.load_model(1)
             if cameraJ.model:
-                canbus.send_message(reply_id, [b0, 0x01]) # Success
+                canbus.send_message(reply_id, [b0, 0x01,0x00,0x00,0x00,0x00,0x00,0x00])  # Success
             else:
-                canbus.send_message(reply_id, [b0, 0x00]) # Fail
+                canbus.send_message(reply_id, [b0, 0x02,0x00,0x00,0x00,0x00,0x00,0x00])  # Fail
 
         # Count Objects Nozzle
         elif b0 == 0x05:
             if cameraN.model:
                 count = cameraN.count_objects()
-                print("Countend Nozzles : " , count)
-                canbus.send_message(reply_id, [b0, count & 0xFF])
+                print("Countend Nozzles : ", count)
+                canbus.send_message(reply_id, [b0,0x01, count,0x00,0x00,0x00,0x00,0x00])
             else:
-                canbus.send_message(reply_id, [b0, 0xFF]) # Error code
+                canbus.send_message(reply_id, [b0, 0x02,0x00,0x00,0x00,0x00,0x00,0x00])  # Error code
 
         # Count Objects Joint
         elif b0 == 0x06:
             if cameraJ.model:
                 count = cameraJ.count_objects()
                 print("Countend Joints: ", count)
-                canbus.send_message(reply_id, [b0, count & 0xFF])
+                canbus.send_message(reply_id, [b0,0x01, count,0x00,0x00,0x00,0x00,0x00])
             else:
-                canbus.send_message(reply_id, [b0, 0xFF]) # Error code
+                canbus.send_message(reply_id, [b0, 0x02,0x00,0x00,0x00,0x00,0x00,0x00])  # Error code
 
         # Alignment Nozzle (Left Conveyor)
         elif b0 == 0x07:
             if cameraN.model:
 
-                # Flush de frames para asegurar lectura actual
                 for _ in range(5):
                     cameraN.capture_frame()
 
                 print("Starting alignment for Nozzle (Left Conveyor)...")
                 conveyor_active = True
-                pick_and_place.start_left_conveyor(100) # Iniciar conveyor izquierdo
-                
+                pick_and_place.start_left_conveyor(100)  # Iniciar conveyor izquierdo
+
                 final_distance = None
-                           
+
                 # Bucle de alineación
                 while True:
-                    # cameraN.capture_frame() # Removed redundant call to avoid buffer buildup
                     distance = cameraN.get_y_distance_to_closest()
-                    
+
                     if distance is not None:
                         print(f"Distance: {distance:.2f}")
                         if abs(distance) <= 6.5:
@@ -147,42 +147,44 @@ def process_can_instruction(message):
                     else:
                         # Si se pierde el objeto, podríamos decidir parar o seguir
                         pass
-                    
+
                     # Pequeña pausa para no saturar CPU y permitir que la cámara actualice
-                    # time.sleep(0.01) 
-                
+                    # time.sleep(0.01)
+
                 if final_distance is not None:
-                    dist_int = int(final_distance)
-                    data = [b0] + list(dist_int.to_bytes(2, 'big', signed=True)) # signed=True para distancias negativas
+                    negative = 1 if final_distance < 0 else 0
+
+                    dist_int = abs(int(final_distance))
+
+
+                    data = [b0,0x01,dist_int,negative,0x00,0x00,0x00,0x00]
                     canbus.send_message(reply_id, data)
                 else:
-                    canbus.send_message(reply_id, [b0, 0xFF, 0xFF])
+                    canbus.send_message(reply_id, [b0, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
             else:
-                canbus.send_message(reply_id, [b0, 0xFF, 0xFE]) # Error code for model not loaded
+                canbus.send_message(reply_id, [b0, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])  # Error code for model not loaded
 
         # Alignment Joint (Right Conveyor)
         elif b0 == 0x08:
             if cameraJ.model:
+                print("Starting alignment for Joint (Right Conveyor)...")
 
-                     # Flush de frames para asegurar lectura actual
                 for _ in range(5):
                     cameraJ.capture_frame()
 
-
-                print("Starting alignment for Joint (Right Conveyor)...")
                 conveyor_active = True
-                pick_and_place.start_right_conveyor(50) # Iniciar conveyor derecho
-                
+                pick_and_place.start_right_conveyor(50)  # Iniciar conveyor derecho
+
                 final_distance = None
-                
+
                 # Bucle de alineación
                 while True:
                     # cameraJ.capture_frame() # Removed redundant call
                     distance = cameraJ.get_y_distance_to_closest()
-                    
+
                     if distance is not None:
                         print(f"Distance: {distance:.2f}")
-                        if abs(distance) <= 7.5:
+                        if abs(distance) <= 6.5:
                             print(f"Target reached. Distance: {distance:.2f}. Stopping conveyor.")
                             pick_and_place.stop_right_conveyor()
                             conveyor_active = False
@@ -190,18 +192,19 @@ def process_can_instruction(message):
                             break
                     else:
                         pass
-                    
+
                     # Pequeña pausa para no saturar CPU
                     time.sleep(0.01)
 
                 if final_distance is not None:
-                    dist_int = int(final_distance)
-                    data = [b0] + list(dist_int.to_bytes(2, 'big', signed=True))
+                    negative = 1 if final_distance < 0 else 0
+                    dist_int = abs(int(final_distance))
+                    data = [b0, 0x01, dist_int, negative, 0x00, 0x00, 0x00, 0x00]
                     canbus.send_message(reply_id, data)
                 else:
-                    canbus.send_message(reply_id, [b0, 0xFF, 0xFF])
+                    canbus.send_message(reply_id, [b0, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
             else:
-                canbus.send_message(reply_id, [b0, 0xFF, 0xFE]) # Error code for model not loaded
+                canbus.send_message(reply_id, [b0, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])  # Error code for model not loaded
 
         # Pick Up Nozzle
         elif b0 == 0x09:
@@ -214,15 +217,16 @@ def process_can_instruction(message):
                         print(f"CAN 0x09: First '1' is at position: {first_one_index}")
                     except ValueError:
                         print("CAN 0x09: No '1' found in the matrix.")
+                        first_one_index = 0xff
                     byte_val = 0
                     for i, bit in enumerate(matrix):
                         if bit == 1:
                             byte_val |= (1 << i)
-                    canbus.send_message(reply_id, [b0, byte_val])
+                    canbus.send_message(reply_id, [b0, 0x01, first_one_index, 0x00, 0x00, 0x00, 0x00, 0x00])
                 else:
-                    canbus.send_message(reply_id, [b0, 0x00]) # Empty matrix
+                    canbus.send_message(reply_id, [b0, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])  # Empty matrix
             else:
-                canbus.send_message(reply_id, [b0, 0xFF]) # Error code
+                canbus.send_message(reply_id, [b0, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])  # Error code
 
         # Pick Up Joint
         elif b0 == 0x10:
@@ -235,98 +239,91 @@ def process_can_instruction(message):
                         print(f"CAN 0x10: First '1' is at position: {first_one_index}")
                     except ValueError:
                         print("CAN 0x10: No '1' found in the matrix.")
+                        first_one_index = 0xff
                     mask = 0
                     for i, bit in enumerate(matrix):
                         if bit == 1:
                             mask |= (1 << i)
-                    data = [b0] + list(mask.to_bytes(2, 'big'))
-                    canbus.send_message(reply_id, data)
+                    canbus.send_message(reply_id, [b0, 0x01, first_one_index, 0x00, 0x00, 0x00, 0x00, 0x00])
                 else:
-                    canbus.send_message(reply_id, [b0, 0x00, 0x00]) # Empty matrix
+                    canbus.send_message(reply_id, [b0, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])  # Empty matrix
             else:
-                canbus.send_message(reply_id, [b0, 0xFF, 0xFF]) # Error code
+                canbus.send_message(reply_id, [b0, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])  # Error code
 
         # Inspection Camera 0
         elif b0 == 0x11:
             if cameraN.model:
                 good = cameraN.check_for_good_class()
-                canbus.send_message(reply_id, [b0, 0x01 if good else 0x00])
+                canbus.send_message(reply_id, [b0, 0x01 if good else 0x00,0x00,0x00,0x00,0x00,0x00,0x00])
             else:
-                canbus.send_message(reply_id, [b0, 0xFF]) # Error code
-                
+                canbus.send_message(reply_id, [b0, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])  # Error code
+
         # Inspection Camera 1
         elif b0 == 0x12:
             if cameraJ.model:
                 good = cameraJ.check_for_good_class()
-                canbus.send_message(reply_id, [b0, 0x01 if good else 0x00])
+                canbus.send_message(reply_id, [b0, 0x01 if good else 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
             else:
-                canbus.send_message(reply_id, [b0, 0xFF]) # Error code
+                canbus.send_message(reply_id, [b0, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])  # Error code
 
         # Show Frame Nozzle
         elif b0 == 0x13:
             # Usar get_annotated_frame si el modelo está cargado, sino capture_frame normal
             if cameraN.model:
-                 frame = cameraN.get_annotated_frame()
+                frame = cameraN.get_annotated_frame()
             else:
-                 frame = cameraN.capture_frame()
+                frame = cameraN.capture_frame()
 
             if frame is not None:
                 cv2.imshow("Nozzle Camera", frame)
-                # Esperar un poco más para asegurar que la ventana se dibuje correctamente
-                # Un bucle de waitKey ayuda a procesar los eventos de la GUI
                 for _ in range(10):
                     cv2.waitKey(10)
-                canbus.send_message(reply_id, [b0, 0x01])
+                canbus.send_message(reply_id, [b0, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
             else:
-                canbus.send_message(reply_id, [b0, 0x00])
+                canbus.send_message(reply_id, [b0, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
 
         # Show Frame Joint
         elif b0 == 0x14:
             if cameraJ.model:
-                 frame = cameraJ.get_annotated_frame()
+                frame = cameraJ.get_annotated_frame()
             else:
-                 frame = cameraJ.capture_frame()
-                 
+                frame = cameraJ.capture_frame()
+
             if frame is not None:
                 cv2.imshow("Joint Camera", frame)
-                # Esperar un poco más para asegurar que la ventana se dibuje correctamente
                 for _ in range(10):
                     cv2.waitKey(10)
-                canbus.send_message(reply_id, [b0, 0x01])
+                canbus.send_message(reply_id, [b0, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
             else:
-                canbus.send_message(reply_id, [b0, 0x00])
+                canbus.send_message(reply_id, [b0, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
 
         else:
             print(f"Unknown instruction: {b0}")
     else:
         print("Received CAN message with no data.")
 
-    
 
 class MockMessage:
     def __init__(self, data):
         self.data = data
 
-def main():
 
+def main():
     # debug()
 
-    # while True:
-    #     message = canbus.read_message()
-    #     if message is not None and message.arbitration_id == canbus_id:
-    #         process_can_instruction(message)
+    # Load models and capture initial frames
+    print("Loading models...")
+    cameraN.load_model(0)
+    cameraJ.load_model(1)
+    print("Models loaded.")
 
-
-    # # Load models and capture initial frames
-    # print("Loading models...")
-    # cameraN.load_model(0)
-    # cameraJ.load_model(1)
-    # print("Models loaded.")
-    #
-    # print("Capturing frames...")
-    # cameraN.capture_frame()
-    # cameraJ.capture_frame()
-    # print("Frames captured.")
+    while True:
+        print("Waiting for Canbus Command")
+        flag, message = canbus.read_any_message()
+        if message is not None and message.arbitration_id == canbus_id:
+            process_can_instruction(message)
+        else:
+            time.sleep(.300)
 
     while True:
         print("\n--- CAN Instruction Test Menu ---")
@@ -395,6 +392,8 @@ def main():
 
 
 if __name__ == "__main__":
-
     initialize_canbus()
     main()
+
+    print("\nEl proceso ha terminado.")
+    input("Presiona ENTER para salir...")  # <--- ESTO MANTIENE LA VENTANA ABIERTA

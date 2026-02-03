@@ -4,6 +4,15 @@ import sys
 import os
 import time
 
+import threading
+
+# Global variables for operation control
+pause_event = threading.Event()
+operation_status = {
+    "state": "idle", # idle, running, paused, completed, error
+    "message": ""
+}
+
 # Add the main_controller directory to Python path
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'main_controller'))
 
@@ -17,6 +26,7 @@ from classes.insertion_servos import InsertionServos
 from classes.lubrication_feeder import LubricationFeeder
 from classes.transporter_fuyus import TransporterFuyus
 from classes.transporter_grippers import TransporterGrippers
+from classes.pick_and_place_camera import PickAndPlaceCamera
 
 # Now we can import the Canbus class
 try:
@@ -55,7 +65,7 @@ CANBUS_ID_INSERTION_SERVOS = 0x002
 CANBUS_ID_LUBRICATION_FEEDER = 0x019
 CANBUS_ID_TRANSPORTER_FUYUS = 0x021
 CANBUS_ID_TRANSPORTER_GRIPPERS = 0x020
-
+CANBUS_ID_PICK_AND_PLACE_CAMERA = 0x001
 
 #Instance Declaration
 hose_jig = HoseJig(canbus, CANBUS_ID_JIG)
@@ -68,6 +78,7 @@ insertion_servos = InsertionServos(canbus, CANBUS_ID_INSERTION_SERVOS)
 lubrication_feeder = LubricationFeeder(canbus, CANBUS_ID_LUBRICATION_FEEDER)
 transporter_fuyus = TransporterFuyus(canbus, CANBUS_ID_TRANSPORTER_FUYUS)
 transporter_grippers = TransporterGrippers(canbus, CANBUS_ID_TRANSPORTER_GRIPPERS)
+pick_and_place_camera = PickAndPlaceCamera(canbus, CANBUS_ID_PICK_AND_PLACE_CAMERA)
 
 # Device list for batch operations
 devices = [
@@ -80,7 +91,8 @@ devices = [
     ('Insertion Servos', insertion_servos),
     ('Lubrication Feeder', lubrication_feeder),
     ('Transporter Fuyus', transporter_fuyus),
-    ('Transporter Grippers', transporter_grippers)
+    ('Transporter Grippers', transporter_grippers),
+    ('Pick and Place Camera', pick_and_place_camera)
 
 ]
 
@@ -106,61 +118,65 @@ def test_all_devices_heartbeat():
 # Create blueprint for testing routes
 testing_bp = Blueprint('testing', __name__, url_prefix='/api')
 
-#Check Canbus
+@testing_bp.route('/status', methods=['GET'])
+def get_status():
+    return jsonify(operation_status)
+
+@testing_bp.route('/resume', methods=['POST'])
+def resume_operation():
+    if not session.get('logged_in'):
+        return jsonify(success=False, message='Not authenticated'), 401
+    pause_event.set()
+    return jsonify(success=True)
+
+#Receive Material
 @testing_bp.route('/test_action_1', methods=['POST'])
 def test_action_1():
-    """Test Action 1 - Play/Start function"""
+    """Test Action 1 - Receive Material function"""
     if not session.get('logged_in'):
         return jsonify(success=False, message='Not authenticated'), 401
     
     try:
-        if canbus is not None:
-            # Check if canbus is properly started
-            print(f"Canbus status - is_started: {canbus.is_started}")
-            print(f"Canbus device: {canbus.device}")
-            print(f"Canbus channel: {canbus.channel}")
-            
-            # Try to restart canbus if not started
-            if not canbus.is_started:
-                print("Canbus not started, attempting to restart...")
-                restart_result = canbus.start_canbus()
-                print(f"Restart result: {restart_result}")
-                if not restart_result:
-                    return jsonify(success=False, message='Failed to restart CAN bus'), 500
-            
-            print("Sending heartbeat...")
-            status = hose_jig.send_heartbeat()
-            print(f"Heartbeat status: {status}")
-
-            if status == "success":
-                return jsonify(success=True, message='Hose Jig heartbeat sent successfully'), 200
-            else:
-                return jsonify(success=False, message=f'Failed to send Hose Jig heartbeat - Status: {status}'), 500
-
-        else:
-            return jsonify(success=False, message='Canbus not enabled'), 500
+        # TODO2: Add your CAN bus and Python actions here
+        if ReceiveMaterial() != "success" : return jsonify(success=False, message=f'Error in Receive Material'), 500
+        
+        result = {
+            'success': True,
+            'message': 'Receive Material executed successfully',
+            'action': 'receive_material',
+            'timestamp': datetime.now().isoformat(),
+            'data': {
+                'status': 'completed',
+                'details': 'Receive Material function executed'
+            }
+        }
+        return jsonify(result)
         
     except Exception as e:
-        print(f"Exception in test_action_1: {str(e)}")
         return jsonify(success=False, message=f'Error in Test Action 1: {str(e)}'), 500
 
-#Check all MCU
+#Align Component
 @testing_bp.route('/test_action_2', methods=['POST'])
 def test_action_2():
-    """Test Action 2 - Send heartbeat to all devices"""
+    """Test Action 2 - Align Component function"""
     if not session.get('logged_in'):
         return jsonify(success=False, message='Not authenticated'), 401
     
     try:
-        failed_devices = test_all_devices_heartbeat()
+        # TODO2: Add your CAN bus and Python actions here
+        if alignComponent() != "success" : return jsonify(success=False, message=f'Error in Align Component'), 500
         
-        if failed_devices:
-            return jsonify(
-                success=False, 
-                message=f'Failed to send heartbeat to: {", ".join(failed_devices)}'
-            ), 500
-        
-        return jsonify(success=True, message='All heartbeats sent successfully'), 200
+        result = {
+            'success': True,
+            'message': 'Align Component executed successfully',
+            'action': 'align_component',
+            'timestamp': datetime.now().isoformat(),
+            'data': {
+                'status': 'completed',
+                'details': 'Align Component function executed'
+            }
+        }
+        return jsonify(result)
         
     except Exception as e:
         return jsonify(success=False, message=f'Error in Test Action 2: {str(e)}'), 500
@@ -252,8 +268,13 @@ def test_action_6():
     
     try:
         # TODO: Add your CAN bus and Python actions here
-        if movePickandPlace() != "success" : return jsonify(success=False, message=f'Error in Pick and Place'), 500
+        global operation_status
+        operation_status["state"] = "running"
+        if movePickandPlace(need=True) != "success" : 
+            operation_status["state"] = "error"
+            return jsonify(success=False, message=f'Error in Pick and Place'), 500
         
+        operation_status["state"] = "completed"
         result = {
             'success': True,
             'message': 'Pick and Place executed successfully',
@@ -269,31 +290,7 @@ def test_action_6():
     except Exception as e:
         return jsonify(success=False, message=f'Error in Test Action 6: {str(e)}'), 500
 
-#Lubrication Test
-@testing_bp.route('/test_action_7', methods=['POST'])
-def test_action_7():
-    """Test Action 7 - Lubrication Test function"""
-    if not session.get('logged_in'):
-        return jsonify(success=False, message='Not authenticated'), 401
-    
-    try:
-        # TODO: Add your CAN bus and Python actions here
-        if lubrication_test() != "success" : return jsonify(success=False, message=f'Error in Lubrication Test'), 500
-        
-        result = {
-            'success': True,
-            'message': 'Lubrication Test executed successfully',
-            'action': 'lubrication_test',
-            'timestamp': datetime.now().isoformat(),
-            'data': {
-                'status': 'completed',
-                'details': 'Lubrication Test function executed'
-            }
-        }
-        return jsonify(result)
-        
-    except Exception as e:
-        return jsonify(success=False, message=f'Error in Test Action 7: {str(e)}'), 500
+# Test Action 7 Removed
 
 #Insertion Full Cycle
 @testing_bp.route('/test_action_8', methods=['POST'])
@@ -356,10 +353,19 @@ def test_action_10():
     
     try:
         # TODO: Add your CAN bus and Python actions here
-        if movePickandPlace(2) != "success" : return jsonify(success=False, message=f'Error in Pick and Place'), 500
-        if oneCycle() != "success" : return jsonify(success=False, message=f'Error in Insertion'), 500
-        if pickUpHose() != "success" : return jsonify(success=False, message=f'Error in Deliver Hose'), 500
+        global operation_status
+        operation_status["state"] = "running"
+        if movePickandPlace(need=True) != "success" : 
+            operation_status["state"] = "error"
+            return jsonify(success=False, message=f'Error in Pick and Place'), 500
+        if oneCycle() != "success" : 
+            operation_status["state"] = "error"
+            return jsonify(success=False, message=f'Error in Insertion'), 500
+        if pickUpHose() != "success" : 
+            operation_status["state"] = "error"
+            return jsonify(success=False, message=f'Error in Deliver Hose'), 500
         
+        operation_status["state"] = "completed"
         result = {
             'success': True,
             'message': 'Full Routine executed successfully',
@@ -374,6 +380,65 @@ def test_action_10():
         
     except Exception as e:
         return jsonify(success=False, message=f'Error in Test Action 10: {str(e)}'), 500
+
+#Check Canbus
+@testing_bp.route('/check_canbus', methods=['POST'])
+def check_canbus():
+    """Check Canbus function - Heartbeat all devices"""
+    if not session.get('logged_in'):
+        return jsonify(success=False, message='Not authenticated'), 401
+    
+    try:
+        if canbus is not None:
+            # Check if canbus is properly started
+            if not canbus.is_started:
+                print("Canbus not started, attempting to restart...")
+                restart_result = canbus.start_canbus()
+                if not restart_result:
+                    return jsonify(success=False, message='Failed to restart CAN bus'), 500
+            
+            results = []
+            all_success = True
+            
+            # Iterate through all devices and send heartbeat
+            for device_name, device in devices:
+                try:
+                    print(f"Sending heartbeat to {device_name}...")
+                    status = device.send_heartbeat()
+                    print(f"{device_name} heartbeat status: {status}")
+                    
+                    results.append({
+                        'device': device_name,
+                        'status': 'success' if status == 'success' else 'failed',
+                        'message': status
+                    })
+                    
+                    if status != 'success':
+                        all_success = False
+                        
+                except Exception as e:
+                    print(f"Error checking {device_name}: {str(e)}")
+                    results.append({
+                        'device': device_name,
+                        'status': 'error',
+                        'message': str(e)
+                    })
+                    all_success = False
+            
+            message = 'All devices responded successfully' if all_success else 'Some devices failed to respond'
+            
+            return jsonify({
+                'success': all_success,
+                'message': message,
+                'results': results
+            })
+
+        else:
+            return jsonify(success=False, message='Canbus not enabled'), 500
+        
+    except Exception as e:
+        print(f"Exception in check_canbus: {str(e)}")
+        return jsonify(success=False, message=f'Error in Check Canbus: {str(e)}'), 500
 
 @testing_bp.route('/canbus_diagnostic', methods=['GET'])
 def canbus_diagnostic():
@@ -452,6 +517,27 @@ def canbus_reinit():
 
 #****************** Core Functions ***********************
 
+#Receive Material
+def ReceiveMaterial():
+    global elevator_in
+
+    home = [0, 0, 0]
+    safety_high = -300
+    transportation_high = -500
+
+    # wait
+    deliver_left = [-225, -1800, -500]
+
+    # Homing
+    if elevator_in.home_elevator_z() != "success": return "error04"
+
+    if elevator_in.move_gantry_z(transportation_high) != "success": return "error08"
+    if elevator_in.move_gantry_array(deliver_left) != "success": return "error09"
+
+    return "success"
+
+
+
 #Move Elevator In
 def moveElevatorIn():
 
@@ -459,135 +545,186 @@ def moveElevatorIn():
 
     home = [0,0,0]
     safety_high = -300
-    cassette_deliver_high = -610
+    cassette_deliver_high = -600
     transportation_high = -500
 
     #left
-    pick_left = [-225,-315,-820]
-    deliver_left = [-225,-1800,-500]
+    pick_left = [-225,-319,-815]
+    pick_left = [-225,-314,-815]
+    deliver_left = [-250,-1800,-500]
     
     #Right
-    pick_right = [-1358,-317,-850]
-    deliver_right = [-1353,-1800,-500]
+    pick_right = [-1358,-319,-835]
+    pick_right = [-1355,-319,-835]
+    deliver_right = [-1365,-1800,-500]
+    deliver_right2 = [-1410,-1800,-500]
 
-
-    #Homing
+    # #Homing
     if elevator_in.home_gantry_z() != "success": return "error01"
     if elevator_in.home_gantry_x() != "success": return "error02"
     if elevator_in.home_gantry_y() != "success": return "error03"
-    if elevator_in.home_elevator_z() != "success": return "error04"
 
+    #Aligning Cassette
     if elevator_in.move_elevator_until_sensor(0, 200) != "success": return "error05"
-
 
     #Left Side
     if elevator_in.move_gantry_array(pick_left) != "success": return "error06"
+
+    # return ""
+
     if elevator_in.close_gripper() != "success": return "error07"
+    time.sleep(.25)
     if elevator_in.move_gantry_z(transportation_high) != "success": return "error08"
     if elevator_in.move_gantry_array(deliver_left) != "success": return "error09"
-    if elevator_in.move_gantry_z(cassette_deliver_high) != "success": return "error10"
+    if elevator_in.move_gantry_z(cassette_deliver_high+10) != "success": return "error10"
     if elevator_in.open_gripper() != "success": return "error11"
+    time.sleep(.25)
     if elevator_in.move_gantry_z(safety_high) != "success": return "error12"
     if elevator_in.move_gantry_array(home) != "success": return "error13"
+
 
     #Right Side
     if elevator_in.move_gantry_array(pick_right) != "success": return "error14"
     if elevator_in.close_gripper() != "success": return "error15"
+    time.sleep(.25)
     if elevator_in.move_gantry_z(transportation_high) != "success": return "error16"
     if elevator_in.move_gantry_array(deliver_right) != "success": return "error17"
+    if elevator_in.move_gantry_array(deliver_right2) != "success": return "error17"
     if elevator_in.move_gantry_z(cassette_deliver_high) != "success": return "error18"
     if elevator_in.open_gripper() != "success": return "error19"
+    time.sleep(.25)
     if elevator_in.move_gantry_z(safety_high) != "success": return "error20"
     if elevator_in.move_gantry_array(home) != "success": return "error21"
 
     #conveyors
-    # if pick_and_place.start_left_conveyor() != "success": return "error22"
-    # if pick_and_place.start_right_conveyor() != "success": return "error23"
-    # time.sleep(3)
-    # if pick_and_place.stop_left_conveyor() != "success": return "error24"
-    # if pick_and_place.stop_right_conveyor() != "success": return "error25"
+    if pick_and_place.start_left_conveyor() != "success": return "error22"
+    if pick_and_place.start_right_conveyor() != "success": return "error23"
+    time.sleep(3)
+    if pick_and_place.stop_left_conveyor() != "success": return "error24"
+    if pick_and_place.stop_right_conveyor() != "success": return "error25"
+
+    # alignCassette()
 
     return "success"
 
 
 #Align Cassette:
 def alignCassette():
-    global pick_and_place
-
-
+    global pick_and_place,pick_and_place_camera
 
     if pick_and_place.move_left_conveyor_until_sensor(0,1000) != "success" : return "error01"
     if pick_and_place.move_right_conveyor_until_sensor(0,1000) != "success" : return "error02"
-    # #
-    # # pick_and_place.move_left_conveyor(0, 50, 236)
-    # # pick_and_place.move_left_conveyor(0, 0, 236)
-    #
-    pick_and_place.move_right_conveyor(0, 50, 236)
-    time.sleep(1.3)
-    pick_and_place.move_right_conveyor(0, 0, 236)
+
+    time.sleep(1)
+
+
+#Align Component
+def alignComponent():
+    pick_and_place_camera.alignment_joint()
+    pick_and_place_camera.alignment_nozzle()
 
 
 #Move Pick and Place
-def movePickandPlace(n=1):
-    global pick_and_place, insertion_servos, insertion_jig
+def movePickandPlace(need=True):
+    global pick_and_place, insertion_servos, insertion_jig, pick_and_place_camera
 
-    receiving_x = -8500
-    receiving_y = 7000
+    receiving_x = 6500
+    receiving_z = 7000
     translation_gap = 0.73
 
-    # Homing Pick and Place
-    # if pick_and_place.home_z_axis() != "success": return "error01"
-    # if pick_and_place.home_x_axis() != "success": return "error02"
-
-    # Homing Insertion Jig
+    # Initial Setup
     if insertion_servos.slider_joint_receive() != "success": return "error03"
     if insertion_servos.slider_nozzle_receive() != "success": return "error3.1"
-    if insertion_jig.move_z_axis(receiving_y) != "success": return "error04"
+    if insertion_jig.move_z_axis(receiving_z) != "success": return "error04"
     if insertion_jig.move_x_axis(receiving_x) != "success": return "error05"
     if pick_and_place.open_gripper() != "success": return "error06"
 
-    gap = 15
+    gap = 0
     zgap = 0
 
     #Nozzle Data
-    nozzle_high = -1255
-    nozzle_x = [-640,-502,-347,-220,-70]
-    trans_nozzle_high = -1000
-    deliver_nozzle_x = -3900
-    deliver_nozzle_z = -1248
+    nozzle_high = -965
+    nozzle_x = [-580,-450,-300,-170,-20,110]
+    trans_nozzle_high = -600
+
+    # deliver_nozzle_x = -3697
+    deliver_nozzle_x = -3633
+    deliver_nozzle_z = -1005
 
     # Joint Data
-    joint_high = -1243
-    joint_x = [-1800,-1715,-1635,-1555,-1475]
-    trans_joint_high = -1000
-    deliver_joint_x = -4190
-    deliver_joint_z = -1262
+    # joint_high = -1243
+    joint_high = -965
+    joint_x = [-1770,-1690,-1610,-1530,-1450,-1370,-1290,-1210,-1130,-1050]
+    trans_joint_high = -600
 
+    # deliver_joint_x = -3990
+    deliver_joint_x = -3919
+    deliver_joint_z = -1005
 
     # Validate Home
 
     if pick_and_place.move_actuator_z(0) != "success": return "error07"
     if pick_and_place.move_actuator_x(0) != "success": return "error08"
-
     #
-    # Pick Nozzle
-    if pick_and_place.move_actuator_x(nozzle_x[n]- gap) != "success": return "error09"
+    # # Pick Nozzle
+    
+    # Get index from camera for Nozzle
+    n_nozzle = pick_and_place_camera.pick_up_nozzle()
+    
+    # Check for empty row (0xFF)
+    if n_nozzle == 255:
+        print("Nozzle row empty, aligning...")
+        pick_and_place_camera.alignment_nozzle()
+        # Retry after alignment
+        n_nozzle = pick_and_place_camera.pick_up_nozzle()
+        if n_nozzle == 255:
+            return "error09_nozzle_empty"
+            
+    if n_nozzle is None:
+        return "error09_camera_fail"
+        
+    # Ensure index is within bounds
+    if n_nozzle >= len(nozzle_x):
+        n_nozzle = len(nozzle_x) - 1 # Fallback or error? defaulting to last valid or erroring out
+        # return f"error09_index_{n_nozzle}" # Let's try to proceed or return error. Returning error is safer.
+        return f"error09_index_{n_nozzle}"
+
+    if pick_and_place.move_actuator_x(nozzle_x[n_nozzle]- gap) != "success": return "error09"
+
+
+    if need:
+        if pick_and_place.move_actuator_z(nozzle_high + 100) != "success": return "error10"
+        
+        # Pause for user confirmation via UI
+        global operation_status, pause_event
+        print("Pausing for user confirmation (Nozzle)...")
+        operation_status["state"] = "paused"
+        operation_status["message"] = "Waiting for user confirmation to pick nozzle. Please adjust if necessary and click Continue."
+        pause_event.clear()
+        pause_event.wait() # Blocks here until /resume is called
+        operation_status["state"] = "running"
+        operation_status["message"] = "Resuming operation..."
+
     if pick_and_place.move_actuator_z(nozzle_high+zgap) != "success": return "error10"
+    
+
     if pick_and_place.close_gripper() != "success": return "error11"
-
-
-    # Deliver Nozzle
+    # #
+    # # Deliver Nozzle
     if pick_and_place.move_actuator_z(trans_nozzle_high) != "success": return "error12"
     if pick_and_place.move_actuator_x(deliver_nozzle_x - gap) != "success": return "error13"
+
     if pick_and_place.move_actuator_z(deliver_nozzle_z+zgap) != "success": return "error14"
+
     if pick_and_place.open_gripper() != "success": return "error15"
     time.sleep(.5)
 
 
     # Back to Home
-    if pick_and_place.move_actuator_z(0,False) != "success": return "error16"
-    if pick_and_place.move_actuator_x(0,False) != "success": return "error17"
+    # if pick_and_place.move_actuator_z(0,False) != "success": return "error16"
+    # if pick_and_place.move_actuator_x(0,False) != "success": return "error17"
 
+    # return ""
 
     # *******************************************************
 
@@ -595,11 +732,46 @@ def movePickandPlace(n=1):
 
     # Home (ensure is there before moving)
     if pick_and_place.move_actuator_z(0) != "success": return "error18"
-    if pick_and_place.move_actuator_x(0) != "success": return "error19"
+    # if pick_and_place.move_actuator_x(0) != "success": return "error19"
 
     # Pick Joint
-    if pick_and_place.move_actuator_x(joint_x[n]-gap) != "success": return "error21"
+    
+    # Get index from camera for Joint
+    n_joint = pick_and_place_camera.pick_up_joint()
+    
+    # Check for empty row (0xFF)
+    if n_joint == 255:
+        print("Joint row empty, aligning...")
+        pick_and_place_camera.alignment_joint()
+        # Retry after alignment
+        n_joint = pick_and_place_camera.pick_up_joint()
+        if n_joint == 255:
+            return "error21_joint_empty"
+            
+    if n_joint is None:
+        return "error21_camera_fail"
+
+    # Ensure index is within bounds
+    if n_joint >= len(joint_x):
+        return f"error21_index_{n_joint}"
+
+    if pick_and_place.move_actuator_x(joint_x[n_joint]-gap) != "success": return "error21"
+
+    if need:
+        if pick_and_place.move_actuator_z(joint_high + 100) != "success": return "error22"
+        
+        # Pause for user confirmation via UI
+        global operation_status, pause_event
+        print("Pausing for user confirmation (Joint)...")
+        operation_status["state"] = "paused"
+        operation_status["message"] = "Waiting for user confirmation to pick joint. Please adjust if necessary and click Continue."
+        pause_event.clear()
+        pause_event.wait() # Blocks here until /resume is called
+        operation_status["state"] = "running"
+        operation_status["message"] = "Resuming operation..."
+
     if pick_and_place.move_actuator_z(joint_high+zgap) != "success": return "error22"
+
     if pick_and_place.close_gripper() != "success": return "error23"
 
     # Deliver Joint
@@ -607,6 +779,7 @@ def movePickandPlace(n=1):
     if pick_and_place.move_actuator_x(deliver_joint_x-gap) != "success": return "error25"
     if pick_and_place.move_actuator_z(deliver_joint_z+zgap) != "success": return "error26"
     if pick_and_place.open_gripper() != "success": return "error27"
+
 
     # Go Back to Home
     if pick_and_place.move_actuator_z(0,False) != "success": return "error28"
@@ -645,7 +818,7 @@ def oneCycle():
 
     safe_position = 200
     safe_position_over_hose_jig = 242
-    home_y = 4200
+    home_y = 4210
     wait_y = 5930
     cutting_position = 7830
     pickup_y = 9015
@@ -659,9 +832,9 @@ def oneCycle():
 
     insertion_jig_safe_zone = 4000
     preefeder_speed = 50
-    feed_hose_time = 3.15
+    feed_hose_time = 3.1
     lubricate_nozzle_time = 0.15
-    lubricate_joint_time = 0.11
+    lubricate_joint_time = 0.08
     hose_puller_y_speed = 200
     hose_puller_y_speed_for_alignment = 20
 
@@ -669,13 +842,17 @@ def oneCycle():
 
     if hose_jig.gripper_open() != "success" : return "error01"
 
-    if insertion_servos.activate_cutter() != "success" : return "error02"
+    # if insertion_servos.activate_cutter() != "success" : return "error02"
     if insertion_servos.slider_nozzle_receive() != "success" : return "error02"
 
     # Feed Hose
 
     if lubrication_feeder.close_hose_holder() != "success" : return "error03"
-    if lubrication_feeder.feed_hose(duration=feed_hose_time) != "success" : return "error04"
+    if lubrication_feeder.feed_hose(duration=feed_hose_time,speed=520) != "success" : return "error04"
+    # if insertion_servos.activate_cutter() != "success": return "error02"
+
+    # return ""
+
     time.sleep(1)
     if insertion_servos.holder_hose_nozzle_close() != "success" : return "error05"
     if lubrication_feeder.open_hose_holder() != "success" : return "error06"
@@ -742,7 +919,7 @@ def oneCycle():
     time.sleep(.5)
     if insertion_servos.activate_cutter() != "success" : return "error41"
     time.sleep(.5)
-    if lubrication_feeder.open_hose_holder() != "success" : return "error40"
+    # if lubrication_feeder.open_hose_holder() != "success" : return "error40"
 
 
     # Alignment for Joint Insertion
@@ -773,7 +950,7 @@ def oneCycle():
     if insertion_servos.clamp_joint_open() != "success" : return "error54"
     time.sleep(0.5)
     if insertion_servos.slider_joint_home() != "success" : return "error55"
-
+    time.sleep(0.2)
 
     # Finish Pulling Action
 
@@ -798,15 +975,20 @@ def oneCycle():
 
 #Pick Up Hose
 def pickUpHose():
-    global transporter_fuyus, transporter_grippers, hose_jig
+
+    global transporter_fuyus, transporter_grippers, hose_jig,hose_jig_v2
+
+    # transporter_fuyus.home_x_axis()
+
+    if hose_jig_v2.open_stamper_hose_jig() != "success": return "06"
 
     if hose_jig.gripper_close() != "success" : return "001"
-
     if transporter_fuyus.pickHome() != "success" : return "01"
-    # if transporter_fuyus.moveToStamperHoseJig() != "success" : return "02"
+
     if transporter_fuyus.moveToReceivingPosition() != "success" : return "03"
 
     if transporter_fuyus.pickHoseFromFirstStation() != "success" : return "04"
+
     if transporter_grippers.close_all_grippers() != "success" : return "05"
 
     time.sleep(1)
@@ -817,9 +999,18 @@ def pickUpHose():
 
     if transporter_fuyus.moveToDeliverPosition() != "success": return "03"
 
+    if transporter_fuyus.stamperHigh() != "success": return "04"
+
     if transporter_grippers.open_all_grippers() != "success": return "05"
 
+    if transporter_fuyus.pickHome() != "success": return "07"
+
+    if transporter_fuyus.moveToSafeSpace() != "success": return "08"
+
+    if hose_jig_v2.close_stamper_hose_jig() != "success": return "06"
+
     return "success"
+
 
 
 #Test all home functions
@@ -827,14 +1018,17 @@ def testHome():
     # """Test function for new go home methods"""
     global elevator_in, pick_and_place, hose_puller, hose_jig, insertion_jig, insertion_servos,transporter_fuyus
 
-
     insertionServosOpen()
     insertion_servos.slider_joint_home()
-    
+
     print("Testing new go home functions...")
-    
+
     # Test ElevatorIn homing functions
     print("\n--- Testing ElevatorIn homing functions ---")
+
+    print("Testing home_elevator_z...")
+    result = elevator_in.home_elevator_z()
+    print(f"Result: {result}")
 
     print("Testing home_gantry_z...")
     result = elevator_in.home_gantry_z()
@@ -843,14 +1037,16 @@ def testHome():
     print("Testing home_gantry_x...")
     result = elevator_in.home_gantry_x()
     print(f"Result: {result}")
-    
+
     print("Testing home_gantry_y...")
     result = elevator_in.home_gantry_y()
     print(f"Result: {result}")
 
+
     print("Testing home_elevator_z...")
     result = elevator_in.home_elevator_z()
     print(f"Result: {result}")
+
 
     # Test PickAndPlace homing functions
     print("\n--- Testing PickAndPlace homing functions ---")
@@ -861,17 +1057,16 @@ def testHome():
     print("Testing home_x_axis...")
     result = pick_and_place.home_x_axis()
     print(f"Result: {result}")
-    
+
     print("Testing home_z_axis...")
 
 
     # Test HoseJig homing function
     print("\n--- Testing HoseJig homing function ---")
-    
+
     print("Testing home_actuator...")
     result = hose_jig.go_home()
     print(f"Result: {result}")
-    
 
     # Test HosePuller homing functions
     print("\n--- Testing HosePuller homing functions ---")
@@ -887,14 +1082,25 @@ def testHome():
 
     # Test InsertionJig homing functions
     print("\n--- Testing InsertionJig homing functions ---")
-    
+
     print("Testing home_x_axis...")
     result = insertion_jig.home_x_axis_go_home()
     print(f"Result: {result}")
-    
+
     print("Testing home_z_axis...")
     result = insertion_jig.home_z_axis_go_home()
     print(f"Result: {result}")
+
+    # # Enviar Z a Home
+    # print("Enviando Z a Home...")
+    # taping_fuyus.home_z_actuator()
+    #
+    # # Enviar Y a Home
+    # print("Enviando Y a Home...")
+    # taping_fuyus.home_y_actuator()
+    #
+    # taping_fuyus.move_y_actuator_with_speed(10000, 400)
+
 
     # Test Transporter homing functions
     print("\n--- Testing Transporter homing functions ---")
@@ -902,7 +1108,7 @@ def testHome():
     print("Testing home_x_axis...")
     result = transporter_fuyus.home_x_axis()
     print(f"Result: {result}")
-    
+
     print("\nAll homing tests completed!")
 
     return "success"
@@ -912,8 +1118,8 @@ def testHome():
 def lubrication_test():
     global lubrication_feeder,insertion_servos
 
-    if lubrication_feeder.lubricate_nozzle(duration=5) != "success": return "error01"
-    if lubrication_feeder.lubricate_joint(duration=5) != "success": return "error02"
+    if lubrication_feeder.lubricate_nozzle(duration=1.5) != "success": return "error01"
+    if lubrication_feeder.lubricate_joint(duration=1.5) != "success": return "error02"
 
     return "success"
 

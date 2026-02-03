@@ -31,66 +31,67 @@ class PickAndPlaceCamera:
     # 0x05: Count Objects Nozzle
     def count_objects_nozzle(self):
         status, data = self.canbus.send_message(self.canbus_id, [0x05] + [0x00]*7)
-        if status == 'success' and data and len(data) >= 2:
-            if data[1] == 0xFF: return -1 # Error
-            return data[1]
+        if status == 'success' and data and len(data) >= 3:
+            if data[1] == 0x01: return data[2] # Success, return count
+            return -1 # Error code from camera
         return -1
 
     # 0x06: Count Objects Joint
     def count_objects_joint(self):
         status, data = self.canbus.send_message(self.canbus_id, [0x06] + [0x00]*7)
-        if status == 'success' and data and len(data) >= 2:
-            if data[1] == 0xFF: return -1 # Error
-            return data[1]
+        if status == 'success' and data and len(data) >= 3:
+            if data[1] == 0x01: return data[2] # Success, return count
+            return -1 # Error code from camera
         return -1
 
     # 0x07: Alignment Nozzle
     def alignment_nozzle(self):
         # Alignment can take time, so we increase retries significantly
         status, data = self.canbus.send_message(self.canbus_id, [0x07] + [0x00]*7, max_retries=50)
-        if status == 'success' and data and len(data) >= 3:
-            if data[1] == 0xFF and data[2] == 0xFF: return None # Error/Not found
-            if data[1] == 0xFF and data[2] == 0xFE: return None # Model not loaded
-            
-            # Combine bytes to signed int
-            distance = int.from_bytes([data[1], data[2]], byteorder='big', signed=True)
-            return distance
+        if status == 'success' and data and len(data) >= 4:
+            if data[1] == 0x01:
+                # data[2] is distance (abs), data[3] is negative flag (1=negative)
+                distance = data[2]
+                if data[3] == 1:
+                    distance = -distance
+                return distance
+            return None # Error or not found (0x02, 0x03)
         return None
 
     # 0x08: Alignment Joint
     def alignment_joint(self):
         status, data = self.canbus.send_message(self.canbus_id, [0x08] + [0x00]*7, max_retries=50)
-        if status == 'success' and data and len(data) >= 3:
-            if data[1] == 0xFF and data[2] == 0xFF: return None
-            if data[1] == 0xFF and data[2] == 0xFE: return None
-            
-            distance = int.from_bytes([data[1], data[2]], byteorder='big', signed=True)
-            return distance
+        if status == 'success' and data and len(data) >= 4:
+            if data[1] == 0x01:
+                # data[2] is distance (abs), data[3] is negative flag (1=negative)
+                distance = data[2]
+                if data[3] == 1:
+                    distance = -distance
+                return distance
+            return None # Error or not found (0x02, 0x03)
         return None
 
     # 0x09: Pick Up Nozzle
     def pick_up_nozzle(self):
         status, data = self.canbus.send_message(self.canbus_id, [0x09] + [0x00]*7)
-        if status == 'success' and data and len(data) >= 2:
-            if data[1] == 0xFF: return None # Error
-            return data[1] # Returns the byte value mask
+        if status == 'success' and data and len(data) >= 3:
+            if data[1] == 0x01: return data[2] # Returns the first_one_index
+            return None # Error
         return None
 
     # 0x10: Pick Up Joint
     def pick_up_joint(self):
         status, data = self.canbus.send_message(self.canbus_id, [0x10] + [0x00]*7)
         if status == 'success' and data and len(data) >= 3:
-            if data[1] == 0xFF: return None # Error
-            # Combine bytes for 16-bit mask
-            mask = int.from_bytes([data[1], data[2]], byteorder='big', signed=False)
-            return mask
+            if data[1] == 0x01: return data[2] # Returns the first_one_index
+            return None # Error
         return None
 
     # 0x11: Inspection Camera 0 (Nozzle)
     def inspection_camera_0(self):
         status, data = self.canbus.send_message(self.canbus_id, [0x11] + [0x00]*7)
         if status == 'success' and data and len(data) >= 2:
-            if data[1] == 0xFF: return False # Error
+            # 0x01 = Good, 0x00 = Bad
             return data[1] == 0x01
         return False
 
@@ -98,7 +99,7 @@ class PickAndPlaceCamera:
     def inspection_camera_1(self):
         status, data = self.canbus.send_message(self.canbus_id, [0x12] + [0x00]*7)
         if status == 'success' and data and len(data) >= 2:
-            if data[1] == 0xFF: return False # Error
+            # 0x01 = Good, 0x00 = Bad
             return data[1] == 0x01
         return False
 

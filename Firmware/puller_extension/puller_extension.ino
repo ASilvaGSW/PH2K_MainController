@@ -69,7 +69,10 @@
 // Global variables
 unsigned long stepperMoveCounter = 0;
 unsigned long gripperMoveCounter = 0;
-unsigned long servoMoveCounte
+unsigned long servoMoveCounter = 0;
+byte replyData[8];  // Buffer for CAN replies
+
+// Servo motor configuration
 #define SERVO_PIN 18  // GPIO18 for servo control
 Servo servoMotor;
 
