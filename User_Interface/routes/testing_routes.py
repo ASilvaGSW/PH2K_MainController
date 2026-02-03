@@ -550,7 +550,7 @@ def moveElevatorIn():
 
     #left
     pick_left = [-225,-319,-815]
-    pick_left = [-225,-314,-815]
+    pick_left = [-225,-313,-815]
     deliver_left = [-250,-1800,-500]
     
     #Right
@@ -560,18 +560,16 @@ def moveElevatorIn():
     deliver_right2 = [-1410,-1800,-500]
 
     # #Homing
-    if elevator_in.home_gantry_z() != "success": return "error01"
-    if elevator_in.home_gantry_x() != "success": return "error02"
-    if elevator_in.home_gantry_y() != "success": return "error03"
+    # if elevator_in.home_gantry_z() != "success": return "error01"
+    # if elevator_in.home_gantry_x() != "success": return "error02"
+    # if elevator_in.home_gantry_y() != "success": return "error03"
+    if elevator_in.move_gantry_array([0,0,0]) != "success": return "error09"
 
     #Aligning Cassette
     if elevator_in.move_elevator_until_sensor(0, 200) != "success": return "error05"
 
     #Left Side
     if elevator_in.move_gantry_array(pick_left) != "success": return "error06"
-
-    # return ""
-
     if elevator_in.close_gripper() != "success": return "error07"
     time.sleep(.25)
     if elevator_in.move_gantry_z(transportation_high) != "success": return "error08"
@@ -617,11 +615,16 @@ def alignCassette():
 
     time.sleep(1)
 
+    return "success"
+
 
 #Align Component
 def alignComponent():
     pick_and_place_camera.alignment_joint()
     pick_and_place_camera.alignment_nozzle()
+    pick_and_place_camera.alignment_joint()
+    pick_and_place_camera.alignment_nozzle()
+    return "success"
 
 
 #Move Pick and Place
@@ -804,7 +807,7 @@ def oneCycle():
     lubrication_position_z = 380 + offset_z
     lubricate_nozzle = 1400 + offset_x
 
-    insertion_position_z = 380 + offset_z
+    insertion_position_z = 379 + offset_z
     insert_nozzle = 2890 + offset_x
 
     librication_position_joint_z = 380 + offset_z
@@ -975,11 +978,10 @@ def oneCycle():
 #Pick Up Hose
 def pickUpHose():
 
-    global transporter_fuyus, transporter_grippers, hose_jig,hose_jig_v2
+    global transporter_fuyus, transporter_grippers, hose_jig
 
     # transporter_fuyus.home_x_axis()
 
-    if hose_jig_v2.open_stamper_hose_jig() != "success": return "06"
 
     if hose_jig.gripper_close() != "success" : return "001"
     if transporter_fuyus.pickHome() != "success" : return "01"
@@ -998,15 +1000,11 @@ def pickUpHose():
 
     if transporter_fuyus.moveToDeliverPosition() != "success": return "03"
 
-    if transporter_fuyus.stamperHigh() != "success": return "04"
-
     if transporter_grippers.open_all_grippers() != "success": return "05"
 
     if transporter_fuyus.pickHome() != "success": return "07"
 
     if transporter_fuyus.moveToSafeSpace() != "success": return "08"
-
-    if hose_jig_v2.close_stamper_hose_jig() != "success": return "06"
 
     return "success"
 

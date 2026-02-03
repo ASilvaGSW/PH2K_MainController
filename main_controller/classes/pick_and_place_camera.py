@@ -47,7 +47,7 @@ class PickAndPlaceCamera:
     # 0x07: Alignment Nozzle
     def alignment_nozzle(self):
         # Alignment can take time, so we increase retries significantly
-        status, data = self.canbus.send_message(self.canbus_id, [0x07] + [0x00]*7, max_retries=50)
+        status, data = self.canbus.send_message(self.canbus_id, [0x07] + [0x00]*7, max_retries=200)
         if status == 'success' and data and len(data) >= 4:
             if data[1] == 0x01:
                 # data[2] is distance (abs), data[3] is negative flag (1=negative)
@@ -60,7 +60,7 @@ class PickAndPlaceCamera:
 
     # 0x08: Alignment Joint
     def alignment_joint(self):
-        status, data = self.canbus.send_message(self.canbus_id, [0x08] + [0x00]*7, max_retries=50)
+        status, data = self.canbus.send_message(self.canbus_id, [0x08] + [0x00]*7, max_retries=200)
         if status == 'success' and data and len(data) >= 4:
             if data[1] == 0x01:
                 # data[2] is distance (abs), data[3] is negative flag (1=negative)

@@ -286,7 +286,6 @@ def alignCassette():
 
 def alignComponent():
     pick_and_place_camera.alignment_joint()
-    time.sleep(3)
     pick_and_place_camera.alignment_nozzle()
 
 #Move Pick and Place
@@ -585,11 +584,16 @@ def pickUpHoseFrom1stStation():
     global transporter_fuyus, transporter_grippers, hose_jig,hose_jig_v2
 
     # transporter_fuyus.home_x_axis()
+    # transporter_fuyus.home_gripper1()
+    # transporter_fuyus.home_gripper2()
+    #
+    # return ""
 
-    if hose_jig_v2.open_stamper_hose_jig() != "success": return "06"
 
+    if hose_jig.deliver_position() != "success" : return "001"
     if hose_jig.gripper_close() != "success" : return "001"
-    if transporter_fuyus.pickHome() != "success" : return "01"
+    if transporter_fuyus.home_gripper1() != "success" : return "01"
+    if transporter_fuyus.home_gripper2() != "success" : return "01"
 
     if transporter_fuyus.moveToReceivingPosition() != "success" : return "03"
 
@@ -605,7 +609,7 @@ def pickUpHoseFrom1stStation():
 
     if transporter_fuyus.moveToDeliverPosition() != "success": return "03"
 
-    if transporter_fuyus.stamperHigh() != "success": return "04"
+    # if transporter_fuyus.stamperHigh() != "success": return "04"
 
     if transporter_grippers.open_all_grippers() != "success": return "05"
 
@@ -613,7 +617,6 @@ def pickUpHoseFrom1stStation():
 
     if transporter_fuyus.moveToSafeSpace() != "success": return "08"
 
-    if hose_jig_v2.close_stamper_hose_jig() != "success": return "06"
 
     return "success"
 
@@ -680,6 +683,7 @@ def testHome():
 
     insertionServosOpen()
     insertion_servos.slider_joint_home()
+
 
     print("Testing new go home functions...")
 
@@ -1196,11 +1200,11 @@ def testFeed():
 
 if __name__ == "__main__":
 
-    my_main(True)
+    my_main(False)
 
-    testHome()
+    # testHome()
 
-    # testFeed()
+    testFeed()
 
     # moveElevatorIn()
     #
@@ -1209,9 +1213,9 @@ if __name__ == "__main__":
     # alignComponent()
 
     # input("Continue?")
-
-    # for i in range(0,6):
-    #     movePickandPlace(i,i==0)
+    #
+    # for i in range(0,4):
+    # movePickandPlace(3,False)
     #     print(oneCycle())
     #
     # input("Continue?")

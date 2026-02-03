@@ -107,6 +107,14 @@ class TransporterFuyus:
         status, reply_data = self.canbus.send_message(self.canbus_id, [0x09] + [0x00]*7)
         return status
 
+    def home_gripper1(self):
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x0A] + [0x00]*7)
+        return status
+
+    def home_gripper2(self):
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x0B] + [0x00]*7)
+        return status
+
     # 0xFF: Power off - Move X axis to home position
     def power_off(self):
         status, reply_data = self.canbus.send_message(self.canbus_id, [0xFF] + [0x00]*7)
@@ -156,7 +164,7 @@ class TransporterFuyus:
         return self.move_all_steppers(150000,1)
 
     def pickHoseFromFirstStation(self):
-        return self.move_all_steppers(10500,1)
+        return self.move_all_steppers(9800,1)
 
     def stamperHigh(self):
         return self.move_all_steppers(29500,1)
