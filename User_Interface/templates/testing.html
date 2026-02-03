@@ -195,6 +195,23 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Pause Modal -->
+    <div class="modal fade" id="pauseModal" tabindex="-1" aria-labelledby="pauseModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="pauseModalLabel">Operation Paused</h5>
+                </div>
+                <div class="modal-body">
+                    <p id="pauseMessage"></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" onclick="resumeOperation()">Resume</button>
+                </div>
+            </div>
+        </div>
+    </div>
     <style>
         .log-entry {
             padding: 8px;
@@ -312,7 +329,7 @@
             const originalContent = button.innerHTML;
             button.innerHTML = '<div class="menu-card p-2"><div class="icon-container mb-1" style="font-size: 1.2rem;"><i class="bi bi-arrow-clockwise" style="animation: spin 1s linear infinite;"></i></div><div class="card-title" style="font-size: 0.75rem;">...</div></div>';
             
-            fetch('/check_canbus', {
+            fetch('/api/check_canbus', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -375,6 +392,44 @@
             testAction(10);
         }
         
+        let statusInterval;
+        let pauseModal;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            pauseModal = new bootstrap.Modal(document.getElementById('pauseModal'));
+            statusInterval = setInterval(checkStatus, 2000); // Check status every 2 seconds
+        });
+
+        function checkStatus() {
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.state === 'paused') {
+                        document.getElementById('pauseMessage').textContent = data.message;
+                        pauseModal.show();
+                        clearInterval(statusInterval); // Stop checking once paused
+                    }
+                })
+                .catch(error => console.error('Error checking status:', error));
+        }
+
+        function resumeOperation() {
+            fetch('/api/resume', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    pauseModal.hide();
+                    statusInterval = setInterval(checkStatus, 2000); // Resume checking
+                } else {
+                    alert('Failed to resume operation: ' + data.message);
+                }
+            })
+            .catch(error => console.error('Error resuming operation:', error));
+        }
+
         function testAction(actionNumber) {
             const timestamp = new Date().toLocaleString();
             const button = document.querySelector(`button[onclick="testAction${actionNumber}()"]`);

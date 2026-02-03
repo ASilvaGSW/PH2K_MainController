@@ -626,6 +626,7 @@ def alignComponent():
 
 #Move Pick and Place
 def movePickandPlace(need=True):
+    global operation_status, pause_event
     global pick_and_place, insertion_servos, insertion_jig, pick_and_place_camera
 
     receiving_x = 6500
@@ -696,7 +697,6 @@ def movePickandPlace(need=True):
         if pick_and_place.move_actuator_z(nozzle_high + 100) != "success": return "error10"
         
         # Pause for user confirmation via UI
-        global operation_status, pause_event
         print("Pausing for user confirmation (Nozzle)...")
         operation_status["state"] = "paused"
         operation_status["message"] = "Waiting for user confirmation to pick nozzle. Please adjust if necessary and click Continue."
@@ -761,7 +761,6 @@ def movePickandPlace(need=True):
         if pick_and_place.move_actuator_z(joint_high + 100) != "success": return "error22"
         
         # Pause for user confirmation via UI
-        global operation_status, pause_event
         print("Pausing for user confirmation (Joint)...")
         operation_status["state"] = "paused"
         operation_status["message"] = "Waiting for user confirmation to pick joint. Please adjust if necessary and click Continue."
