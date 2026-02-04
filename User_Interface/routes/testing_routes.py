@@ -589,7 +589,7 @@ def moveElevatorIn():
     home = [0,0,0]
     safety_high = -300
     cassette_deliver_high = -600
-    transportation_high = -500
+    transportation_high = -490
 
     #left
     pick_left = [-225,-319,-815]
@@ -668,8 +668,8 @@ def alignComponent():
 
     pick_and_place_camera.alignment_joint()
     pick_and_place_camera.alignment_nozzle()
-    pick_and_place_camera.alignment_joint()
-    pick_and_place_camera.alignment_nozzle()
+    # pick_and_place_camera.alignment_joint()
+    # pick_and_place_camera.alignment_nozzle()
 
     first_pick_after_align = True
 
@@ -728,7 +728,8 @@ def movePickandPlace(need=True):
     if n_nozzle == 255:
         print("Nozzle row empty, aligning...")
         pick_and_place_camera.alignment_nozzle()
-        pick_and_place_camera.alignment_nozzle()
+        first_pick_after_align = True
+        # pick_and_place_camera.alignment_nozzle()
         # Retry after alignment
         n_nozzle = pick_and_place_camera.pick_up_nozzle()
         if n_nozzle == 255:
@@ -796,7 +797,8 @@ def movePickandPlace(need=True):
     if n_joint == 255:
         print("Joint row empty, aligning...")
         pick_and_place_camera.alignment_joint()
-        pick_and_place_camera.alignment_joint()
+        first_pick_after_align = True
+        # pick_and_place_camera.alignment_joint()
         # Retry after alignment
         n_joint = pick_and_place_camera.pick_up_joint()
         if n_joint == 255:
@@ -860,13 +862,13 @@ def oneCycle():
     lubrication_position_z = 380 + offset_z
     lubricate_nozzle = 1400 + offset_x
 
-    insertion_position_z = 379 + offset_z
+    insertion_position_z = 378 + offset_z
     insert_nozzle = 2890 + offset_x
 
     librication_position_joint_z = 380 + offset_z
     lubricate_joint = 7420 + offset_x
 
-    insertion_position_joint_z = 380 + offset_z
+    insertion_position_joint_z = 378 + offset_z
     insert_joint = 5240 + offset_x
 
     #****************************** Hose Puller Data ******************************
@@ -887,9 +889,9 @@ def oneCycle():
 
     insertion_jig_safe_zone = 4000
     preefeder_speed = 50
-    feed_hose_time = 3.1
-    lubricate_nozzle_time = 0.15
-    lubricate_joint_time = 0.08
+    feed_hose_time = 3
+    lubricate_nozzle_time = 0.05
+    lubricate_joint_time = 0.05
     hose_puller_y_speed = 200
     hose_puller_y_speed_for_alignment = 20
 
@@ -1017,7 +1019,7 @@ def oneCycle():
     if hose_puller.move_z_actuator(z_home) != "success" : return "error59"
 
     # Delivering Hose
-
+    time.sleep(.5)
     if hose_jig.gripper_close() != "success" : return "error60"
     if puller_extension.open_gripper() != "success" : return "error61"
     if hose_puller.move_z_actuator(safe_position) != "success" : return "error62"

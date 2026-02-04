@@ -28,7 +28,7 @@
     "lubricate_joint_time": 0.11,
     "hose_puller_y_speed": 200,
     "hose_puller_y_speed_for_alignment": 20,
-    "slider_nozzle_insertion_position": 5,
+    "slider_nozzle_insertion_position": 0,
     "slider_joint_insertion_position": 6,
     "slider_nozzle_component_placement_position": 90,
     "slider_joint_component_placement_position": 60
