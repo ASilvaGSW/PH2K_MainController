@@ -12,6 +12,7 @@ operation_status = {
     "state": "idle", # idle, running, paused, completed, error
     "message": ""
 }
+first_pick_after_align = False
 
 # Add the main_controller directory to Python path
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'main_controller'))
@@ -21,6 +22,7 @@ from classes.hose_puller import HosePuller
 from classes.puller_extension import PullerExtension
 from classes.insertion_jig import InsertionJig
 from classes.elevator_in import ElevatorIn
+from classes.elevator_out import ElevatorOut
 from classes.pick_and_place import PickAndPlace
 from classes.insertion_servos import InsertionServos
 from classes.lubrication_feeder import LubricationFeeder
@@ -59,7 +61,8 @@ CANBUS_ID_JIG = 0x0CA
 CANBUS_ID_PULLER = 0x192
 CANBUS_ID_EXTENSION = 0x193
 CANBUS_ID_INSERTION = 0x0C9
-CANBUS_ID_ELEVATOR_IN = 0x189   
+CANBUS_ID_ELEVATOR_IN = 0x189
+CANBUS_ID_ELEVATOR_OUT = 0x188
 CANBUS_ID_PICK_AND_PLACE = 0x191
 CANBUS_ID_INSERTION_SERVOS = 0x002
 CANBUS_ID_LUBRICATION_FEEDER = 0x019
@@ -73,6 +76,7 @@ hose_puller = HosePuller(canbus, CANBUS_ID_PULLER)
 puller_extension = PullerExtension(canbus, CANBUS_ID_EXTENSION)
 insertion_jig = InsertionJig(canbus, CANBUS_ID_INSERTION)
 elevator_in = ElevatorIn(canbus, CANBUS_ID_ELEVATOR_IN)
+elevator_out = ElevatorOut(canbus, CANBUS_ID_ELEVATOR_OUT)
 pick_and_place = PickAndPlace(canbus, CANBUS_ID_PICK_AND_PLACE)
 insertion_servos = InsertionServos(canbus, CANBUS_ID_INSERTION_SERVOS)
 lubrication_feeder = LubricationFeeder(canbus, CANBUS_ID_LUBRICATION_FEEDER)
@@ -515,6 +519,45 @@ def canbus_reinit():
         print(f"Error reinitializing CAN bus: {e}")
         return jsonify(success=False, message=f'Error reinitializing CAN bus: {str(e)}'), 500
 
+@testing_bp.route('/test_action_11', methods=['POST'])
+def test_action_11():
+    """Test Action 11 - Elevator Out Sequence"""
+    if not session.get('logged_in'):
+        return jsonify(success=False, message='Not authenticated'), 401
+    
+    try:
+        if elevator_out.move_elevator_to_reception() != "success":
+            return jsonify(success=False, message='Error moving elevator to reception'), 500
+        
+        
+        if elevator_out.open_servo() != "success":
+            return jsonify(success=False, message='Error opening servo'), 500
+            
+
+        # Move elevator down relatively (e.g., 1000 units)
+        if elevator_out.move_elevator_relative(1000) != "success":
+            return jsonify(success=False, message='Error moving elevator down'), 500
+            
+        time.sleep(1) # Wait for the elevator to move down
+
+        if elevator_out.release_servo() != "success":
+            return jsonify(success=False, message='Error releasing servo'), 500
+
+        result = {
+            'success': True,
+            'message': 'Elevator Out sequence executed successfully',
+            'action': 'elevator_out_sequence',
+            'timestamp': datetime.now().isoformat(),
+            'data': {
+                'status': 'completed',
+                'details': 'Elevator Out sequence function executed'
+            }
+        }
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify(success=False, message=f'Error in Test Action 11: {str(e)}'), 500
+
 #****************** Core Functions ***********************
 
 #Receive Material
@@ -620,17 +663,23 @@ def alignCassette():
 
 #Align Component
 def alignComponent():
+    global first_pick_after_align
+
+
     pick_and_place_camera.alignment_joint()
     pick_and_place_camera.alignment_nozzle()
     pick_and_place_camera.alignment_joint()
     pick_and_place_camera.alignment_nozzle()
+
+    first_pick_after_align = True
+
     return "success"
 
 
 #Move Pick and Place
 def movePickandPlace(need=True):
     global operation_status, pause_event
-    global pick_and_place, insertion_servos, insertion_jig, pick_and_place_camera
+    global pick_and_place, insertion_servos, insertion_jig, pick_and_place_camera,first_pick_after_align
 
     receiving_x = 6500
     receiving_z = 7000
@@ -679,6 +728,7 @@ def movePickandPlace(need=True):
     if n_nozzle == 255:
         print("Nozzle row empty, aligning...")
         pick_and_place_camera.alignment_nozzle()
+        pick_and_place_camera.alignment_nozzle()
         # Retry after alignment
         n_nozzle = pick_and_place_camera.pick_up_nozzle()
         if n_nozzle == 255:
@@ -696,7 +746,7 @@ def movePickandPlace(need=True):
     if pick_and_place.move_actuator_x(nozzle_x[n_nozzle]- gap) != "success": return "error09"
 
 
-    if need:
+    if first_pick_after_align:
         if pick_and_place.move_actuator_z(nozzle_high + 100) != "success": return "error10"
         
         # Pause for user confirmation via UI
@@ -746,6 +796,7 @@ def movePickandPlace(need=True):
     if n_joint == 255:
         print("Joint row empty, aligning...")
         pick_and_place_camera.alignment_joint()
+        pick_and_place_camera.alignment_joint()
         # Retry after alignment
         n_joint = pick_and_place_camera.pick_up_joint()
         if n_joint == 255:
@@ -760,7 +811,7 @@ def movePickandPlace(need=True):
 
     if pick_and_place.move_actuator_x(joint_x[n_joint]-gap) != "success": return "error21"
 
-    if need:
+    if first_pick_after_align:
         if pick_and_place.move_actuator_z(joint_high + 100) != "success": return "error22"
         
         # Pause for user confirmation via UI
@@ -786,6 +837,8 @@ def movePickandPlace(need=True):
     # Go Back to Home
     if pick_and_place.move_actuator_z(0,False) != "success": return "error28"
     if pick_and_place.move_actuator_x(0,False) != "success": return "error29"
+
+    first_pick_after_align = False
 
     return "success"
 
