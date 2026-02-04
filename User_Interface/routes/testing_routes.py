@@ -729,6 +729,8 @@ def movePickandPlace(need=True):
         print("Nozzle row empty, aligning...")
         pick_and_place_camera.alignment_nozzle()
         pick_and_place_camera.alignment_nozzle()
+
+        first_pick_after_align = True
         # Retry after alignment
         n_nozzle = pick_and_place_camera.pick_up_nozzle()
         if n_nozzle == 255:
@@ -797,6 +799,8 @@ def movePickandPlace(need=True):
         print("Joint row empty, aligning...")
         pick_and_place_camera.alignment_joint()
         pick_and_place_camera.alignment_joint()
+        first_pick_after_align = True
+
         # Retry after alignment
         n_joint = pick_and_place_camera.pick_up_joint()
         if n_joint == 255:
