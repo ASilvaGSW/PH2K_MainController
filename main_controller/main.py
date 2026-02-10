@@ -410,13 +410,13 @@ def oneCycle():
     lubrication_position_z = 380 + offset_z
     lubricate_nozzle = 1400 + offset_x
 
-    insertion_position_z = 380 + offset_z
-    insert_nozzle = 2890 + offset_x
+    insertion_position_z = 350 + offset_z
+    insert_nozzle = 2860 + offset_x
 
     librication_position_joint_z = 380 + offset_z
     lubricate_joint = 7420 + offset_x
 
-    insertion_position_joint_z = 380 + offset_z
+    insertion_position_joint_z = 360 + offset_z
     insert_joint = 5240 + offset_x
 
     #****************************** Hose Puller Data ******************************
@@ -437,121 +437,123 @@ def oneCycle():
 
     insertion_jig_safe_zone = 4000
     preefeder_speed = 50
-    feed_hose_time = 2.95
-    lubricate_nozzle_time = 0.15
-    lubricate_joint_time = 0.08
+    feed_hose_time = 3.10
+    lubricate_nozzle_time = 0.05
+    lubricate_joint_time = 0.05
     hose_puller_y_speed = 200
-    hose_puller_y_speed_for_alignment = 20
+    hose_puller_y_speed_for_alignment = 18
 
     #****************************** Routine ******************************
 
-    # if hose_jig.gripper_open() != "success" : return "error01"
-    #
-    # # if insertion_servos.activate_cutter() != "success" : return "error02"
-    # if insertion_servos.slider_nozzle_receive() != "success" : return "error02"
-    #
-    # # Feed Hose
-    #
-    # if lubrication_feeder.close_hose_holder() != "success" : return "error03"
-    # if lubrication_feeder.feed_hose(duration=feed_hose_time,speed=520) != "success" : return "error04"
-    # # if insertion_servos.activate_cutter() != "success": return "error02"
-    #
-    # # return ""
-    #
-    # time.sleep(1)
-    # if insertion_servos.holder_hose_nozzle_close() != "success" : return "error05"
-    # if lubrication_feeder.open_hose_holder() != "success" : return "error06"
-    #
-    # # Clamping and Reset Gripper
-    # if insertion_servos.clamp_nozzle_close() != "success" : return "error07"
-    # if insertion_servos.clamp_joint_close() != "success" : return "error08"
-    # if puller_extension.open_gripper() != "success" : return "error09"
-    #
-    # # Homing Slider Before Movement
-    # if insertion_servos.slider_joint_home() != "success" : return "error10"
-    # if insertion_servos.slider_nozzle_receive() != "success" : return "error11"
-    #
-    # # Insertio Jig Home POsition
+    # insertionServosOpen()
 
-    # if hose_jig.insertion_position(False) != "success" : return "error12"
-    # if insertion_jig.move_z_axis(home_position_z) != "success" : return "error13"
-    # if insertion_jig.move_x_axis(home_position_x) != "success" : return "error14"
-    #
-    #
-    # #Lubricate Hose
-    #
-    # if insertion_servos.ose() != "success" : return "error15"
-    # if insertion_jig.move_z_axis(lubrication_position_z) != "success" : return "error16"
-    # if insertion_jig.move_x_axis(lubricate_nozzle) != "success" : return "error17"
-    # if lubrication_feeder.lubricate_nozzle(lubricate_nozzle_time) != "success" : return "error18"
+    if hose_jig.gripper_open() != "success" : return "error01"
+
+    # if insertion_servos.activate_cutter() != "success" : return "error02"
+    if insertion_servos.slider_nozzle_receive() != "success" : return "error02"
+
+    # Feed Hose
+
+    if lubrication_feeder.close_hose_holder() != "success" : return "error03"
+    if lubrication_feeder.feed_hose(duration=feed_hose_time,speed=520) != "success" : return "error04"
+    # if insertion_servos.activate_cutter() != "success": return "error02"
+
+    # return ""
+
+    time.sleep(1)
+    if insertion_servos.holder_hose_nozzle_close() != "success" : return "error05"
+    if lubrication_feeder.open_hose_holder() != "success" : return "error06"
+
+    # Clamping and Reset Gripper
+    if insertion_servos.clamp_nozzle_close() != "success" : return "error07"
+    if insertion_servos.clamp_joint_close() != "success" : return "error08"
+    if puller_extension.open_gripper() != "success" : return "error09"
+
+    # Homing Slider Before Movement
+    if insertion_servos.slider_joint_home() != "success" : return "error10"
+    if insertion_servos.slider_nozzle_receive() != "success" : return "error11"
+
+    # Insertio Jig Home POsition
+
+    if hose_jig.insertion_position(False) != "success" : return "error12"
+    if insertion_jig.move_z_axis(home_position_z) != "success" : return "error13"
+    if insertion_jig.move_x_axis(home_position_x) != "success" : return "error14"
+
+
+    #Lubricate Hose
+
+    if insertion_servos.holder_hose_nozzle_close() != "success" : return "error15"
+    if insertion_jig.move_z_axis(lubrication_position_z) != "success" : return "error16"
+    if insertion_jig.move_x_axis(lubricate_nozzle) != "success" : return "error17"
+    if lubrication_feeder.lubricate_nozzle(lubricate_nozzle_time) != "success" : return "error18"
 
     # Nozzle Insertion
-    # insertion_jig.move_z_axis(insertion_position_z)
-    # if insertion_jig.move_x_axis(insert_nozzle) != "success" : return "error20"
-    # if insertion_servos.holder_hose_nozzle_close() != "success" : return "error21"
-    # if insertion_servos.clamp_nozzle_close() != "success" : return "error22"
-    # time.sleep(.5)
-    # if insertion_servos.slider_nozzle_insertion() != "success" : return "error23"
+    insertion_jig.move_z_axis(insertion_position_z)
+    if insertion_jig.move_x_axis(insert_nozzle) != "success" : return "error20"
+    if insertion_servos.holder_hose_nozzle_close() != "success" : return "error21"
+    if insertion_servos.clamp_nozzle_close() != "success" : return "error22"
+    time.sleep(.5)
+    if insertion_servos.slider_nozzle_insertion() != "success" : return "error23"
+
+    time.sleep(1)
+    if insertion_servos.holder_hose_nozzle_open() != "success" : return "error24"
+    if insertion_servos.clamp_nozzle_open() != "success" : return "error25"
+    time.sleep(.5)
+    if insertion_servos.slider_nozzle_receive() != "success" : return "error26"
+
+    # Go to Down Position for Hose Puller
+    if insertion_jig.move_z_axis(insertion_jig_safe_zone) != "success" : return "error27"
     #
-    # time.sleep(1)
-    # if insertion_servos.holder_hose_nozzle_open() != "success" : return "error24"
-    # if insertion_servos.clamp_nozzle_open() != "success" : return "error25"
-    # time.sleep(.5)
-    # if insertion_servos.slider_nozzle_receive() != "success" : return "error26"
-    #
-    # # Go to Down Position for Hose Puller
-    # if insertion_jig.move_z_axis(insertion_jig_safe_zone) != "success" : return "error27"
-    # #
-    # # # Starting Prefeeder
-    # if lubrication_feeder.move_pre_feeder(preefeder_speed) != "success" : return "error28"
-    #
-    # # Preparing Hose Puller and Hose Jig
-    # if hose_puller.move_z_actuator(safe_position) != "success" : return "error29"
-    # if hose_puller.move_y_actuator(home_y) != "success" : return "error30"
-    # if hose_jig.insertion_position() != "success" : return "error31"
-    #
-    # # Pulling Action
-    # if hose_puller.move_y_actuator(pickup_y) != "success" : return "error32"
-    # if hose_puller.move_z_actuator(z_picking_position) != "success" : return "error33"
-    # if puller_extension.close_gripper() != "success" : return "error34"
-    # if hose_puller.move_y_actuator_with_speed(before_rise_position,hose_puller_y_speed) != "success" : return "error35"
-    # if hose_puller.move_z_actuator(safe_position) != "success" : return "error36"
-    # if hose_puller.move_y_actuator_with_speed(cutting_position,hose_puller_y_speed) != "success" : return "error37"
-    # if hose_puller.move_z_actuator(safe_position_over_hose_jig) != "success" : return "error38"
-    # if hose_puller.move_y_actuator_with_speed(wait_y,hose_puller_y_speed) != "success" : return "error39"
-    #
-    # # Cutting Hose
-    # if lubrication_feeder.close_hose_holder() != "success" : return "error40"
-    # time.sleep(.5)
-    # if insertion_servos.activate_cutter() != "success" : return "error41"
-    # time.sleep(.5)
-    # # if lubrication_feeder.open_hose_holder() != "success" : return "error40"
-    #
-    #
-    # # Alignment for Joint Insertion
-    # if hose_puller.move_y_actuator_with_speed(alignmnet_for_joint,200) != "success" : return "error13" #Aqui hare el cambio
-    # if insertion_servos.holder_hose_joint_semi_close() != "success" : return "error42"
-    # time.sleep(1)
-    # if hose_puller.move_y_axis_until_no_hose(hose_puller_y_speed_for_alignment) != "success" : return "error43"
-    # # if hose_puller.move_y_actuator_relative_with_speed(50) != "success" : return "error13.1"
-    #
-    # # Stoping Prefeeder
-    # if lubrication_feeder.move_pre_feeder(0) != "success" : return "error44"
+    # # Starting Prefeeder
+    if lubrication_feeder.move_pre_feeder(preefeder_speed) != "success" : return "error28"
+
+    # Preparing Hose Puller and Hose Jig
+    if hose_puller.move_z_actuator(safe_position) != "success" : return "error29"
+    if hose_puller.move_y_actuator(home_y) != "success" : return "error30"
+    if hose_jig.insertion_position() != "success" : return "error31"
+
+    # Pulling Action
+    if hose_puller.move_y_actuator(pickup_y) != "success" : return "error32"
+    if hose_puller.move_z_actuator(z_picking_position) != "success" : return "error33"
+    if puller_extension.close_gripper() != "success" : return "error34"
+    if hose_puller.move_y_actuator_with_speed(before_rise_position,hose_puller_y_speed) != "success" : return "error35"
+    if hose_puller.move_z_actuator(safe_position) != "success" : return "error36"
+    if hose_puller.move_y_actuator_with_speed(cutting_position,hose_puller_y_speed) != "success" : return "error37"
+    if hose_puller.move_z_actuator(safe_position_over_hose_jig) != "success" : return "error38"
+    if hose_puller.move_y_actuator_with_speed(wait_y,hose_puller_y_speed) != "success" : return "error39"
+
+    # Cutting Hose
+    if lubrication_feeder.close_hose_holder() != "success" : return "error40"
+    time.sleep(.5)
+    if insertion_servos.activate_cutter() != "success" : return "error41"
+    time.sleep(.5)
+    # if lubrication_feeder.open_hose_holder() != "success" : return "error40"
+
+
+    # Alignment for Joint Insertion
+    if hose_puller.move_y_actuator_with_speed(alignmnet_for_joint,200) != "success" : return "error13" #Aqui hare el cambio
+    if insertion_servos.holder_hose_joint_semi_close() != "success" : return "error42"
+    time.sleep(1)
+    if hose_puller.move_y_axis_until_no_hose(hose_puller_y_speed_for_alignment) != "success" : return "error43"
+    # if hose_puller.move_y_actuator_relative_with_speed(50) != "success" : return "error13.1"
+
+    # Stoping Prefeeder
+    if lubrication_feeder.move_pre_feeder(0) != "success" : return "error44"
 
     # Lubricate Hose on Joint Area
     if insertion_servos.holder_hose_joint_close() != "success" : return "error45"
-    if insertion_jig.move_x_axis(lubricate_joint) != "success" : return "error46"
+    if insertion_jig.move_x_axis(lubricate_joint) != "success" : return "6"
     if insertion_jig.move_z_axis(librication_position_joint_z) != "success" : return "error47"
     if lubrication_feeder.lubricate_joint(lubricate_joint_time) != "success" : return "error48"
     time.sleep(0.5)
-
-    # Joint Insertion
+    #
+    # # Joint Insertion
     if insertion_jig.move_x_axis(insert_joint) != "success" : return "error49"
     insertion_jig.move_z_axis(insertion_position_joint_z)
     if insertion_servos.clamp_joint_close() != "success" : return "error51"
     time.sleep(0.5)
     if insertion_servos.slider_joint_insertion() != "success" : return "error52"
-
+    #
     time.sleep(1)
     if insertion_servos.holder_hose_joint_open() != "success" : return "error53"
     if insertion_servos.clamp_joint_open() != "success" : return "error54"
@@ -1208,7 +1210,7 @@ if __name__ == "__main__":
 
     # testHome()
 
-    testFeed()
+    # testFeed()
 
     # moveElevatorIn()
     #
@@ -1224,7 +1226,7 @@ if __name__ == "__main__":
     #
     # input("Continue?")
     #
-    # print(oneCycle())
+    print(oneCycle())
 
     # input("Continue?")
     #
