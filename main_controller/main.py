@@ -407,17 +407,17 @@ def oneCycle():
     home_position_z = 4200 + offset_z
     home_position_x = 0 + offset_x
 
-    lubrication_position_z = 380 + offset_z
+    lubrication_position_z = 350 + offset_z
     lubricate_nozzle = 1400 + offset_x
 
     insertion_position_z = 350 + offset_z
     insert_nozzle = 2860 + offset_x
 
-    librication_position_joint_z = 380 + offset_z
+    librication_position_joint_z = 350 + offset_z
     lubricate_joint = 7420 + offset_x
 
-    insertion_position_joint_z = 360 + offset_z
-    insert_joint = 5240 + offset_x
+    insertion_position_joint_z = 340 + offset_z
+    insert_joint = 5235 + offset_x
 
     #****************************** Hose Puller Data ******************************
 
@@ -425,23 +425,24 @@ def oneCycle():
     safe_position_over_hose_jig = 242
     home_y = 4210
     wait_y = 5930
+    wait_y = 7830
     cutting_position = 7830
     pickup_y = 9015
     before_rise_position = 8510
     z_home = 50
     z_picking_position = 80
     alignmnet_for_joint = 4860
-    alignmnet_for_joint = 5000
+    alignmnet_for_joint = 6900
 
     #****************************** Custom Variables ******************************
 
     insertion_jig_safe_zone = 4000
     preefeder_speed = 50
-    feed_hose_time = 3.10
+    feed_hose_time = 3.0
     lubricate_nozzle_time = 0.05
     lubricate_joint_time = 0.05
     hose_puller_y_speed = 200
-    hose_puller_y_speed_for_alignment = 18
+    hose_puller_y_speed_for_alignment = 10
 
     #****************************** Routine ******************************
 
@@ -505,7 +506,7 @@ def oneCycle():
     if insertion_jig.move_z_axis(insertion_jig_safe_zone) != "success" : return "error27"
     #
     # # Starting Prefeeder
-    if lubrication_feeder.move_pre_feeder(preefeder_speed) != "success" : return "error28"
+    # if lubrication_feeder.move_pre_feeder(preefeder_speed) != "success" : return "error28"
 
     # Preparing Hose Puller and Hose Jig
     if hose_puller.move_z_actuator(safe_position) != "success" : return "error29"
@@ -538,7 +539,7 @@ def oneCycle():
     # if hose_puller.move_y_actuator_relative_with_speed(50) != "success" : return "error13.1"
 
     # Stoping Prefeeder
-    if lubrication_feeder.move_pre_feeder(0) != "success" : return "error44"
+    # if lubrication_feeder.move_pre_feeder(0) != "success" : return "error44"
 
     # Lubricate Hose on Joint Area
     if insertion_servos.holder_hose_joint_close() != "success" : return "error45"
@@ -570,7 +571,7 @@ def oneCycle():
     # Homing for Finish
     if insertion_jig.move_z_axis(insertion_jig_safe_zone,False) != "success" : return "error57"
     if insertion_jig.move_x_axis(0,False) != "success" : return "error58"
-    if hose_puller.move_z_actuator(z_home) != "success" : return "error59"
+    if hose_puller.move_z_actuator(z_picking_position) != "success" : return "error59"
 
     # Delivering Hose
 
