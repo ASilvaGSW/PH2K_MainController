@@ -685,13 +685,6 @@ def movePickandPlace(need=True):
     receiving_z = 7000
     translation_gap = 0.73
 
-    # Initial Setup
-    if insertion_servos.slider_joint_receive() != "success": return "error03"
-    if insertion_servos.slider_nozzle_receive() != "success": return "error3.1"
-    if insertion_jig.move_z_axis(receiving_z) != "success": return "error04"
-    if insertion_jig.move_x_axis(receiving_x) != "success": return "error05"
-    if pick_and_place.open_gripper() != "success": return "error06"
-
     gap = 0
     zgap = 0
 
@@ -714,15 +707,23 @@ def movePickandPlace(need=True):
     deliver_joint_x = -3919
     deliver_joint_z = -1005
 
+
+    # Initial Setup
+    if insertion_servos.slider_joint_receive() != "success": return "error01"
+    if insertion_servos.slider_nozzle_receive() != "success": return "error02"
+    if insertion_jig.move_z_axis(receiving_z) != "success": return "error03"
+    if insertion_jig.move_x_axis(receiving_x) != "success": return "error04"
+    if pick_and_place.open_gripper() != "success": return "error05"
+
     # Validate Home
 
-    if pick_and_place.move_actuator_z(0) != "success": return "error07"
-    if pick_and_place.move_actuator_x(0) != "success": return "error08"
+    if pick_and_place.move_actuator_z(0) != "success": return "error06"
+    if pick_and_place.move_actuator_x(0) != "success": return "error07"
     #
     # # Pick Nozzle
     
     # Get index from camera for Nozzle
-    n_nozzle = pick_and_place_camera.pick_up_nozzle()
+    n_nozzle = pick_and_place_camera.pick_up_nozzle() 
     
     # Check for empty row (0xFF)
     if n_nozzle == 255:
@@ -733,10 +734,10 @@ def movePickandPlace(need=True):
         # Retry after alignment
         n_nozzle = pick_and_place_camera.pick_up_nozzle()
         if n_nozzle == 255:
-            return "error09_nozzle_empty"
+            return "error08"
             
     if n_nozzle is None:
-        return "error09_camera_fail"
+        return "error08.1"
         
     # Ensure index is within bounds
     if n_nozzle >= len(nozzle_x):
@@ -760,11 +761,9 @@ def movePickandPlace(need=True):
         operation_status["message"] = "Resuming operation..."
 
     if pick_and_place.move_actuator_z(nozzle_high+zgap) != "success": return "error10"
-    
-
     if pick_and_place.close_gripper() != "success": return "error11"
-    # #
-    # # Deliver Nozzle
+
+    # Deliver Nozzle
     if pick_and_place.move_actuator_z(trans_nozzle_high) != "success": return "error12"
     if pick_and_place.move_actuator_x(deliver_nozzle_x - gap) != "success": return "error13"
 
@@ -773,19 +772,10 @@ def movePickandPlace(need=True):
     if pick_and_place.open_gripper() != "success": return "error15"
     time.sleep(.5)
 
-
-    # Back to Home
-    # if pick_and_place.move_actuator_z(0,False) != "success": return "error16"
-    # if pick_and_place.move_actuator_x(0,False) != "success": return "error17"
-
-    # return ""
-
-    # *******************************************************
-
     # Joint Pick Up
 
     # Home (ensure is there before moving)
-    if pick_and_place.move_actuator_z(0) != "success": return "error18"
+    if pick_and_place.move_actuator_z(0) != "success": return "error16"
     # if pick_and_place.move_actuator_x(0) != "success": return "error19"
 
     # Pick Joint
@@ -802,19 +792,19 @@ def movePickandPlace(need=True):
         # Retry after alignment
         n_joint = pick_and_place_camera.pick_up_joint()
         if n_joint == 255:
-            return "error21_joint_empty"
+            return "error17"
             
     if n_joint is None:
-        return "error21_camera_fail"
+        return "error17.1"
 
     # Ensure index is within bounds
     if n_joint >= len(joint_x):
         return f"error21_index_{n_joint}"
 
-    if pick_and_place.move_actuator_x(joint_x[n_joint]-gap) != "success": return "error21"
+    if pick_and_place.move_actuator_x(joint_x[n_joint]-gap) != "success": return "error18"
 
     if first_pick_after_align:
-        if pick_and_place.move_actuator_z(joint_high + 100) != "success": return "error22"
+        if pick_and_place.move_actuator_z(joint_high + 100) != "success": return "error19"
         
         # Pause for user confirmation via UI
         print("Pausing for user confirmation (Joint)...")
@@ -825,20 +815,20 @@ def movePickandPlace(need=True):
         operation_status["state"] = "running"
         operation_status["message"] = "Resuming operation..."
 
-    if pick_and_place.move_actuator_z(joint_high+zgap) != "success": return "error22"
+    if pick_and_place.move_actuator_z(joint_high+zgap) != "success": return "error20"
 
-    if pick_and_place.close_gripper() != "success": return "error23"
+    if pick_and_place.close_gripper() != "success": return "error21"
 
     # Deliver Joint
-    if pick_and_place.move_actuator_z(trans_joint_high) != "success": return "error24"
-    if pick_and_place.move_actuator_x(deliver_joint_x-gap) != "success": return "error25"
-    if pick_and_place.move_actuator_z(deliver_joint_z+zgap) != "success": return "error26"
-    if pick_and_place.open_gripper() != "success": return "error27"
+    if pick_and_place.move_actuator_z(trans_joint_high) != "success": return "error22"
+    if pick_and_place.move_actuator_x(deliver_joint_x-gap) != "success": return "error23"
+    if pick_and_place.move_actuator_z(deliver_joint_z+zgap) != "success": return "error24"
+    if pick_and_place.open_gripper() != "success": return "error25"
 
 
     # Go Back to Home
-    if pick_and_place.move_actuator_z(0,False) != "success": return "error28"
-    if pick_and_place.move_actuator_x(0,False) != "success": return "error29"
+    if pick_and_place.move_actuator_z(0,False) != "success": return "error26"
+    if pick_and_place.move_actuator_x(0,False) != "success": return "error27"
 
     first_pick_after_align = False
 
