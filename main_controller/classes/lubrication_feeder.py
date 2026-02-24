@@ -56,6 +56,8 @@
 #   IN: None | OUT: [0x1D, 0x01, ...]
 # 0x1E: Set Hose Holder Angle (Dynamic servo angle control 0-180 degrees)
 #   IN: [angle] | OUT: [0x1E, 0x01, ...] or [0x1E, 0x02, ...] for failure
+# 0x1F: Move Feeder until IR sensor is triggered
+#   IN: [speed_H, speed_L, direction] | OUT: [0x1F, status, ...] (status: 0x01=success, 0x03=timeout)
 # 0xFF: Emergency Stop (Stop all actuators immediately)
 #   IN: None | OUT: None (stops all actuators)
 
@@ -331,3 +333,23 @@ class LubricationFeeder:
             False
         )
         return status
+
+    # 0x1F: Move Feeder until IR sensor is triggered
+    def move_feeder_until_ir(self, speed=300, direction=0, acceleration=236):
+        """
+        Moves the feeder at a given speed and direction until the IR sensor is triggered.
+        Stops if the sensor is not triggered within 30 seconds.
+        """
+        speed_high = (speed >> 8) & 0xFF
+        speed_low = speed & 0xFF
+        
+        # Send command and wait for reply from the device
+        # The device will reply after the movement is complete or timed out.
+        # Expected reply: [0x1F, status, ...] where status is 0x01 (success) or 0x03 (timeout)
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x1F, speed_high, speed_low, direction, acceleration] + [0x00]*3)
+        
+        if status == 1 and reply_data and len(reply_data) >= 2:
+            device_status = reply_data[1]
+            return status, device_status # Return CAN status and device status
+        
+        return status, 0 # Return CAN status and a default error device status

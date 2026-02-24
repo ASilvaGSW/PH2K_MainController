@@ -47,9 +47,6 @@
 #include <SPI.h>
 #include "src/linear_actuator.h"
 #include <ESP32Servo.h>  // For servo control
-#include <WiFi.h>
-#include <WebServer.h>
-
 
 // FreeRTOS
 #include <freertos/FreeRTOS.h>
@@ -75,14 +72,6 @@ unsigned long servoCounter = 0;
 
 // Acknowledgment control - set to false to disable ack messages during debugging
 bool enableAckMessages = false;
-
-// WiFi Configuration
-const char* ssid = "LubricationFeederAP";
-const char* password = "12345678";
-
-// Web Server
-WebServer server(80);
-
 
 byte replyData[8];  // Buffer for CAN replies
 
@@ -118,7 +107,7 @@ LinearActuator pre_feeder(0x002);    // Pre-feeder actuator
 #define LINEAR_POT_PIN 33  // Analog pin for linear potentiometer
 
 // IR Break Beam Sensor pin (Optical Sensor)
-#define IR_SENSOR_PIN 12   // Digital pin for IR break beam sensor (hose position detection)
+#define IR_SENSOR_PIN 16   // Digital pin for IR break beam sensor (hose position detection)
 
 // Alcohol Level Sensors pins
 #define LEVEL_SENSOR_1_PIN 39  // Digital pin for alcohol level sensor 1 (2/3 tank level)
@@ -316,19 +305,6 @@ void setup()
   send_twai_response(startup_msg);
   delay(100); // Give some time for the message to be sent
 
-  // Initialize WiFi as an Access Point
-  Serial.println("Creating Access Point...");
-  WiFi.softAP(ssid, password);
-  IPAddress myIP = WiFi.softAPIP();
-  Serial.print("AP IP address: ");
-  Serial.println(myIP);
-
-  // Setup web server
-  server.on("/", handleRoot);
-  server.on("/send", HTTP_POST, handleSendCommand);
-  server.begin();
-  Serial.println("Web server started");
-
 
 }
 
@@ -366,9 +342,6 @@ void loop()
     process_instruction(instruction);
   }
     
-  // Handle web server clients
-  server.handleClient();
-
   // Other non-blocking logic can be added here if needed
   delay(10);
 }
@@ -1475,190 +1448,14 @@ uint8_t waitForCanReplySpeed(uint16_t expectedId)
 
 
 
-// Function to send a response back over the TWAI bus
+// Helper function to send response via TWAI
 void send_twai_response(const byte response_data[8])
 {
-  CanFrame response_frame;
-  response_frame.identifier = RESPONSE_CAN_ID;
-  response_frame.extd = false;
-  response_frame.data_length_code = 8;
-  memcpy(response_frame.data, response_data, 8);
-
-  if (ESP32Can.writeFrame(response_frame)) {
-    Serial.println("Response sent successfully via TWAI");
-  } else {
-    Serial.println("Error sending response via TWAI");
-  }
-}
-
-void handleRoot() {
-  String html = R"raw(
-<html>
-<head>
-    <title>Lubrication Feeder Control</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f0f2f5; }
-        h1 { color: #333; text-align: center; }
-        form { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto; }
-        .command-row { margin-bottom: 12px; display: flex; align-items: center; }
-        label { flex: 1; }
-        select, input[type='text'] { flex: 2; padding: 8px; border-radius: 4px; border: 1px solid #ccc; }
-        input[type='submit'] { background: #007BFF; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; width: 100%; font-size: 16px; }
-        input[type='submit']:hover { background: #0056b3; }
-        #response { margin-top: 20px; padding: 10px; border-radius: 5px; max-width: 500px; margin: 20px auto; text-align: center; }
-        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        input:disabled { background-color: #e9ecef; }
-    </style>
-</head>
-<body>
-    <h1>Lubrication Feeder Test Interface</h1>
-    <form id="commandForm">
-        <div class="command-row">
-            <label for="commandSelect">Select Command:</label>
-            <select id="commandSelect"></select>
-        </div>
-        <div id="data-inputs"></div>
-        <br>
-        <input type="submit" value="Send Command">
-    </form>
-    <div id="response"></div>
-
-    <script>
-        const commands = {
-            '0x01': { name: 'Reset Micro', params: {} },
-            '0x02': { name: 'Heartbeat', params: {} },
-            '0x03': { name: 'Activate Valve 1', params: { data1: 'Duration (high)', data2: 'Duration (low)' } },
-            '0x04': { name: 'Activate Valve 2', params: { data1: 'Duration (high)', data2: 'Duration (low)' } },
-            '0x05': { name: 'Move Feeder (Speed)', params: { data1: 'Speed (high)', data2: 'Speed (low)', data3: 'Direction (0=pos, 1=neg)', data4: 'Acceleration' } },
-            '0x06': { name: 'Read Pre-feeder Counter', params: {} },
-            '0x07': { name: 'Read Feeder Counter', params: {} },
-            '0x08': { name: 'Reset Feeder Counter', params: {} },
-            '0x09': { name: 'Reset Pre-feeder Counter', params: {} },
-            '0x0A': { name: 'Read Valve 1 Counter', params: {} },
-            '0x0B': { name: 'Read Valve 2 Counter', params: {} },
-            '0x0C': { name: 'Reset Valve 1 Counter', params: {} },
-            '0x0D': { name: 'Reset Valve 2 Counter', params: {} },
-            '0x13': { name: 'Move Pre-feeder (Speed)', params: { data1: 'Speed (high)', data2: 'Speed (low)', data3: 'Direction (0=pos, 1=neg)', data4: 'Acceleration' } },
-            '0x15': { name: 'Check Hose Position', params: {} },
-            '0x16': { name: 'Check Alcohol Level', params: {} },
-            '0x17': { name: 'Open Hose Holder', params: {} },
-            '0x18': { name: 'Close Hose Holder', params: {} },
-            '0x19': { name: 'Attach Electromagnet', params: {} },
-            '0x1A': { name: 'Detach Electromagnet', params: {} },
-            '0x1B': { name: 'Read Servo Counter', params: {} },
-            '0x1C': { name: 'Reset Servo Counter', params: {} },
-            '0x1D': { name: 'Acknowledge Message', params: {} },
-            '0x1E': { name: 'Set Hose Holder Angle', params: { data1: 'Angle (0-180)' } },
-            '0x1F': { name: 'Move Feeder until IR', params: { data1: 'Speed (high)', data2: 'Speed (low)', data3: 'Direction (0=pos, 1=neg)', data4: 'Acceleration' } },
-            '0xFF': { name: 'Emergency Stop', params: {} }
-        };
-
-        const commandSelect = document.getElementById('commandSelect');
-        const dataInputsDiv = document.getElementById('data-inputs');
-        const form = document.getElementById('commandForm');
-        const responseDiv = document.getElementById('response');
-
-        for (const code in commands) {
-            const option = document.createElement('option');
-            option.value = code;
-            option.textContent = `${code} - ${commands[code].name}`;
-            commandSelect.appendChild(option);
-        }
-
-        function updateInputs() {
-            const selectedCommandCode = commandSelect.value;
-            const command = commands[selectedCommandCode];
-            dataInputsDiv.innerHTML = '';
-
-            for (let i = 1; i <= 7; i++) {
-                const dataKey = `data${i}`;
-                const paramDescription = command.params[dataKey];
-                
-                const row = document.createElement('div');
-                row.className = 'command-row';
-
-                const label = document.createElement('label');
-                label.htmlFor = dataKey;
-                label.textContent = `Data ${i} (HEX):`;
-
-                const input = document.createElement('input');
-                input.type = 'text';
-                input.id = dataKey;
-                input.name = dataKey;
-                input.placeholder = paramDescription || 'Not used';
-                
-                if (!paramDescription) {
-                    input.disabled = true;
-                }
-
-                row.appendChild(label);
-                row.appendChild(input);
-                dataInputsDiv.appendChild(row);
-            }
-        }
-
-        commandSelect.addEventListener('change', updateInputs);
-
-        form.addEventListener('submit', function(event) {
-            event.preventDefault();
-            responseDiv.innerHTML = '';
-            responseDiv.className = '';
-
-            const formData = new FormData(form);
-            formData.set('command', commandSelect.value);
-
-            fetch('/send', {
-                method: 'POST',
-                body: new URLSearchParams(formData)
-            })
-            .then(response => {
-                if (!response.ok) {
-                    return response.text().then(text => { throw new Error(text || `HTTP error! Status: ${response.status}`) });
-                }
-                return response.text();
-            })
-            .then(text => {
-                responseDiv.textContent = text;
-                responseDiv.className = 'success';
-            })
-            .catch(error => {
-                responseDiv.textContent = `Error: ${error.message}`;
-                responseDiv.className = 'error';
-            });
-        });
-
-        updateInputs();
-    </script>
-</body>
-</html>
-)raw";
-  server.send(200, "text/html", html);
-}
-
-void handleSendCommand() {
-  if (server.hasArg("command")) {
-    CanFrame instruction;
-    instruction.identifier = DEVICE_CAN_ID;
-    instruction.extd = false;
-    instruction.data_length_code = 8;
-    
-    instruction.data[0] = strtol(server.arg("command").c_str(), NULL, 16);
-    instruction.data[1] = server.hasArg("data1") ? strtol(server.arg("data1").c_str(), NULL, 16) : 0;
-    instruction.data[2] = server.hasArg("data2") ? strtol(server.arg("data2").c_str(), NULL, 16) : 0;
-    instruction.data[3] = server.hasArg("data3") ? strtol(server.arg("data3").c_str(), NULL, 16) : 0;
-    instruction.data[4] = server.hasArg("data4") ? strtol(server.arg("data4").c_str(), NULL, 16) : 0;
-    instruction.data[5] = server.hasArg("data5") ? strtol(server.arg("data5").c_str(), NULL, 16) : 0;
-    instruction.data[6] = server.hasArg("data6") ? strtol(server.arg("data6").c_str(), NULL, 16) : 0;
-    instruction.data[7] = server.hasArg("data7") ? strtol(server.arg("data7").c_str(), NULL, 16) : 0;
-
-    if (xQueueSend(instruction_queue, &instruction, (TickType_t)10) != pdPASS) {
-      server.send(500, "text/plain", "Error: Instruction queue is full.");
-    } else {
-      server.send(200, "text/plain", "Command sent successfully!");
-    }
-  } else {
-    server.send(400, "text/plain", "Bad Request: Command parameter is missing.");
-  }
+  CanFrame tx_frame;
+  tx_frame.identifier = RESPONSE_CAN_ID;  // Response ID
+  tx_frame.extd = 0;
+  tx_frame.data_length_code = 8;
+  memcpy(tx_frame.data, response_data, 8);
+  ESP32Can.writeFrame(tx_frame);
 }
 

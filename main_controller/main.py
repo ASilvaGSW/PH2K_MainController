@@ -456,7 +456,8 @@ def oneCycle():
     # Feed Hose
 
     if lubrication_feeder.close_hose_holder() != "success" : return "error03"
-    if lubrication_feeder.feed_hose(duration=feed_hose_time,speed=520) != "success" : return "error04"
+    # if lubrication_feeder.feed_hose(duration=feed_hose_time,speed=520) != "success" : return "error04"
+    if lubrication_feeder.move_feeder_until_ir() != "success" : return "error04"
     # if insertion_servos.activate_cutter() != "success": return "error02"
 
     # return ""
