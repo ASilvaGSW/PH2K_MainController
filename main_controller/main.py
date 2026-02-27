@@ -564,7 +564,6 @@ def oneCycle():
     time.sleep(0.2)
 
 
-
     # Finish Pulling Action
 
     if hose_puller.move_y_actuator(home_y) != "success" : return "error56"
@@ -865,6 +864,7 @@ def tape():
 
 
 # ******************************** Only Insertion Routine ********************************
+
 def insertionRoutine():
 
     global insertion_jig, insertion_servos, lubrication_feeder
@@ -982,6 +982,7 @@ def insertionRoutine():
 
 
     return "success"
+
 
 def taping():
     """

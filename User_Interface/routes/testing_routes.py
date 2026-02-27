@@ -666,10 +666,8 @@ def alignComponent():
     global first_pick_after_align
 
 
-    pick_and_place_camera.alignment_joint()
-    pick_and_place_camera.alignment_nozzle()
-    # pick_and_place_camera.alignment_joint()
-    # pick_and_place_camera.alignment_nozzle()
+    pick_and_place_camera.custom_alignment_joint()
+    pick_and_place_camera.custom_alignment_nozzle()
 
     first_pick_after_align = True
 
@@ -728,9 +726,8 @@ def movePickandPlace(need=True):
     # Check for empty row (0xFF)
     if n_nozzle == 255:
         print("Nozzle row empty, aligning...")
-        pick_and_place_camera.alignment_nozzle()
+        pick_and_place_camera.custom_alignment_nozzle()
         first_pick_after_align = True
-        # pick_and_place_camera.alignment_nozzle()
         # Retry after alignment
         n_nozzle = pick_and_place_camera.pick_up_nozzle()
         if n_nozzle == 255:
@@ -786,9 +783,8 @@ def movePickandPlace(need=True):
     # Check for empty row (0xFF)
     if n_joint == 255:
         print("Joint row empty, aligning...")
-        pick_and_place_camera.alignment_joint()
+        pick_and_place_camera.custom_alignment_joint()
         first_pick_after_align = True
-        # pick_and_place_camera.alignment_joint()
         # Retry after alignment
         n_joint = pick_and_place_camera.pick_up_joint()
         if n_joint == 255:

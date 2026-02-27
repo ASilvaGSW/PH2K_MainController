@@ -118,7 +118,7 @@ LinearActuator pre_feeder(0x002);    // Pre-feeder actuator
 #define LINEAR_POT_PIN 33  // Analog pin for linear potentiometer
 
 // IR Break Beam Sensor pin (Optical Sensor)
-#define IR_SENSOR_PIN 12   // Digital pin for IR break beam sensor (hose position detection)
+#define IR_SENSOR_PIN 13   // Digital pin for IR break beam sensor (hose position detection)
 
 // Alcohol Level Sensors pins
 #define LEVEL_SENSOR_1_PIN 39  // Digital pin for alcohol level sensor 1 (2/3 tank level)
@@ -274,7 +274,10 @@ void setup()
   instruction_queue = xQueueCreate(10, sizeof(CanFrame));
   if (instruction_queue == NULL) {
     Serial.println("Error creating instruction queue");
-    while(1);
+    while(true)
+    {
+      delay(100);
+    }
   }
 
   // Initialize the first CAN bus (TWAI - General Network)
@@ -285,7 +288,10 @@ void setup()
     Serial.println("CAN0 (TWAI) initialized successfully");
   } else {
     Serial.println("Error initializing CAN0 (TWAI)");
-    while (1);
+    while(true)
+    {
+      delay(100);
+    }
   }
 
   // Initialize the second CAN bus (MCP2515 - Local Network)
@@ -295,7 +301,10 @@ void setup()
     CAN1.setMode(MCP_NORMAL);
   } else {
     Serial.println("Error initializing MCP2515");
-    while (1);
+    while(true)
+    {
+      delay(100);
+    }
   }
 
   // Create the task to listen on the TWAI bus on core 0
