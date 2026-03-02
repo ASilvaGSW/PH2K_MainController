@@ -189,7 +189,7 @@ class LubricationFeeder:
 
     # 0x18: Close Hose Holder (Servo to 0 degrees)
     def close_hose_holder(self):
-        return self.set_hose_holder_angle(17)
+        return self.set_hose_holder_angle(23)
 
 
 
@@ -335,7 +335,7 @@ class LubricationFeeder:
         return status
 
     # 0x1F: Move Feeder until IR sensor is triggered
-    def move_feeder_until_ir(self, speed=300, direction=0, acceleration=236):
+    def move_feeder_until_ir(self, speed=290, direction=0, acceleration=236):
         """
         Moves the feeder at a given speed and direction until the IR sensor is triggered.
         Stops if the sensor is not triggered within 30 seconds.

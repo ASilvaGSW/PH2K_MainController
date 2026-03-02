@@ -17,7 +17,7 @@ class InsertionServos:
 
         self.slider_joint_home_pos = 160
         self.slider_joint_receive_pos = 150
-        self.slider_joint_insertion_pos = 3
+        self.slider_joint_insertion_pos = 6
 
         self.clamp_joint_open_pos = 20
         self.clamp_joint_close_pos = 108
@@ -36,6 +36,9 @@ class InsertionServos:
 
         self.cutter_open_pos = 0
         self.cutter_close_pos = 80
+
+        self.semi_open_n = 6
+        self.semi_open_j = 7
 
 
     def reset_micro(self):
@@ -108,6 +111,12 @@ class InsertionServos:
         if position is None:
             position = self.slider_joint_insertion_pos
         return self.slider_joint(position)
+
+    def slider_joint_preinsertion(self, position=None):
+        if position is None:
+            position = self.slider_joint_insertion_pos + 25
+        return self.slider_joint(position)
+
     
     def slider_joint_home(self):
         return self.slider_joint(self.slider_joint_home_pos)
@@ -130,6 +139,9 @@ class InsertionServos:
     def holder_hose_nozzle_close(self):
         return self.holder_hose_nozzle(self.holder_hose_close_pos2)
 
+    def holder_hose_nozzle_semi_close(self):
+        return self.holder_hose_nozzle(self.holder_hose_close_pos2-self.semi_open_n)
+
     def holder_hose_joint_open(self):
         return self.holder_hose_joint(self.holder_hose_open_pos)
     
@@ -137,11 +149,16 @@ class InsertionServos:
         return self.holder_hose_joint(self.holder_hose_close_pos)
 
     def holder_hose_joint_semi_close(self):
-        return self.holder_hose_joint(self.holder_hose_close_pos-20)
+        return self.holder_hose_joint(self.holder_hose_close_pos-self.semi_open_j)
 
     def slider_nozzle_insertion(self, position=None):
         if position is None:
             position = self.slider_nozzle_insertion_pos
+        return self.slider_nozzle(position)
+
+    def slider_nozzle_preinsertion(self, position=None):
+        if position is None:
+            position = self.slider_nozzle_insertion_pos + 25
         return self.slider_nozzle(position)
     
     def slider_nozzle_home(self):
