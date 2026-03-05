@@ -1097,6 +1097,156 @@ void process_instruction(CanFrame instruction)
     }
     break;
 
+    // ***************************** CASE 0x1E ***************************** //
+    // Move left conveyor until IR sensor is deactivated
+    case 0x1E:
+    {
+        Serial.println("Case 0x1E: Moving left conveyor until IR sensor deactivation");
+        
+        uint8_t dir = instruction.data[1];
+        uint16_t speed = (instruction.data[2] << 8) | instruction.data[3];
+        uint8_t acc = instruction.data[4];
+        
+        // Start conveyor movement
+        uint8_t payload[8] = {0};
+        conveyor_left.speed_mode(dir, speed, acc, payload);
+        
+        if (CAN1.sendMsgBuf(conveyor_left.motor_id, 0, 5, payload) != CAN_OK) {
+            Serial.println("Error sending conveyor command");
+            byte errorResponse[] = {0x1E, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+            send_twai_response(errorResponse);
+            break;
+        }
+        
+        unsigned long startTime = millis();
+        const unsigned long timeout = 30000;
+        uint8_t sensorStatus = 0x03; // Default to timeout
+        bool targetStateFound = false;
+
+        // If sensor is already deactivated, we need to see it active first.
+        if (digitalRead(IR_SENSOR_LEFT_PIN) == HIGH) {
+            Serial.println("Left IR sensor is deactivated, waiting for activation...");
+            while (millis() - startTime < timeout) {
+                if (digitalRead(IR_SENSOR_LEFT_PIN) == LOW) {
+                    Serial.println("Left IR sensor activated.");
+                    // Now we wait for deactivation
+                    while(millis() - startTime < timeout) {
+                        if (digitalRead(IR_SENSOR_LEFT_PIN) == HIGH) {
+                            sensorStatus = 0x01;
+                            targetStateFound = true;
+                            incrementConveyorCounterL();
+                            Serial.println("Left IR sensor deactivated.");
+                            break;
+                        }
+                        delay(10);
+                    }
+                    break; // break from outer loop
+                }
+                delay(10);
+            }
+        } else { // Sensor is already active, just wait for deactivation
+            Serial.println("Left IR sensor is active, waiting for deactivation...");
+            while (millis() - startTime < timeout) {
+                if (digitalRead(IR_SENSOR_LEFT_PIN) == HIGH) {
+                    sensorStatus = 0x01;
+                    targetStateFound = true;
+                    incrementConveyorCounterL();
+                    Serial.println("Left IR sensor deactivated.");
+                    break;
+                }
+                delay(10);
+            }
+        }
+
+        // Stop conveyor
+        uint8_t stopPayload[8] = {0};
+        conveyor_left.speed_mode(0, 0, 0, stopPayload);
+        CAN1.sendMsgBuf(conveyor_left.motor_id, 0, 5, stopPayload);
+
+        if (!targetStateFound) {
+            Serial.println("Timeout - left conveyor stopped");
+        }
+        
+        byte response[] = {0x1E, sensorStatus, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+        send_twai_response(response);
+    }
+    break;
+
+    // ***************************** CASE 0x1F ***************************** //
+    // Move right conveyor until IR sensor is deactivated
+    case 0x1F:
+    {
+        Serial.println("Case 0x1F: Moving right conveyor until IR sensor deactivation");
+        
+        uint8_t dir = instruction.data[1];
+        uint16_t speed = (instruction.data[2] << 8) | instruction.data[3];
+        uint8_t acc = instruction.data[4];
+        
+        // Start conveyor movement
+        uint8_t payload[8] = {0};
+        conveyor_right.speed_mode(dir, speed, acc, payload);
+        
+        if (CAN1.sendMsgBuf(conveyor_right.motor_id, 0, 5, payload) != CAN_OK) {
+            Serial.println("Error sending conveyor command");
+            byte errorResponse[] = {0x1F, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+            send_twai_response(errorResponse);
+            break;
+        }
+        
+        unsigned long startTime = millis();
+        const unsigned long timeout = 30000;
+        uint8_t sensorStatus = 0x03; // Default to timeout
+        bool targetStateFound = false;
+
+        // If sensor is already deactivated, we need to see it active first.
+        if (digitalRead(IR_SENSOR_RIGHT_PIN) == HIGH) {
+            Serial.println("Right IR sensor is deactivated, waiting for activation...");
+            while (millis() - startTime < timeout) {
+                if (digitalRead(IR_SENSOR_RIGHT_PIN) == LOW) {
+                    Serial.println("Right IR sensor activated.");
+                    // Now we wait for deactivation
+                    while(millis() - startTime < timeout) {
+                        if (digitalRead(IR_SENSOR_RIGHT_PIN) == HIGH) {
+                            sensorStatus = 0x01;
+                            targetStateFound = true;
+                            incrementConveyorCounterR();
+                            Serial.println("Right IR sensor deactivated.");
+                            break;
+                        }
+                        delay(10);
+                    }
+                    break; // break from outer loop
+                }
+                delay(10);
+            }
+        } else { // Sensor is already active, just wait for deactivation
+            Serial.println("Right IR sensor is active, waiting for deactivation...");
+            while (millis() - startTime < timeout) {
+                if (digitalRead(IR_SENSOR_RIGHT_PIN) == HIGH) {
+                    sensorStatus = 0x01;
+                    targetStateFound = true;
+                    incrementConveyorCounterR();
+                    Serial.println("Right IR sensor deactivated.");
+                    break;
+                }
+                delay(10);
+            }
+        }
+
+        // Stop conveyor
+        uint8_t stopPayload[8] = {0};
+        conveyor_right.speed_mode(0, 0, 0, stopPayload);
+        CAN1.sendMsgBuf(conveyor_right.motor_id, 0, 5, stopPayload);
+
+        if (!targetStateFound) {
+            Serial.println("Timeout - right conveyor stopped");
+        }
+        
+        byte response[] = {0x1F, sensorStatus, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+        send_twai_response(response);
+    }
+    break;
+
     // ***************************** CASE 0x1A ***************************** //
     // Check left IR sensor status
     case 0x1A:
