@@ -350,6 +350,6 @@ class LubricationFeeder:
         
         if status == 1 and reply_data and len(reply_data) >= 2:
             device_status = reply_data[1]
-            return status, device_status # Return CAN status and device status
+            return "success" # Return CAN status and device status
         
-        return status, 0 # Return CAN status and a default error device status
+        return "error"# Return CAN status and a default error device status

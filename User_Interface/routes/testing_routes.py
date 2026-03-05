@@ -360,9 +360,9 @@ def test_action_10():
         global operation_status,lubrication_feeder,insertion_servos
         operation_status["state"] = "running"
 
-        if lubrication_feeder.close_hose_holder() != "success" : return jsonify(success=False, message=f'Error in Close Hose Holder'), 500
-        if insertion_servos.holder_hose_nozzle_semi_close() != "success" : return jsonify(success=False, message=f'Error in Holder Hose Nozzle Semi Close'), 500
-        if lubrication_feeder.move_feeder_until_ir(speed=290,wait=False) != "success" : return jsonify(success=False, message=f'Error in Move Feeder Until IR'), 500
+        lubrication_feeder.close_hose_holder()
+        insertion_servos.holder_hose_nozzle_semi_close()
+        lubrication_feeder.move_feeder_until_ir(speed=290,wait=False)
 
         if movePickandPlace(need=True) != "success" : 
             operation_status["state"] = "error"
@@ -899,10 +899,11 @@ def oneCycle():
     if insertion_servos.slider_nozzle_receive() != "success" : return "error02"
 
     # Feed Hose
-    if lubrication_feeder.close_hose_holder() != "success" : return "error03"
-    if insertion_servos.holder_hose_nozzle_semi_close() != "success" : return "error03/1"
-    if lubrication_feeder.move_feeder_until_ir(speed=feeder_speed) != "success" : return "error03.2"
-    if insertion_servos.holder_hose_nozzle_close() != "success" : return "error05"
+    if lubrication_feeder.close_hose_holder() != "success" : return "error41"
+    if insertion_servos.holder_hose_nozzle_semi_close() != "success" : return "error41"
+    lubrication_feeder.move_feeder_until_ir(speed=feeder_speed)
+    if insertion_servos.holder_hose_nozzle_close() != "success" : return "error41"
+    if lubrication_feeder.open_hose_holder() != "success" : return "error41"
 
 
     # Clamping and Reset Gripper
@@ -962,7 +963,9 @@ def oneCycle():
     if hose_puller.move_y_actuator_with_speed(wait_y,hose_puller_y_speed) != "success" : return "error39"
 
     # Cutting Hose
+    if lubrication_feeder.close_hose_holder() != "success" : return "error41"
     if insertion_servos.activate_cutter() != "success" : return "error41"
+
     time.sleep(.5)
 
 
