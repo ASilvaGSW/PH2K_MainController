@@ -1029,7 +1029,7 @@ def oneCycle():
     home_position_x = 0 + offset_x
 
     lubrication_position_z = 350 + offset_z
-    lubricate_nozzle = 1400 + offset_x
+    lubricate_nozzle = 1330 + offset_x
 
     insertion_position_z = 330 + offset_z
     insert_nozzle = 2860 + offset_x

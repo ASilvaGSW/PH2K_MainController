@@ -1261,7 +1261,7 @@ def testServos():
     home_position_x = 0 + offset_x
 
     lubrication_position_z = 350 + offset_z
-    lubricate_nozzle = 1400 + offset_x
+    lubricate_nozzle = 1330 + offset_x
 
     insertion_position_z = 330 + offset_z
     insert_nozzle = 2860 + offset_x
@@ -1272,11 +1272,11 @@ def testServos():
     insertion_position_joint_z = 365 + offset_z
     insert_joint = 5210 + offset_x
 
-    if insertion_jig.move_x_axis(insert_joint) != "success": return "error49"
-    insertion_jig.move_z_axis(insertion_position_joint_z)
-    if insertion_servos.holder_hose_joint_semi_close() != "success": return "error51"
-    time.sleep(0.5)
-    if insertion_servos.slider_joint_preinsertion() != "success": return "error52"
+    if insertion_jig.move_x_axis(lubricate_nozzle) != "success": return "error49"
+    insertion_jig.move_z_axis(lubrication_position_z)
+    # if insertion_servos.holder_hose_joint_semi_close() != "success": return "error51"
+    # time.sleep(0.5)
+    # if insertion_servos.slider_joint_preinsertion() != "success": return "error52"
 
 
 if __name__ == "__main__":
