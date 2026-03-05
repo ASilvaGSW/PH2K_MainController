@@ -1060,8 +1060,8 @@ def oneCycle():
     insertion_jig_safe_zone = 4000
     preefeder_speed = 50
     feed_hose_time = 3.0
-    lubricate_nozzle_time = 0.02
-    lubricate_joint_time = 0.02
+    lubricate_nozzle_time = 0.03
+    lubricate_joint_time = 0.03
     hose_puller_y_speed = 200
     hose_puller_y_speed_for_alignment = 10
     feeder_speed = 290

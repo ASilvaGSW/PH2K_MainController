@@ -17,7 +17,7 @@ class InsertionServos:
 
         self.slider_joint_home_pos = 160
         self.slider_joint_receive_pos = 150
-        self.slider_joint_insertion_pos = 6
+        self.slider_joint_insertion_pos = 5
 
         self.clamp_joint_open_pos = 20
         self.clamp_joint_close_pos = 108
@@ -37,8 +37,8 @@ class InsertionServos:
         self.cutter_open_pos = 0
         self.cutter_close_pos = 80
 
-        self.semi_open_n = 6
-        self.semi_open_j = 7
+        self.semi_open_n = 5
+        self.semi_open_j = 6
 
 
     def reset_micro(self):
