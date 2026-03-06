@@ -37,6 +37,7 @@ class Canbus:
         self.incoming_messages_queue = queue.Queue()
         self._reader_thread = None
         self._stop_reader_event = threading.Event()
+        self._send_lock = threading.Lock()  # Evita envíos concurrentes desde múltiples hilos
         
         # Configurar automáticamente la interfaz CAN al inicializar
         self.setup_can_interface()
@@ -168,7 +169,8 @@ class Canbus:
         print("CAN reader thread stopped.")
 
     def flush_buffer(self):
-        """Limpia la cola de mensajes pendientes."""
+        """Limpia la cola de mensajes pendientes. NO se llama desde send_message.
+        Cuidado en multi-hilo: puede eliminar respuestas que otros hilos esperan."""
         while not self.incoming_messages_queue.empty():
             try:
                 self.incoming_messages_queue.get_nowait()
@@ -179,6 +181,7 @@ class Canbus:
     def send_message(self, can_id, data, wait_for_reply=False, max_retries=None):
         """
         Envía un mensaje CAN y espera una respuesta del mismo CAN ID.
+        Thread-safe: usa lock para envío y busca respuesta en la queue (no en el bus).
         
         Args:
             can_id: ID del mensaje CAN
@@ -190,21 +193,15 @@ class Canbus:
                 status: 'success', 'error', o 'not_found'
                 reply_data: Datos de respuesta si es exitoso, None en caso contrario
         """
-        print("\n")
-        
         try:
-            # Limpia el buffer antes de enviar el nuevo comando
-            self.flush_buffer()
-            
-            # Crear mensaje CAN
+            # NO flush_buffer: otros hilos pueden estar esperando sus respuestas en la queue
             message = can.Message(
                 arbitration_id=can_id,
                 data=bytes(data),
                 is_extended_id=False
             )
-            
-            # Enviar el mensaje
-            self.channel.send(message)
+            with self._send_lock:
+                self.channel.send(message)
             
             if not wait_for_reply:
                 return 'success', None
@@ -227,7 +224,9 @@ class Canbus:
 
     def read_message(self, timeout_seconds, search_can_id, function_id=0x00):
         """
-        Busca un mensaje específico en la cola de entrada.
+        Busca un mensaje específico en la cola (incoming_messages_queue), NO en el bus.
+        El hilo lector es el único que lee del bus; las respuestas se consumen aquí.
+        Thread-safe: queue.Queue es seguro para múltiples consumidores.
         Returns a tuple (status, reply_data).
         """
         start_time = time.time()

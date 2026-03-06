@@ -335,21 +335,26 @@ class LubricationFeeder:
         return status
 
     # 0x1F: Move Feeder until IR sensor is triggered
-    def move_feeder_until_ir(self, speed=290, direction=0, acceleration=236,wait=True):
+    def move_feeder_until_ir(self, speed=290, direction=0, acceleration=236, wait=True):
         """
         Moves the feeder at a given speed and direction until the IR sensor is triggered.
         Stops if the sensor is not triggered within 30 seconds.
+        When wait=False, sends the command and returns immediately without waiting for completion.
         """
         speed_high = (speed >> 8) & 0xFF
         speed_low = speed & 0xFF
         
-        # Send command and wait for reply from the device
-        # The device will reply after the movement is complete or timed out.
-        # Expected reply: [0x1F, status, ...] where status is 0x01 (success) or 0x03 (timeout)
-        status, reply_data = self.canbus.send_message(self.canbus_id, [0x1F, speed_high, speed_low, direction, acceleration] + [0x00]*3,wait_for_reply=wait)
+        # When wait=False, only send; do not wait for reply (enables parallel use)
+        status, reply_data = self.canbus.send_message(
+            self.canbus_id,
+            [0x1F, speed_high, speed_low, direction, acceleration] + [0x00] * 3,
+            wait_for_reply=wait
+        )
         
-        if status == 1 and reply_data and len(reply_data) >= 2:
-            device_status = reply_data[1]
-            return "success" # Return CAN status and device status
+        if not wait:
+            return "success" if status == "success" else "error"
         
-        return "error"# Return CAN status and a default error device status
+        # wait=True: check reply. canbus returns status as string 'success'/'error'/'not_found'
+        if status == "success" and reply_data and len(reply_data) >= 2:
+            return "success"
+        return "error"

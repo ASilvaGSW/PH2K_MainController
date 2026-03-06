@@ -356,7 +356,6 @@ def test_action_10():
         return jsonify(success=False, message='Not authenticated'), 401
     
     try:
-        # TODO: Add your CAN bus and Python actions here
         global operation_status,lubrication_feeder,insertion_servos
         operation_status["state"] = "running"
 

@@ -17,6 +17,7 @@ class Canbus:
         self.incoming_messages_queue = queue.Queue()
         self._reader_thread = None
         self._stop_reader_event = threading.Event()
+        self._send_lock = threading.Lock()  # Evita envíos concurrentes desde múltiples hilos
 
     def device_list(self):
         try:
@@ -68,7 +69,8 @@ class Canbus:
         print("CAN reader thread stopped.")
 
     def flush_buffer(self):
-        """Limpia la cola de mensajes pendientes."""
+        """Limpia la cola de mensajes pendientes. NO se llama desde send_message.
+        Cuidado en multi-hilo: puede eliminar respuestas que otros hilos esperan."""
         while not self.incoming_messages_queue.empty():
             try:
                 self.incoming_messages_queue.get_nowait()
@@ -77,21 +79,17 @@ class Canbus:
         print("Message queue flushed.")
 
     def send_message(self, can_id, data, wait_for_reply=False, max_retries=None):
-
-        print("\n")
-
         """
         Send a CAN message and wait for a reply from the same CAN ID.
+        Thread-safe: usa lock para envío y busca respuesta en la queue (no en el bus).
         Returns a tuple (status, reply_data) where:
             status: 'success', 'error', or 'not_found'
             reply_data: CAN data bytes if successful, None otherwise
         """
         try:
-            # Limpia el buffer antes de enviar el nuevo comando
-            self.flush_buffer()
-            
-            # Send the message
-            result = self.channel.write(can_id, bytes(data))
+            # NO flush_buffer: otros hilos pueden estar esperando sus respuestas en la queue
+            with self._send_lock:
+                result = self.channel.write(can_id, bytes(data))
             
             if result is None:
                 print(f"Failed to send message to CAN ID {can_id}")
@@ -118,7 +116,9 @@ class Canbus:
 
     def read_message(self, timeout_seconds, search_can_id, function_id=0x00):
         """
-        Busca un mensaje específico en la cola de entrada.
+        Busca un mensaje específico en la cola (incoming_messages_queue), NO en el bus.
+        El hilo lector es el único que lee del bus; las respuestas se consumen aquí.
+        Thread-safe: queue.Queue es seguro para múltiples consumidores.
         Returns a tuple (status, reply_data).
         """
         start_time = time.time()
