@@ -534,9 +534,13 @@ def launch_control_panel():
 
 def init(launch_gui=True):
     """Inicializa hilos y opcionalmente el panel de control."""
+    print("Aqui")
     set_machine_status("idle")
     start_status_manager_thread()
     start_pick_and_place_thread()
     if launch_gui:
         launch_control_panel()  # Panel tkinter para Iniciar/Pausar y alternar Jig
 
+
+init(True)
+input('enter para salir \n')

@@ -361,7 +361,7 @@ def test_action_10():
 
         lubrication_feeder.close_hose_holder()
         insertion_servos.holder_hose_nozzle_semi_close()
-        lubrication_feeder.move_feeder_until_ir(speed=290,wait=False)
+        print(lubrication_feeder.move_feeder_until_ir(speed=290,wait=False))
 
         if movePickandPlace(need=True) != "success" : 
             operation_status["state"] = "error"
@@ -687,7 +687,7 @@ def movePickandPlace(need=True):
     receiving_x = 6500
     receiving_z = 7000
 
-    gap = 0
+    gap = -10
     zgap = 0
 
     #Nozzle Data
@@ -829,6 +829,8 @@ def movePickandPlace(need=True):
     # Go Back to Home
     if pick_and_place.move_actuator_z(0,False) != "success": return "error26"
     if pick_and_place.move_actuator_x(0,False) != "success": return "error27"
+
+    time.sleep(1)
 
     first_pick_after_align = False
 
@@ -1063,26 +1065,26 @@ def testHome():
     # Test ElevatorIn homing functions
     print("\n--- Testing ElevatorIn homing functions ---")
 
-    print("Testing home_elevator_z...")
-    result = elevator_in.home_elevator_z()
-    print(f"Result: {result}")
-
-    print("Testing home_gantry_z...")
-    result = elevator_in.home_gantry_z()
-    print(f"Result: {result}")
-
-    print("Testing home_gantry_x...")
-    result = elevator_in.home_gantry_x()
-    print(f"Result: {result}")
-
-    print("Testing home_gantry_y...")
-    result = elevator_in.home_gantry_y()
-    print(f"Result: {result}")
-
-
-    print("Testing home_elevator_z...")
-    result = elevator_in.home_elevator_z()
-    print(f"Result: {result}")
+    # print("Testing home_elevator_z...")
+    # result = elevator_in.home_elevator_z()
+    # print(f"Result: {result}")
+    #
+    # print("Testing home_gantry_z...")
+    # result = elevator_in.home_gantry_z()
+    # print(f"Result: {result}")
+    #
+    # print("Testing home_gantry_x...")
+    # result = elevator_in.home_gantry_x()
+    # print(f"Result: {result}")
+    #
+    # print("Testing home_gantry_y...")
+    # result = elevator_in.home_gantry_y()
+    # print(f"Result: {result}")
+    #
+    #
+    # print("Testing home_elevator_z...")
+    # result = elevator_in.home_elevator_z()
+    # print(f"Result: {result}")
 
 
     # Test PickAndPlace homing functions

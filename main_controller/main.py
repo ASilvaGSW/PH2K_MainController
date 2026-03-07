@@ -738,26 +738,21 @@ def testHome():
     # Test ElevatorIn homing functions
     print("\n--- Testing ElevatorIn homing functions ---")
 
-    print("Testing home_elevator_z...")
-    result = elevator_in.home_elevator_z()
-    print(f"Result: {result}")
-
-    print("Testing home_gantry_z...")
-    result = elevator_in.home_gantry_z()
-    print(f"Result: {result}")
-
-    print("Testing home_gantry_x...")
-    result = elevator_in.home_gantry_x()
-    print(f"Result: {result}")
-
-    print("Testing home_gantry_y...")
-    result = elevator_in.home_gantry_y()
-    print(f"Result: {result}")
-
-
-    print("Testing home_elevator_z...")
-    result = elevator_in.home_elevator_z()
-    print(f"Result: {result}")
+    # print("Testing home_elevator_z...")
+    # result = elevator_in.home_elevator_z()
+    # print(f"Result: {result}")
+    #
+    # print("Testing home_gantry_z...")
+    # result = elevator_in.home_gantry_z()
+    # print(f"Result: {result}")
+    #
+    # print("Testing home_gantry_x...")
+    # result = elevator_in.home_gantry_x()
+    # print(f"Result: {result}")
+    #
+    # print("Testing home_gantry_y...")
+    # result = elevator_in.home_gantry_y()
+    # print(f"Result: {result}")
 
 
     # Test PickAndPlace homing functions
@@ -1236,54 +1231,57 @@ def stampertest():
         return False
 
 
-def testFeed():
-    global lubrication_feeder,insertion_servos
+def testCam():
+    global pick_and_place_camera
+    ok = 0
+    noOk = 0
+    while True:
+        if (pick_and_place_camera.send_heartbeat()) != None                                                   :
+            ok += 1
+        else:
+            noOk += 1
 
-    # Feed Hose
-    # if lubrication_feeder.close_hose_holder() != "success": return "error03"
-    # if lubrication_feeder.feed_hose(duration=2.95, speed=520) != "success": return "error04"
-    # time.sleep(1)
-    # if insertion_servos.activate_cutter() != "success": return "error02"
-    # if lubrication_feeder.open_hose_holder() != "success": return "error06"
-    lubrication_feeder.send_heartbeat()
-    lubrication_feeder.close_hose_holder()
-    lubrication_feeder.move_feeder_until_ir(speed=290)
-    lubrication_feeder.open_hose_holder()
-
+        print(f"Ok : {ok} , noOk : {noOk}")
+        time.sleep(2)
 
 def testServos():
-    global insertion_servos, insertion_jig
+    global pick_and_place
 
-    offset_x = 0
-    offset_z = 0
+    receiving_x = 6500
+    receiving_z = 7000
 
-    home_position_z = 4200 + offset_z
-    home_position_x = 0 + offset_x
+    gap = -10
+    zgap = 0
 
-    lubrication_position_z = 350 + offset_z
-    lubricate_nozzle = 1330 + offset_x
+    # Nozzle Data
+    nozzle_high = -965
+    nozzle_x = [-580, -450, -300, -170, -20, 110]
+    trans_nozzle_high = -600
 
-    insertion_position_z = 330 + offset_z
-    insert_nozzle = 2860 + offset_x
+    # deliver_nozzle_x = -3697
+    deliver_nozzle_x = -3633
+    deliver_nozzle_z = -1005
 
-    librication_position_joint_z = 350 + offset_z
-    lubricate_joint = 7420 + offset_x
+    # Joint Data
+    # joint_high = -1243
+    joint_high = -965
+    joint_x = [-1770, -1690, -1610, -1530, -1450, -1370, -1290, -1210, -1130, -1050]
+    trans_joint_high = -600
 
-    insertion_position_joint_z = 365 + offset_z
-    insert_joint = 5210 + offset_x
+    # deliver_joint_x = -3990
+    deliver_joint_x = -3919
+    deliver_joint_z = -1005
 
-    if insertion_jig.move_x_axis(lubricate_nozzle) != "success": return "error49"
-    insertion_jig.move_z_axis(lubrication_position_z)
-    # if insertion_servos.holder_hose_joint_semi_close() != "success": return "error51"
-    # time.sleep(0.5)
-    # if insertion_servos.slider_joint_preinsertion() != "success": return "error52"
+    if pick_and_place.move_actuator_x(nozzle_x[1]-gap) != "success": return "error07"
+    if pick_and_place.move_actuator_z(deliver_nozzle_z+150) != "success": return "error06"
+
 
 
 if __name__ == "__main__":
 
     my_main(False)
 
-    testServos()
+    testCam()
 
     # testHome()
     # insertionServosOpen()

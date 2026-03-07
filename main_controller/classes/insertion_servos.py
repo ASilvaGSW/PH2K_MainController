@@ -20,7 +20,7 @@ class InsertionServos:
         self.slider_joint_insertion_pos = 5
 
         self.clamp_joint_open_pos = 20
-        self.clamp_joint_close_pos = 108
+        self.clamp_joint_close_pos = 112
 
         #works for both sides joint and nozzle
         self.holder_hose_open_pos = 0
@@ -32,7 +32,7 @@ class InsertionServos:
         self.slider_nozzle_insertion_pos = 0
 
         self.clamp_nozzle_open_pos = 95
-        self.clamp_nozzle_close_pos = 40
+        self.clamp_nozzle_close_pos = 36
 
         self.cutter_open_pos = 0
         self.cutter_close_pos = 80

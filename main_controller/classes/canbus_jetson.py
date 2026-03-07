@@ -188,7 +188,8 @@ class Canbus:
             
             if not wait_for_reply:
                 return 'success', None
-            
+
+            # print(data[0])
             # Espera la respuesta usando el nuevo read_message
             reply_status, reply_data = self.read_message(10, can_id + 0x400, max_retries,data[0])
             
@@ -233,7 +234,7 @@ class Canbus:
                 try:
                     # Recibir mensaje con timeout
                     msg = self.channel.recv(timeout=timeout_sec)
-                    
+                    # print(msg)
                     if msg is not None and msg.arbitration_id == search_can_id:
                         found_id = True
                         can_data = list(msg.data)
