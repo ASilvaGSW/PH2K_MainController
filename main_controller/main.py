@@ -1236,7 +1236,7 @@ def testCam():
     ok = 0
     noOk = 0
     while True:
-        if (pick_and_place_camera.send_heartbeat()) != None                                                   :
+        if (pick_and_place_camera.pick_up_nozzle()) != None                                                   :
             ok += 1
         else:
             noOk += 1

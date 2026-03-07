@@ -23,10 +23,10 @@ from classes.pick_and_place_camera import PickAndPlaceCamera
 # Now we can import the Canbus class
 try:
     if sys.platform.startswith('win32'):
-        from classes.canbus_v2 import Canbus
+        from classes.canbus import Canbus
         print("Windows detected. Importing Canbus from classes.canbus")
     elif sys.platform.startswith('linux'):
-        from classes.canbus_jetson_v2 import Canbus
+        from classes.canbus_jetson import Canbus
         print("Linux detected. Importing Canbus from classes.canbus_jetson")
     else:
         raise ImportError("Unsupported operating system for CAN bus")
@@ -76,7 +76,6 @@ pick_and_place_camera = PickAndPlaceCamera(canbus, CANBUS_ID_PICK_AND_PLACE_CAME
 
 #Move Pick and Place
 def movePickandPlace():
-    global operation_status, pause_event
     global pick_and_place, insertion_servos, insertion_jig, pick_and_place_camera,first_pick_after_align
 
     receiving_x = 6500
@@ -118,10 +117,11 @@ def movePickandPlace():
     if pick_and_place.move_actuator_x(0) != "success": return "error07"
     #
     # # Pick Nozzle
-    
+    time.sleep(1)
     # Get index from camera for Nozzle
     n_nozzle = pick_and_place_camera.pick_up_nozzle() 
-    
+    print(n_nozzle)
+
     # Check for empty row (0xFF)
     if n_nozzle == 255:
         print("Nozzle row empty, aligning...")
@@ -452,21 +452,21 @@ def main():
     print("movePickandPlace: OK\n")
 
     # 2. One cycle (insertion routine)
-    print("[2/3] Ejecutando oneCycle()...")
-    result = oneCycle()
-    if result != "success":
-        print(f"oneCycle falló: {result}")
-        sys.exit(1)
-    print("oneCycle: OK\n")
+    # print("[2/3] Ejecutando oneCycle()...")
+    # result = oneCycle()
+    # if result != "success":
+    #     print(f"oneCycle falló: {result}")
+    #     sys.exit(1)
+    # print("oneCycle: OK\n")
 
     
     # 3. Pick up hose
-    print("[3/3] Ejecutando pickUpHose()...")
-    result = pickUpHose()
-    if result != "success":
-        print(f"pickUpHose falló: {result}")
-        sys.exit(1)
-    print("pickUpHose: OK\n")
+    # print("[3/3] Ejecutando pickUpHose()...")
+    # result = pickUpHose()
+    # if result != "success":
+    #     print(f"pickUpHose falló: {result}")
+    #     sys.exit(1)
+    # print("pickUpHose: OK\n")
 
     print("=== Secuencia principal completada correctamente ===")
 
