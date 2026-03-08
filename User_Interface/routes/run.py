@@ -7,6 +7,8 @@ import tkinter as tk
 from tkinter import ttk
 import threading
 
+#new comments
+
 # Add the main_controller directory to Python path
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'main_controller'))
 
