@@ -12,7 +12,7 @@ operation_status = {
     "state": "idle", # idle, running, paused, completed, error
     "message": ""
 }
-first_pick_after_align = False
+first_pick_after_align = True
 
 # Add the main_controller directory to Python path
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'main_controller'))
@@ -687,7 +687,7 @@ def movePickandPlace(need=True):
     receiving_x = 6500
     receiving_z = 7000
 
-    gap = -10
+    gap = -20
     zgap = 0
 
     #Nozzle Data
@@ -702,7 +702,8 @@ def movePickandPlace(need=True):
     # Joint Data
     # joint_high = -1243
     joint_high = -965
-    joint_x = [-1770,-1690,-1610,-1530,-1450,-1370,-1290,-1210,-1130,-1050]
+    # joint_x = [-1770,-1690,-1610,-1530,-1450,-1370,-1290,-1210,-1130,-1050]
+    joint_x = [-1775, -1695, -1615, -1535, -1455, -1375, -1295, -1215, -1135, -1055]
     trans_joint_high = -600
 
     # deliver_joint_x = -3990
@@ -885,7 +886,7 @@ def oneCycle():
     preefeder_speed = 50
     feed_hose_time = 3.0
     lubricate_nozzle_time = 0.03
-    lubricate_joint_time = 0.03
+    lubricate_joint_time = 0.015
     hose_puller_y_speed = 200
     hose_puller_y_speed_for_alignment = 10
     feeder_speed = 290
@@ -895,7 +896,7 @@ def oneCycle():
 
     #****************************** Routine ******************************
 
-    insertionServosOpen()
+    # insertionServosOpen()
     if hose_jig.gripper_open() != "success" : return "error01"
     if insertion_servos.slider_nozzle_receive() != "success" : return "error02"
 
@@ -1011,9 +1012,9 @@ def oneCycle():
     if hose_jig.gripper_close() != "success" : return "error60"
     if puller_extension.open_gripper() != "success" : return "error61"
     if hose_puller.move_z_actuator(safe_position) != "success" : return "error62"
-    if hose_jig.deliver_position() != "success" : return "error63"
-    if hose_jig.gripper_open() != "success" : return "error64"
-    if hose_puller.move_z_actuator(0) != "success" : return "error65"
+    if hose_jig.deliver_position(False) != "success" : return "error63"
+    if hose_jig.gripper_open(False) != "success" : return "error64"
+    if hose_puller.move_z_actuator(0,False) != "success" : return "error65"
 
     return "success"
 

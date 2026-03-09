@@ -60,10 +60,10 @@ class PickAndPlaceCamera:
 
     def custom_alignment_nozzle(self):
         # return self.alignment_nozzle(97,40,1)
-        return self.alignment_nozzle(97,80,1)
+        return self.alignment_nozzle(99,80,1)
 
     def custom_alignment_joint(self):
-        return self.alignment_joint(87,39,1)
+        return self.alignment_joint(89,39,1)
 
     # 0x08: Alignment Joint
     def alignment_joint(self,pickup=83,speed=39,stop=3):

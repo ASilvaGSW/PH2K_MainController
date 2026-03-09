@@ -47,12 +47,12 @@ class HosePuller:
         return status
 
     # Case 0x05: Move Z actuator to absolute position
-    def move_z_actuator(self, position):
+    def move_z_actuator(self, position,flag = True):
         orientation = 1 if position < 0 else 0
         abs_position = abs(position)
         position_high = abs_position >> 8
         position_low = abs_position & 0xFF
-        status = self.canbus.send_message(self.canbus_id, [0x05, position_high, position_low, orientation, 0x00, 0x00, 0x00, 0x00])[0]
+        status = self.canbus.send_message(self.canbus_id, [0x05, position_high, position_low, orientation, 0x00, 0x00, 0x00, 0x00],flag)[0]
         return status
 
     # Case 0x06: Read Z actuator movement counter

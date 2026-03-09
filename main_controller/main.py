@@ -1250,7 +1250,7 @@ def testServos():
     receiving_x = 6500
     receiving_z = 7000
 
-    gap = -10
+    gap = -20
     zgap = 0
 
     # Nozzle Data
@@ -1265,15 +1265,17 @@ def testServos():
     # Joint Data
     # joint_high = -1243
     joint_high = -965
-    joint_x = [-1770, -1690, -1610, -1530, -1450, -1370, -1290, -1210, -1130, -1050]
+    joint_x = [-1775, -1695, -1615, -1535, -1455, -1375, -1295, -1215, -1135, -1055]
     trans_joint_high = -600
 
     # deliver_joint_x = -3990
     deliver_joint_x = -3919
     deliver_joint_z = -1005
 
-    if pick_and_place.move_actuator_x(nozzle_x[1]-gap) != "success": return "error07"
-    if pick_and_place.move_actuator_z(deliver_nozzle_z+150) != "success": return "error06"
+    if pick_and_place.move_actuator_z(0) != "success": return "error06"
+
+    if pick_and_place.move_actuator_x(0) != "success": return "error07"
+    # if pick_and_place.move_actuator_x(deliver_joint_x-gap) != "success": return "error07"
 
 
 
@@ -1281,7 +1283,7 @@ if __name__ == "__main__":
 
     my_main(False)
 
-    testCam()
+    testServos()
 
     # testHome()
     # insertionServosOpen()

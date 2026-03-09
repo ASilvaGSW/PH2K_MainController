@@ -76,7 +76,7 @@ pick_and_place_camera = PickAndPlaceCamera(canbus, CANBUS_ID_PICK_AND_PLACE_CAME
 
 #Move Pick and Place
 def movePickandPlace():
-    global pick_and_place, insertion_servos, insertion_jig, pick_and_place_camera,first_pick_after_align
+    global pick_and_place, insertion_servos, insertion_jig, pick_and_place_camera
 
     receiving_x = 6500
     receiving_z = 7000
@@ -103,7 +103,6 @@ def movePickandPlace():
     deliver_joint_x = -3919
     deliver_joint_z = -1005
 
-
     # Initial Setup
     if insertion_servos.slider_joint_receive() != "success": return "error01"
     if insertion_servos.slider_nozzle_receive() != "success": return "error02"
@@ -116,10 +115,9 @@ def movePickandPlace():
     if pick_and_place.move_actuator_z(0) != "success": return "error06"
     if pick_and_place.move_actuator_x(0) != "success": return "error07"
     #
-    # # Pick Nozzle
-    time.sleep(1)
+    # Pick Nozzle
     # Get index from camera for Nozzle
-    n_nozzle = pick_and_place_camera.pick_up_nozzle() 
+    n_nozzle = pick_and_place_camera.pick_up_nozzle()
     print(n_nozzle)
 
     # Check for empty row (0xFF)
@@ -131,10 +129,10 @@ def movePickandPlace():
         n_nozzle = pick_and_place_camera.pick_up_nozzle()
         if n_nozzle == 255:
             return "error08"
-            
+
     if n_nozzle is None:
         return "error08.1"
-        
+
     # Ensure index is within bounds
     if n_nozzle >= len(nozzle_x):
         n_nozzle = len(nozzle_x) - 1 # Fallback or error? defaulting to last valid or erroring out
@@ -426,7 +424,18 @@ def pickUpHose():
 
     return "success"
 
+def testCam():
+    global pick_and_place_camera
+    ok = 0
+    noOk = 0
+    while True:
+        if (pick_and_place_camera.pick_up_nozzle()) != None                                                   :
+            ok += 1
+        else:
+            noOk += 1
 
+        print(f"Ok : {ok} , noOk : {noOk}")
+        time.sleep(2)
 
 def main():
     """
@@ -442,6 +451,7 @@ def main():
 
     print("=== Iniciando secuencia principal ===\n")
 
+    # testCam()
 
     # 1. Move pick and place (nozzle + joint)
     print("[1/3] Ejecutando movePickandPlace()...")

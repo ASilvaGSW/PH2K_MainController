@@ -63,8 +63,8 @@ class HoseJig:
         return status
 
     #Case 0x05: Move servos to open position
-    def gripper_open(self):
-        status, reply_data = self.canbus.send_message(self.canbus_id, [0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+    def gripper_open(self,flag=True):
+        status, reply_data = self.canbus.send_message(self.canbus_id, [0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],flag)
         return status
 
     #Case 0x06: Move servos to close position
