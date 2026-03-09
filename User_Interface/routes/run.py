@@ -555,6 +555,9 @@ _C = {
     "dark":     "#010409",
 }
 
+# Fonts: Helvetica/Courier work on both Windows and Linux (avoid Segoe UI/Consolas on Jetson)
+_FONT_UI, _FONT_MONO = "Helvetica", "Courier"
+
 _STEP_LABELS = ["1  PRE-FEED", "2  PICK & PLACE", "3  INSERTION", "4  TRANSPORT"]
 
 
@@ -594,7 +597,7 @@ class CycleRunnerApp:
         outer = tk.Frame(parent, bg=_C["border"], padx=1, pady=1)
         hdr = tk.Frame(outer, bg=_C["panel_hd"])
         hdr.pack(fill=tk.X)
-        tk.Label(hdr, text=title, font=("Segoe UI", 9, "bold"),
+        tk.Label(hdr, text=title, font=(_FONT_UI, 9, "bold"),
                  bg=_C["panel_hd"], fg=_C["txt2"],
                  anchor=tk.W).pack(padx=10, pady=(4, 3))
         inner = tk.Frame(outer, bg=_C["panel"], padx=14, pady=10)
@@ -636,23 +639,23 @@ class CycleRunnerApp:
 
         lf = tk.Frame(hdr, bg=_C["dark"])
         lf.pack(side=tk.LEFT, padx=24, fill=tk.Y)
-        tk.Label(lf, text="GSW", font=("Segoe UI", 24, "bold"),
+        tk.Label(lf, text="GSW", font=(_FONT_UI, 24, "bold"),
                  bg=_C["dark"], fg=_C["accent"]).pack(side=tk.LEFT)
         tk.Label(lf, text="HOSE ASSEMBLY SYSTEM",
-                 font=("Segoe UI", 13), bg=_C["dark"],
+                 font=(_FONT_UI, 13), bg=_C["dark"],
                  fg=_C["txt"]).pack(side=tk.LEFT, padx=(14, 0), pady=(6, 0))
 
         rf = tk.Frame(hdr, bg=_C["dark"])
         rf.pack(side=tk.RIGHT, padx=24, fill=tk.Y)
 
-        self.lbl_clock = tk.Label(rf, font=("Consolas", 13),
+        self.lbl_clock = tk.Label(rf, font=(_FONT_MONO, 13),
                                   bg=_C["dark"], fg=_C["txt2"])
         self.lbl_clock.pack(side=tk.RIGHT, pady=16)
 
         can_ok = canbus is not None
         can_c = _C["green"] if can_ok else _C["red"]
         can_t = "CAN  ONLINE" if can_ok else "CAN  OFFLINE"
-        tk.Label(rf, text=can_t, font=("Consolas", 10, "bold"),
+        tk.Label(rf, text=can_t, font=(_FONT_MONO, 10, "bold"),
                  bg=_C["dark"], fg=can_c).pack(side=tk.RIGHT, padx=(0, 28), pady=18)
 
     # --- left column ---
@@ -676,7 +679,7 @@ class CycleRunnerApp:
 
         for i, txt in enumerate(_STEP_LABELS):
             if i > 0:
-                tk.Label(row, text="\u2192", font=("Segoe UI", 16),
+                tk.Label(row, text="\u2192", font=(_FONT_UI, 16),
                          bg=_C["panel"], fg=_C["txt2"]).pack(side=tk.LEFT, padx=6)
 
             border = tk.Frame(row, bg=_C["border"], padx=1, pady=1)
@@ -685,11 +688,11 @@ class CycleRunnerApp:
             cell = tk.Frame(border, bg=_C["bg"], padx=10, pady=10)
             cell.pack(fill=tk.BOTH)
 
-            dot = tk.Label(cell, text="\u25CF", font=("Segoe UI", 9),
+            dot = tk.Label(cell, text="\u25CF", font=(_FONT_UI, 9),
                            bg=_C["bg"], fg=_C["txt2"])
             dot.pack(side=tk.LEFT, padx=(0, 6))
 
-            lbl = tk.Label(cell, text=txt, font=("Consolas", 10, "bold"),
+            lbl = tk.Label(cell, text=txt, font=(_FONT_MONO, 10, "bold"),
                            bg=_C["bg"], fg=_C["txt2"])
             lbl.pack(side=tk.LEFT)
 
@@ -701,19 +704,19 @@ class CycleRunnerApp:
         top_row = tk.Frame(parent, bg=_C["panel"])
         top_row.pack(fill=tk.X, pady=(0, 14))
 
-        tk.Label(top_row, text="TARGET CYCLES", font=("Segoe UI", 11),
+        tk.Label(top_row, text="TARGET CYCLES", font=(_FONT_UI, 11),
                  bg=_C["panel"], fg=_C["txt2"]).pack(side=tk.LEFT)
 
         self.spin = tk.Spinbox(
             top_row, from_=1, to=9999, textvariable=self.total_cycles,
-            width=6, font=("Consolas", 18, "bold"), justify=tk.CENTER,
+            width=6, font=(_FONT_MONO, 18, "bold"), justify=tk.CENTER,
             bg="#21262d", fg=_C["txt"], insertbackground=_C["txt"],
             highlightbackground=_C["border"], highlightthickness=1,
             buttonbackground=_C["panel_hd"], relief=tk.FLAT
         )
         self.spin.pack(side=tk.LEFT, padx=20)
 
-        _bf = ("Segoe UI", 12, "bold")
+        _bf = (_FONT_UI, 12, "bold")
 
         r1 = tk.Frame(parent, bg=_C["panel"])
         r1.pack(fill=tk.X)
@@ -783,29 +786,29 @@ class CycleRunnerApp:
         def _row(label_text):
             r = tk.Frame(parent, bg=_C["panel"])
             r.pack(fill=tk.X, pady=5)
-            tk.Label(r, text=label_text, font=("Segoe UI", 11),
+            tk.Label(r, text=label_text, font=(_FONT_UI, 11),
                      bg=_C["panel"], fg=_C["txt2"], width=14,
                      anchor=tk.W).pack(side=tk.LEFT)
             return r
 
         sr = _row("STATUS")
-        self.status_dot = tk.Label(sr, text="\u25CF", font=("Segoe UI", 16),
+        self.status_dot = tk.Label(sr, text="\u25CF", font=(_FONT_UI, 16),
                                    bg=_C["panel"], fg=_C["txt2"])
         self.status_dot.pack(side=tk.LEFT, padx=(0, 8))
         self.lbl_status = tk.Label(sr, text="READY",
-                                   font=("Consolas", 16, "bold"),
+                                   font=(_FONT_MONO, 16, "bold"),
                                    bg=_C["panel"], fg=_C["txt2"])
         self.lbl_status.pack(side=tk.LEFT)
 
         cr = _row("CYCLE")
         self.lbl_cycle = tk.Label(cr, text="0 / 0",
-                                  font=("Consolas", 16, "bold"),
+                                  font=(_FONT_MONO, 16, "bold"),
                                   bg=_C["panel"], fg=_C["txt"])
         self.lbl_cycle.pack(side=tk.LEFT)
 
         st = _row("CURRENT STEP")
         self.lbl_step = tk.Label(st, text="---",
-                                 font=("Consolas", 13),
+                                 font=(_FONT_MONO, 13),
                                  bg=_C["panel"], fg=_C["txt"])
         self.lbl_step.pack(side=tk.LEFT)
 
@@ -813,10 +816,10 @@ class CycleRunnerApp:
         def _time_row(label_text, default):
             r = tk.Frame(parent, bg=_C["panel"])
             r.pack(fill=tk.X, pady=5)
-            tk.Label(r, text=label_text, font=("Segoe UI", 11),
+            tk.Label(r, text=label_text, font=(_FONT_UI, 11),
                      bg=_C["panel"], fg=_C["txt2"], width=14,
                      anchor=tk.W).pack(side=tk.LEFT)
-            lbl = tk.Label(r, text=default, font=("Consolas", 16, "bold"),
+            lbl = tk.Label(r, text=default, font=(_FONT_MONO, 16, "bold"),
                            bg=_C["panel"], fg=_C["txt"])
             lbl.pack(side=tk.LEFT)
             return lbl
@@ -848,7 +851,7 @@ class CycleRunnerApp:
             fill = _C["green"] if self._pval >= 100 else _C["accent"]
             c.create_rectangle(0, 0, fw, h, fill=fill, outline="")
         c.create_text(w // 2, h // 2, text=f"{self._pval:.1f} %",
-                      fill="white", font=("Consolas", 15, "bold"))
+                      fill="white", font=(_FONT_MONO, 15, "bold"))
 
     # --- log ---
 
@@ -860,7 +863,7 @@ class CycleRunnerApp:
         frame.pack(fill=tk.BOTH, expand=True)
 
         self.log_text = tk.Text(
-            frame, font=("Consolas", 10), state=tk.DISABLED, wrap=tk.WORD,
+            frame, font=(_FONT_MONO, 10), state=tk.DISABLED, wrap=tk.WORD,
             bg="#0d1117", fg="#8b949e", insertbackground=_C["txt"],
             selectbackground="#264f78", highlightthickness=1,
             highlightbackground=_C["border"], relief=tk.FLAT)
