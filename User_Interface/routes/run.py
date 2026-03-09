@@ -723,49 +723,46 @@ class CycleRunnerApp:
         r2 = tk.Frame(parent, bg=_C["panel"])
         r2.pack(fill=tk.X, pady=(6, 0))
 
+        # Plain ASCII text, no cursor override - avoids stack smashing on Jetson
+        _btn_opts = dict(font=_bf, relief=tk.FLAT, width=14, height=2, bd=0)
+
         self.btn_start = tk.Button(
-            r1, text="\u25B6  START", command=self._on_start,
+            r1, text="START", command=self._on_start,
             bg="#238636", fg="white", activebackground="#2ea043",
-            activeforeground="white", font=_bf, relief=tk.FLAT,
-            cursor="hand2", width=14, height=2, bd=0)
+            activeforeground="white", **_btn_opts)
         self.btn_start.pack(side=tk.LEFT, padx=(0, 8))
 
         self.btn_pause = tk.Button(
-            r1, text="\u23F8  PAUSE", command=self._on_pause,
+            r1, text="PAUSE", command=self._on_pause,
             bg="#9e6a03", fg="white", activebackground="#bb8009",
-            activeforeground="white", state=tk.DISABLED, font=_bf,
-            relief=tk.FLAT, cursor="hand2", width=14, height=2, bd=0)
+            activeforeground="white", state=tk.DISABLED, **_btn_opts)
         self.btn_pause.pack(side=tk.LEFT, padx=8)
 
         self.btn_resume = tk.Button(
-            r2, text="\u25B6  RESUME", command=self._on_resume,
+            r2, text="RESUME", command=self._on_resume,
             bg="#1f6feb", fg="white", activebackground="#388bfd",
-            activeforeground="white", state=tk.DISABLED, font=_bf,
-            relief=tk.FLAT, cursor="hand2", width=14, height=2, bd=0)
+            activeforeground="white", state=tk.DISABLED, **_btn_opts)
         self.btn_resume.pack(side=tk.LEFT, padx=(0, 8))
 
         self.btn_stop = tk.Button(
-            r2, text="\u23F9  STOP", command=self._on_stop,
+            r2, text="STOP", command=self._on_stop,
             bg="#da3633", fg="white", activebackground="#f85149",
-            activeforeground="white", state=tk.DISABLED, font=_bf,
-            relief=tk.FLAT, cursor="hand2", width=14, height=2, bd=0)
+            activeforeground="white", state=tk.DISABLED, **_btn_opts)
         self.btn_stop.pack(side=tk.LEFT, padx=8)
 
         r3 = tk.Frame(parent, bg=_C["panel"])
         r3.pack(fill=tk.X, pady=(6, 0))
 
         self.btn_align_cassette = tk.Button(
-            r3, text="\u2316  ALIGN CASSETTE", command=self._on_align_cassette,
+            r3, text="ALIGN CASSETTE", command=self._on_align_cassette,
             bg="#6e40c9", fg="white", activebackground="#8957e5",
-            activeforeground="white", font=_bf, relief=tk.FLAT,
-            cursor="hand2", width=14, height=2, bd=0)
+            activeforeground="white", **_btn_opts)
         self.btn_align_cassette.pack(side=tk.LEFT, padx=(0, 8))
 
         self.btn_align_component = tk.Button(
-            r3, text="\u2316  ALIGN COMPONENT", command=self._on_align_component,
+            r3, text="ALIGN COMPONENT", command=self._on_align_component,
             bg="#6e40c9", fg="white", activebackground="#8957e5",
-            activeforeground="white", font=_bf, relief=tk.FLAT,
-            cursor="hand2", width=14, height=2, bd=0)
+            activeforeground="white", **_btn_opts)
         self.btn_align_component.pack(side=tk.LEFT, padx=8)
 
     # --- right column ---
