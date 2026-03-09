@@ -135,7 +135,8 @@ def prefeedHose():
 
 #Move Pick and Place
 def movePickandPlace():
-    global pick_and_place, insertion_servos, insertion_jig, pick_and_place_camera, first_pick_after_align
+    global pick_and_place, insertion_servos, insertion_jig, pick_and_place_camera
+    global first_pick_after_align_nozzle, first_pick_after_align_joint
 
     receiving_x = 6500
     receiving_z = 7000
@@ -258,9 +259,11 @@ def movePickandPlace():
 
     time.sleep(1)
 
-    first_pick_after_align = False
+    first_pick_after_align_nozzle = False
+    first_pick_after_align_joint = False
 
     return "success"
+
 
 #Main One Cycle
 def insertionServosOpen():
@@ -273,6 +276,32 @@ def insertionServosOpen():
     insertion_servos.cutter_open()
     insertion_servos.holder_hose_joint_open()
     insertion_servos.holder_hose_nozzle_open()
+
+
+def alignCassette():
+    """Move conveyors until sensors detect cassette alignment."""
+    global pick_and_place
+
+    if pick_and_place.move_left_conveyor_until_sensor(0, 1000) != "success":
+        return "error01"
+    if pick_and_place.move_right_conveyor_until_sensor(0, 1000) != "success":
+        return "error02"
+
+    return "success"
+
+
+def alignComponent():
+    """Run custom alignment for joint and nozzle, then flag first-pick mode."""
+    global pick_and_place_camera, first_pick_after_align_nozzle, first_pick_after_align_joint
+
+    pick_and_place_camera.custom_alignment_joint()
+    pick_and_place_camera.custom_alignment_nozzle()
+
+    first_pick_after_align_nozzle = True
+    first_pick_after_align_joint = True
+
+    return "success"
+
 
 def oneCycle():
 
@@ -698,6 +727,23 @@ class CycleRunnerApp:
             relief=tk.FLAT, cursor="hand2", width=14, height=2, bd=0)
         self.btn_stop.pack(side=tk.LEFT, padx=8)
 
+        r3 = tk.Frame(parent, bg=_C["panel"])
+        r3.pack(fill=tk.X, pady=(6, 0))
+
+        self.btn_align_cassette = tk.Button(
+            r3, text="\u2316  ALIGN CASSETTE", command=self._on_align_cassette,
+            bg="#6e40c9", fg="white", activebackground="#8957e5",
+            activeforeground="white", font=_bf, relief=tk.FLAT,
+            cursor="hand2", width=14, height=2, bd=0)
+        self.btn_align_cassette.pack(side=tk.LEFT, padx=(0, 8))
+
+        self.btn_align_component = tk.Button(
+            r3, text="\u2316  ALIGN COMPONENT", command=self._on_align_component,
+            bg="#6e40c9", fg="white", activebackground="#8957e5",
+            activeforeground="white", font=_bf, relief=tk.FLAT,
+            cursor="hand2", width=14, height=2, bd=0)
+        self.btn_align_component.pack(side=tk.LEFT, padx=8)
+
     # --- right column ---
 
     def _build_right(self, parent):
@@ -966,6 +1012,40 @@ class CycleRunnerApp:
         with self._lock:
             self._status_text = "STOPPING..."
         self._log("Stop requested - completing current operation...")
+
+    def _on_align_cassette(self):
+        if self.is_running:
+            self._log("Cannot align cassette while cycle is running")
+            return
+        self._log("Aligning cassette...")
+        self.btn_align_cassette.config(state=tk.DISABLED)
+
+        def _do():
+            result = alignCassette()
+            self.root.after(0, lambda: self._finish_align("Cassette", result))
+
+        threading.Thread(target=_do, daemon=True).start()
+
+    def _on_align_component(self):
+        if self.is_running:
+            self._log("Cannot align component while cycle is running")
+            return
+        self._log("Aligning component...")
+        self.btn_align_component.config(state=tk.DISABLED)
+
+        def _do():
+            result = alignComponent()
+            self.root.after(0, lambda: self._finish_align("Component", result))
+
+        threading.Thread(target=_do, daemon=True).start()
+
+    def _finish_align(self, name, result):
+        if result == "success":
+            self._log(f"{name} alignment: OK")
+        else:
+            self._log(f"{name} alignment FAULT: {result}")
+        self.btn_align_cassette.config(state=tk.NORMAL)
+        self.btn_align_component.config(state=tk.NORMAL)
 
     # ------------------------------------------------------------------ worker
 
