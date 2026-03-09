@@ -1,60 +1,40 @@
-from flask import Blueprint, request, jsonify, session
-from datetime import datetime
-import sys
-import os
-import time
-import tkinter as tk
-from tkinter import ttk
-import threading
-
 # PH2K production run routes and hardware orchestration.
 # Bridges the Flask user interface with main_controller hardware classes
 # over CAN bus to coordinate hose jigs, pullers, elevators, pick-and-place
 # units, transporters, and related devices involved in the protocol.
+#
+# JETSON: Import Tkinter FIRST to avoid stack smashing (known Tkinter issue on ARM).
+# CAN/hardware init is deferred to init_hardware() called from main().
+
+import sys
+import os
+import time
+import threading
+from datetime import datetime
+
+# Tkinter must load before CAN/device classes on Jetson
+import tkinter as tk
+from tkinter import ttk
 
 # Add the main_controller directory to Python path
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'main_controller'))
 
-from classes.hose_jig import HoseJig
-from classes.hose_puller import HosePuller
-from classes.puller_extension import PullerExtension
-from classes.insertion_jig import InsertionJig
-from classes.elevator_in import ElevatorIn
-from classes.elevator_out import ElevatorOut
-from classes.pick_and_place import PickAndPlace
-from classes.insertion_servos import InsertionServos
-from classes.lubrication_feeder import LubricationFeeder
-from classes.transporter_fuyus import TransporterFuyus
-from classes.transporter_grippers import TransporterGrippers
-from classes.pick_and_place_camera import PickAndPlaceCamera
+# CAN and device instances - initialized by init_hardware()
+canbus = None
+hose_jig = None
+hose_puller = None
+puller_extension = None
+insertion_jig = None
+elevator_in = None
+elevator_out = None
+pick_and_place = None
+insertion_servos = None
+lubrication_feeder = None
+transporter_fuyus = None
+transporter_grippers = None
+pick_and_place_camera = None
 
-# Now we can import the Canbus class
-try:
-    if sys.platform.startswith('win32'):
-        from classes.canbus import Canbus
-        print("Windows detected. Importing Canbus from classes.canbus")
-    elif sys.platform.startswith('linux'):
-        from classes.canbus_jetson import Canbus
-        print("Linux detected. Importing Canbus from classes.canbus_jetson")
-    else:
-        raise ImportError("Unsupported operating system for CAN bus")
-
-    print("Canbus class found. CAN bus functionality will be enabled.")
-
-    canbus = Canbus()
-    start_result = canbus.start_canbus()
-    print(f"Initial CAN bus start result: {start_result}")
-    print(f"CAN bus is_started: {canbus.is_started}")
-
-except ImportError as e:
-    # Fallback if import fails - we'll handle this gracefully
-    print(f"Canbus class not found: {e}. CAN bus functionality will be disabled.")
-    canbus = None
-except Exception as e:
-    print(f"Error initializing CAN bus: {e}")
-    canbus = None
-
-# Ids
+# CAN IDs
 CANBUS_ID_JIG = 0x0CA
 CANBUS_ID_PULLER = 0x192
 CANBUS_ID_EXTENSION = 0x193
@@ -68,19 +48,60 @@ CANBUS_ID_TRANSPORTER_FUYUS = 0x021
 CANBUS_ID_TRANSPORTER_GRIPPERS = 0x020
 CANBUS_ID_PICK_AND_PLACE_CAMERA = 0x001
 
-#Instance Declaration
-hose_jig = HoseJig(canbus, CANBUS_ID_JIG)
-hose_puller = HosePuller(canbus, CANBUS_ID_PULLER)
-puller_extension = PullerExtension(canbus, CANBUS_ID_EXTENSION)
-insertion_jig = InsertionJig(canbus, CANBUS_ID_INSERTION)
-elevator_in = ElevatorIn(canbus, CANBUS_ID_ELEVATOR_IN)
-elevator_out = ElevatorOut(canbus, CANBUS_ID_ELEVATOR_OUT)
-pick_and_place = PickAndPlace(canbus, CANBUS_ID_PICK_AND_PLACE)
-insertion_servos = InsertionServos(canbus, CANBUS_ID_INSERTION_SERVOS)
-lubrication_feeder = LubricationFeeder(canbus, CANBUS_ID_LUBRICATION_FEEDER)
-transporter_fuyus = TransporterFuyus(canbus, CANBUS_ID_TRANSPORTER_FUYUS)
-transporter_grippers = TransporterGrippers(canbus, CANBUS_ID_TRANSPORTER_GRIPPERS)
-pick_and_place_camera = PickAndPlaceCamera(canbus, CANBUS_ID_PICK_AND_PLACE_CAMERA)
+
+def init_hardware():
+    """Initialize CAN bus and device instances. Called from main() after Tkinter is ready."""
+    global canbus, hose_jig, hose_puller, puller_extension, insertion_jig
+    global elevator_in, elevator_out, pick_and_place, insertion_servos
+    global lubrication_feeder, transporter_fuyus, transporter_grippers, pick_and_place_camera
+
+    from classes.hose_jig import HoseJig
+    from classes.hose_puller import HosePuller
+    from classes.puller_extension import PullerExtension
+    from classes.insertion_jig import InsertionJig
+    from classes.elevator_in import ElevatorIn
+    from classes.elevator_out import ElevatorOut
+    from classes.pick_and_place import PickAndPlace
+    from classes.insertion_servos import InsertionServos
+    from classes.lubrication_feeder import LubricationFeeder
+    from classes.transporter_fuyus import TransporterFuyus
+    from classes.transporter_grippers import TransporterGrippers
+    from classes.pick_and_place_camera import PickAndPlaceCamera
+
+    try:
+        if sys.platform.startswith('win32'):
+            from classes.canbus import Canbus
+            print("Windows detected. Importing Canbus from classes.canbus")
+        elif sys.platform.startswith('linux'):
+            from classes.canbus_jetson import Canbus
+            print("Linux detected. Importing Canbus from classes.canbus_jetson")
+        else:
+            raise ImportError("Unsupported operating system for CAN bus")
+
+        canbus = Canbus()
+        start_result = canbus.start_canbus()
+        print(f"Initial CAN bus start result: {start_result}")
+        print(f"CAN bus is_started: {canbus.is_started}")
+
+        hose_jig = HoseJig(canbus, CANBUS_ID_JIG)
+        hose_puller = HosePuller(canbus, CANBUS_ID_PULLER)
+        puller_extension = PullerExtension(canbus, CANBUS_ID_EXTENSION)
+        insertion_jig = InsertionJig(canbus, CANBUS_ID_INSERTION)
+        elevator_in = ElevatorIn(canbus, CANBUS_ID_ELEVATOR_IN)
+        elevator_out = ElevatorOut(canbus, CANBUS_ID_ELEVATOR_OUT)
+        pick_and_place = PickAndPlace(canbus, CANBUS_ID_PICK_AND_PLACE)
+        insertion_servos = InsertionServos(canbus, CANBUS_ID_INSERTION_SERVOS)
+        lubrication_feeder = LubricationFeeder(canbus, CANBUS_ID_LUBRICATION_FEEDER)
+        transporter_fuyus = TransporterFuyus(canbus, CANBUS_ID_TRANSPORTER_FUYUS)
+        transporter_grippers = TransporterGrippers(canbus, CANBUS_ID_TRANSPORTER_GRIPPERS)
+        pick_and_place_camera = PickAndPlaceCamera(canbus, CANBUS_ID_PICK_AND_PLACE_CAMERA)
+
+    except ImportError as e:
+        print(f"Canbus class not found: {e}. CAN bus functionality will be disabled.")
+        canbus = None
+    except Exception as e:
+        print(f"Error initializing CAN bus: {e}")
+        canbus = None
 
 first_pick_after_align_nozzle = False
 first_pick_after_align_joint = True
@@ -1146,6 +1167,8 @@ class CycleRunnerApp:
 def main():
     global _app
     root = tk.Tk()
+    # Initialize CAN/hardware AFTER Tkinter is ready (avoids stack smashing on Jetson)
+    init_hardware()
     _app = CycleRunnerApp(root)
     root.mainloop()
 
