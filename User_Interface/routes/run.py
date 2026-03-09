@@ -7,7 +7,10 @@ import tkinter as tk
 from tkinter import ttk
 import threading
 
-#new comments
+# PH2K production run routes and hardware orchestration.
+# Bridges the Flask user interface with main_controller hardware classes
+# over CAN bus to coordinate hose jigs, pullers, elevators, pick-and-place
+# units, transporters, and related devices involved in the protocol.
 
 # Add the main_controller directory to Python path
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'main_controller'))
