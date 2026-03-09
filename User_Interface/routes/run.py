@@ -79,7 +79,8 @@ transporter_fuyus = TransporterFuyus(canbus, CANBUS_ID_TRANSPORTER_FUYUS)
 transporter_grippers = TransporterGrippers(canbus, CANBUS_ID_TRANSPORTER_GRIPPERS)
 pick_and_place_camera = PickAndPlaceCamera(canbus, CANBUS_ID_PICK_AND_PLACE_CAMERA)
 
-first_pick_after_align = False
+first_pick_after_align_nozzle = False
+first_pick_after_align_joint = True
 
 # ======================== Pause / Stop Control ========================
 
@@ -87,11 +88,32 @@ _pause_event = threading.Event()
 _pause_event.set()
 _stop_requested = False
 
+# Reference to the running Tkinter app (set in main)
+_app = None
+
 
 def wait_if_paused():
     """Blocks while paused. Returns False when stop has been requested."""
     _pause_event.wait()
     return not _stop_requested
+
+
+def pause_for_visual_check(status_msg: str):
+    """
+    Trigger an automatic pause so the operator can visually inspect alignment.
+    Shows a status/log message in the UI and waits until RESUME is pressed.
+    Returns False if a stop is requested while paused.
+    """
+    global _app
+
+    # Put system into paused state
+    _pause_event.clear()
+
+    # Notify UI (if running) so buttons/status are updated
+    if _app is not None:
+        _app.notify_auto_pause(status_msg)
+
+    return wait_if_paused()
 
 
 # ======================== Machine Functions ========================
@@ -128,7 +150,7 @@ def movePickandPlace():
 
     # Joint Data
     joint_high = -965
-    joint_x = [-1770,-1690,-1610,-1530,-1450,-1370,-1290,-1210,-1130,-1050]
+    joint_x = [-1775, -1695, -1615, -1535, -1455, -1375, -1295, -1215, -1135, -1055]
     trans_joint_high = -600
 
     deliver_joint_x = -3919
@@ -155,7 +177,7 @@ def movePickandPlace():
     if n_nozzle == 255:
         print("Nozzle row empty, aligning...")
         pick_and_place_camera.custom_alignment_nozzle()
-        first_pick_after_align = True
+        first_pick_after_align_nozzle = True
         n_nozzle = pick_and_place_camera.pick_up_nozzle()
         if n_nozzle == 255:
             return "error08"
@@ -168,6 +190,12 @@ def movePickandPlace():
         return f"error09_index_{n_nozzle}"
 
     if pick_and_place.move_actuator_x(nozzle_x[n_nozzle]- gap) != "success": return "error09"
+
+    if first_pick_after_align_nozzle:
+        if pick_and_place.move_actuator_z(nozzle_high + 100) != "success": return "error10"
+        # Pause so operator can confirm nozzle alignment before picking
+        if not pause_for_visual_check("PAUSED: Confirm nozzle alignment then press RESUME"):
+            return "stopped"
     if pick_and_place.move_actuator_z(nozzle_high+zgap) != "success": return "error10"
     if pick_and_place.close_gripper() != "success": return "error11"
 
@@ -190,7 +218,7 @@ def movePickandPlace():
     if n_joint == 255:
         print("Joint row empty, aligning...")
         pick_and_place_camera.custom_alignment_joint()
-        first_pick_after_align = True
+        first_pick_after_align_joint = True
         n_joint = pick_and_place_camera.pick_up_joint()
         if n_joint == 255:
             return "error17"
@@ -202,6 +230,12 @@ def movePickandPlace():
         return f"error21_index_{n_joint}"
 
     if pick_and_place.move_actuator_x(joint_x[n_joint]-gap) != "success": return "error18"
+
+    if first_pick_after_align_joint:
+        if pick_and_place.move_actuator_z(joint_high + 100) != "success": return "error20"
+        # Pause so operator can confirm joint alignment before picking
+        if not pause_for_visual_check("PAUSED: Confirm joint alignment then press RESUME"):
+            return "stopped"
     if pick_and_place.move_actuator_z(joint_high+zgap) != "success": return "error20"
     if pick_and_place.close_gripper() != "success": return "error21"
 
@@ -224,7 +258,6 @@ def movePickandPlace():
     first_pick_after_align = False
 
     return "success"
-
 
 #Main One Cycle
 def insertionServosOpen():
@@ -284,7 +317,7 @@ def oneCycle():
     preefeder_speed = 50
     feed_hose_time = 3.0
     lubricate_nozzle_time = 0.03
-    lubricate_joint_time = 0.03
+    lubricate_joint_time = 0.01
     hose_puller_y_speed = 200
     hose_puller_y_speed_for_alignment = 10
     feeder_speed = 290
@@ -294,7 +327,7 @@ def oneCycle():
 
     #****************************** Routine ******************************
 
-    insertionServosOpen()
+    # insertionServosOpen()
     if hose_jig.gripper_open() != "success" : return "error01"
     if insertion_servos.slider_nozzle_receive() != "success" : return "error02"
 
@@ -409,9 +442,9 @@ def oneCycle():
     if hose_jig.gripper_close() != "success" : return "error60"
     if puller_extension.open_gripper() != "success" : return "error61"
     if hose_puller.move_z_actuator(safe_position) != "success" : return "error62"
-    if hose_jig.deliver_position() != "success" : return "error63"
-    if hose_jig.gripper_open() != "success" : return "error64"
-    if hose_puller.move_z_actuator(0) != "success" : return "error65"
+    if hose_jig.deliver_position(False) != "success" : return "error63"
+    if hose_jig.gripper_open(False) != "success" : return "error64"
+    if hose_puller.move_z_actuator(0,False) != "success" : return "error65"
 
     return "success"
 
@@ -444,6 +477,8 @@ def pickUpHose():
 
 
 # ======================== Tkinter UI ========================
+
+ENABLE_PICKUP_HOSE = True
 
 STEPS = [
     ("prefeedHose",       "Pre-Feed Hose",    prefeedHose),
@@ -956,6 +991,12 @@ class CycleRunnerApp:
                     self._status_text = f"RUNNING: {dname}"
 
                 self._log(f"    {dname}...")
+
+                # Optionally skip the Transport Hose step (pickUpHose)
+                if fname == "pickUpHose" and not ENABLE_PICKUP_HOSE:
+                    self._log(f"    {dname}: skipped (disabled)")
+                    continue
+
                 result = func()
 
                 if result == "stopped":
@@ -995,6 +1036,23 @@ class CycleRunnerApp:
         self.btn_resume.config(state=tk.DISABLED)
         self.btn_stop.config(state=tk.DISABLED)
 
+    # ------------------------------------------------------------------ auto-pause from machine code
+
+    def notify_auto_pause(self, status_msg: str):
+        """
+        Called from worker thread when code requests a visual inspection pause.
+        Updates UI text, enables RESUME button, and logs the message.
+        """
+        def _do():
+            # Show pause state and enable resume
+            self.btn_pause.config(state=tk.DISABLED)
+            self.btn_resume.config(state=tk.NORMAL)
+            with self._lock:
+                self._status_text = status_msg
+            self._log(status_msg)
+
+        self.root.after(0, _do)
+
     def _on_close(self):
         global _stop_requested
         _stop_requested = True
@@ -1003,8 +1061,9 @@ class CycleRunnerApp:
 
 
 def main():
+    global _app
     root = tk.Tk()
-    CycleRunnerApp(root)
+    _app = CycleRunnerApp(root)
     root.mainloop()
 
 
