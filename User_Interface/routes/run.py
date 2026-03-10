@@ -531,7 +531,9 @@ def pickUpHose():
 
 # ======================== Tkinter UI ========================
 
-ENABLE_PICKUP_HOSE = True
+# Validation flags: enable/disable optional steps
+ENABLE_PICK_AND_PLACE = True     # Toggle Pick & Place step
+ENABLE_PICKUP_HOSE   = True     # Toggle Transport Hose (transporter) step
 
 STEPS = [
     ("prefeedHose",       "Pre-Feed Hose",    prefeedHose),
@@ -1096,7 +1098,10 @@ class CycleRunnerApp:
 
                 self._log(f"    {dname}...")
 
-                # Optionally skip the Transport Hose step (pickUpHose)
+                # Optionally skip the Pick & Place and Transport Hose steps
+                if fname == "movePickandPlace" and not ENABLE_PICK_AND_PLACE:
+                    self._log(f"    {dname}: skipped (disabled)")
+                    continue
                 if fname == "pickUpHose" and not ENABLE_PICKUP_HOSE:
                     self._log(f"    {dname}: skipped (disabled)")
                     continue
