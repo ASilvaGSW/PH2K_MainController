@@ -14,7 +14,7 @@ from datetime import datetime
 
 # Tkinter must load before CAN/device classes on Jetson
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 
 # Add the main_controller directory to Python path
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'main_controller'))
@@ -538,11 +538,11 @@ ENABLE_PICKUP_HOSE   = True     # Toggle Transport Hose (transporter) step
 STEPS = [
     ("prefeedHose",       "Pre-Feed Hose",    prefeedHose),
     ("movePickandPlace",  "Pick & Place",     movePickandPlace),
-    ("oneCycle",          "Insertion Cycle",   oneCycle),
-    ("pickUpHose",        "Transport Hose",    pickUpHose),
+    ("oneCycle",          "Insertion Cycle",  oneCycle),
+    ("pickUpHose",        "Transport Hose",   pickUpHose),
 ]
 
-_C = {
+_DARK_THEME = {
     "bg":       "#0d1117",
     "panel":    "#161b22",
     "panel_hd": "#1c2128",
@@ -556,6 +556,24 @@ _C = {
     "cyan":     "#39d2c0",
     "dark":     "#010409",
 }
+
+_LIGHT_THEME = {
+    "bg":       "#f5f5f5",
+    "panel":    "#ffffff",
+    "panel_hd": "#e0e0e0",
+    "border":   "#b0b0b0",
+    "txt":      "#111111",
+    "txt2":     "#555555",
+    "accent":   "#0066cc",
+    "green":    "#1a7f37",
+    "amber":    "#b38600",
+    "red":      "#cc0000",
+    "cyan":     "#008b8b",
+    "dark":     "#dddddd",
+}
+
+# Current theme colors
+_C = _DARK_THEME.copy()
 
 # Fonts: Helvetica/Courier work on both Windows and Linux (avoid Segoe UI/Consolas on Jetson)
 _FONT_UI, _FONT_MONO = "Helvetica", "Courier"
@@ -574,7 +592,12 @@ class CycleRunnerApp:
         self.root.bind('<F11>', lambda e: self.root.attributes(
             '-fullscreen', not self.root.attributes('-fullscreen')))
 
+        self.current_theme = "dark"
+
         self.total_cycles = tk.IntVar(value=1)
+        # UI-backed flags for optional steps
+        self.var_enable_pick_and_place = tk.BooleanVar(value=ENABLE_PICK_AND_PLACE)
+        self.var_enable_pickup_hose = tk.BooleanVar(value=ENABLE_PICKUP_HOSE)
         self.is_running = False
 
         self._lock = threading.Lock()
@@ -587,6 +610,10 @@ class CycleRunnerApp:
         self._status_text = "READY"
         self._step_text = "---"
         self._finished = False
+
+        # Fault history (last N faults) and log file path
+        self._fault_history = []
+        self._fault_log_path = os.path.join(os.path.dirname(__file__), "fault_history.log")
 
         self._build_ui()
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -621,6 +648,7 @@ class CycleRunnerApp:
 
         body = tk.Frame(self.root, bg=_C["bg"], padx=28, pady=14)
         body.pack(fill=tk.BOTH, expand=True)
+        self.body_frame = body
 
         top = tk.Frame(body, bg=_C["bg"])
         top.pack(fill=tk.BOTH, expand=True)
@@ -630,7 +658,7 @@ class CycleRunnerApp:
         self._build_left(top)
         self._build_right(top)
         self._build_progress(body)
-        self._build_log(body)
+        self._build_fault_history(body)
 
     # --- header ---
 
@@ -638,6 +666,7 @@ class CycleRunnerApp:
         hdr = tk.Frame(self.root, bg=_C["dark"], height=58)
         hdr.pack(fill=tk.X)
         hdr.pack_propagate(False)
+        self.header_frame = hdr
 
         lf = tk.Frame(hdr, bg=_C["dark"])
         lf.pack(side=tk.LEFT, padx=24, fill=tk.Y)
@@ -649,6 +678,7 @@ class CycleRunnerApp:
 
         rf = tk.Frame(hdr, bg=_C["dark"])
         rf.pack(side=tk.RIGHT, padx=24, fill=tk.Y)
+        self.header_right = rf
 
         self.lbl_clock = tk.Label(rf, font=(_FONT_MONO, 13),
                                   bg=_C["dark"], fg=_C["txt2"])
@@ -658,7 +688,24 @@ class CycleRunnerApp:
         can_c = _C["green"] if can_ok else _C["red"]
         can_t = "CAN  ONLINE" if can_ok else "CAN  OFFLINE"
         tk.Label(rf, text=can_t, font=(_FONT_MONO, 10, "bold"),
-                 bg=_C["dark"], fg=can_c).pack(side=tk.RIGHT, padx=(0, 28), pady=18)
+                 bg=_C["dark"], fg=can_c).pack(side=tk.RIGHT, padx=(0, 16), pady=18)
+
+        # Theme toggle button
+        self.btn_theme = tk.Button(
+            rf,
+            text="LIGHT" if self.current_theme == "dark" else "DARK",
+            font=(_FONT_UI, 9, "bold"),
+            relief=tk.FLAT,
+            bd=0,
+            bg=_C["panel"],
+            fg=_C["txt2"],
+            activebackground=_C["panel_hd"],
+            activeforeground=_C["txt"],
+            command=self._toggle_theme,
+            width=7,
+            height=1,
+        )
+        self.btn_theme.pack(side=tk.RIGHT, padx=(0, 12), pady=14)
 
     # --- left column ---
 
@@ -703,8 +750,9 @@ class CycleRunnerApp:
             self.step_dots.append(dot)
 
     def _build_config(self, parent):
+        # Row 1: target cycles
         top_row = tk.Frame(parent, bg=_C["panel"])
-        top_row.pack(fill=tk.X, pady=(0, 14))
+        top_row.pack(fill=tk.X, pady=(0, 10))
 
         tk.Label(top_row, text="TARGET CYCLES", font=(_FONT_UI, 11),
                  bg=_C["panel"], fg=_C["txt2"]).pack(side=tk.LEFT)
@@ -716,56 +764,101 @@ class CycleRunnerApp:
             highlightbackground=_C["border"], highlightthickness=1,
             buttonbackground=_C["panel_hd"], relief=tk.FLAT
         )
-        self.spin.pack(side=tk.LEFT, padx=20)
+        self.spin.pack(side=tk.LEFT, padx=16)
 
+        tk.Label(top_row, text="cycles",
+                 font=(_FONT_UI, 10), bg=_C["panel"], fg=_C["txt2"]).pack(side=tk.LEFT)
+
+        # Row 2: optional step toggles
+        opts_row = tk.Frame(parent, bg=_C["panel"])
+        opts_row.pack(fill=tk.X, pady=(0, 10))
+
+        def _toggle_pp():
+            global ENABLE_PICK_AND_PLACE
+            ENABLE_PICK_AND_PLACE = bool(self.var_enable_pick_and_place.get())
+
+        def _toggle_tr():
+            global ENABLE_PICKUP_HOSE
+            ENABLE_PICKUP_HOSE = bool(self.var_enable_pickup_hose.get())
+
+        pp_frame = tk.Frame(opts_row, bg=_C["panel"])
+        pp_frame.pack(side=tk.LEFT, padx=(0, 20))
+        tk.Label(pp_frame, text="Pick & Place",
+                 font=(_FONT_UI, 10), bg=_C["panel"], fg=_C["txt2"]).pack(side=tk.LEFT, padx=(0, 4))
+        tk.Checkbutton(
+            pp_frame,
+            variable=self.var_enable_pick_and_place,
+            command=_toggle_pp,
+            bg=_C["panel"], activebackground=_C["panel"],
+            selectcolor=_C["accent"]
+        ).pack(side=tk.LEFT)
+
+        tr_frame = tk.Frame(opts_row, bg=_C["panel"])
+        tr_frame.pack(side=tk.LEFT)
+        tk.Label(tr_frame, text="Transport Hose",
+                 font=(_FONT_UI, 10), bg=_C["panel"], fg=_C["txt2"]).pack(side=tk.LEFT, padx=(0, 4))
+        tk.Checkbutton(
+            tr_frame,
+            variable=self.var_enable_pickup_hose,
+            command=_toggle_tr,
+            bg=_C["panel"], activebackground=_C["panel"],
+            selectcolor=_C["accent"]
+        ).pack(side=tk.LEFT)
+
+        # Row 3–5: main controls in a 3x2 grid
         _bf = (_FONT_UI, 12, "bold")
+        # Unified dark button style: black background, white text (light gray when disabled)
+        _btn_opts = dict(
+            font=_bf,
+            relief=tk.FLAT,
+            width=16,
+            height=2,
+            bd=0,
+            bg="#000000",
+            fg="#f5f5f5",
+            activebackground="#111111",
+            activeforeground="#ffffff",
+            disabledforeground="#777777",
+        )
 
-        r1 = tk.Frame(parent, bg=_C["panel"])
-        r1.pack(fill=tk.X)
-        r2 = tk.Frame(parent, bg=_C["panel"])
-        r2.pack(fill=tk.X, pady=(6, 0))
+        grid = tk.Frame(parent, bg=_C["panel"])
+        grid.pack(fill=tk.X, pady=(4, 0))
 
-        # Plain ASCII text, no cursor override - avoids stack smashing on Jetson
-        _btn_opts = dict(font=_bf, relief=tk.FLAT, width=14, height=2, bd=0)
+        # Configure 2 equal columns
+        grid.columnconfigure(0, weight=1, uniform="buttons")
+        grid.columnconfigure(1, weight=1, uniform="buttons")
 
+        # Row 0
         self.btn_start = tk.Button(
-            r1, text="START", command=self._on_start,
-            bg="#238636", fg="white", activebackground="#2ea043",
-            activeforeground="white", **_btn_opts)
-        self.btn_start.pack(side=tk.LEFT, padx=(0, 8))
+            grid, text="START", command=self._on_start, **_btn_opts)
+        self.btn_start.grid(row=0, column=0, padx=(0, 6), pady=(0, 4), sticky="nsew")
 
         self.btn_pause = tk.Button(
-            r1, text="PAUSE", command=self._on_pause,
-            bg="#9e6a03", fg="white", activebackground="#bb8009",
-            activeforeground="white", state=tk.DISABLED, **_btn_opts)
-        self.btn_pause.pack(side=tk.LEFT, padx=8)
+            grid, text="PAUSE", command=self._on_pause,
+            state=tk.DISABLED, **_btn_opts)
+        self.btn_pause.grid(row=0, column=1, padx=(6, 0), pady=(0, 4), sticky="nsew")
 
+        # Row 1
         self.btn_resume = tk.Button(
-            r2, text="RESUME", command=self._on_resume,
-            bg="#1f6feb", fg="white", activebackground="#388bfd",
-            activeforeground="white", state=tk.DISABLED, **_btn_opts)
-        self.btn_resume.pack(side=tk.LEFT, padx=(0, 8))
+            grid, text="RESUME", command=self._on_resume,
+            state=tk.DISABLED, **_btn_opts)
+        self.btn_resume.grid(row=1, column=0, padx=(0, 6), pady=4, sticky="nsew")
 
         self.btn_stop = tk.Button(
-            r2, text="STOP", command=self._on_stop,
-            bg="#da3633", fg="white", activebackground="#f85149",
-            activeforeground="white", state=tk.DISABLED, **_btn_opts)
-        self.btn_stop.pack(side=tk.LEFT, padx=8)
+            grid, text="STOP", command=self._on_stop,
+            state=tk.DISABLED, **_btn_opts)
+        self.btn_stop.grid(row=1, column=1, padx=(6, 0), pady=4, sticky="nsew")
 
-        r3 = tk.Frame(parent, bg=_C["panel"])
-        r3.pack(fill=tk.X, pady=(6, 0))
-
+        # Row 2
         self.btn_align_cassette = tk.Button(
-            r3, text="ALIGN CASSETTE", command=self._on_align_cassette,
-            bg="#6e40c9", fg="white", activebackground="#8957e5",
-            activeforeground="white", **_btn_opts)
-        self.btn_align_cassette.pack(side=tk.LEFT, padx=(0, 8))
+            grid, text="ALIGN CASSETTE", command=self._on_align_cassette,
+            **_btn_opts)
+        self.btn_align_cassette.grid(row=2, column=0, padx=(0, 6), pady=(4, 0), sticky="nsew")
 
         self.btn_align_component = tk.Button(
-            r3, text="ALIGN COMPONENT", command=self._on_align_component,
-            bg="#6e40c9", fg="white", activebackground="#8957e5",
-            activeforeground="white", **_btn_opts)
-        self.btn_align_component.pack(side=tk.LEFT, padx=8)
+            grid, text="ALIGN COMPONENT", command=self._on_align_component,
+            **_btn_opts)
+        self.btn_align_component.grid(row=2, column=1, padx=(6, 0), pady=(4, 0), sticky="nsew")
 
     # --- right column ---
 
@@ -831,12 +924,60 @@ class CycleRunnerApp:
 
     def _build_progress(self, parent):
         po, pi = self._panel(parent, "OVERALL PROGRESS")
-        po.pack(fill=tk.X, pady=(12, 10))
+        po.pack(fill=tk.BOTH, expand=True, pady=(4, 10))
 
         self._pbar = tk.Canvas(pi, height=38, bg=_C["panel"], highlightthickness=0)
         self._pbar.pack(fill=tk.X, pady=(0, 2))
         self._pbar.bind('<Configure>', lambda e: self._draw_bar())
         self._pval = 0.0
+
+    # --- fault history ---
+
+    def _build_fault_history(self, parent):
+        fo, fi = self._panel(parent, "FAULT HISTORY")
+        fo.pack(fill=tk.BOTH, expand=True, pady=(4, 10))
+
+        # Header row
+        hdr = tk.Frame(fi, bg=_C["panel"])
+        hdr.pack(fill=tk.X, pady=(0, 4))
+        tk.Label(hdr, text="TIME", width=10, anchor=tk.W,
+                 font=(_FONT_MONO, 9, "bold"), bg=_C["panel"], fg=_C["txt2"]).pack(side=tk.LEFT, padx=(0, 6))
+        tk.Label(hdr, text="STEP", width=14, anchor=tk.W,
+                 font=(_FONT_MONO, 9, "bold"), bg=_C["panel"], fg=_C["txt2"]).pack(side=tk.LEFT, padx=(0, 6))
+        tk.Label(hdr, text="DETAIL", anchor=tk.W,
+                 font=(_FONT_MONO, 9, "bold"), bg=_C["panel"], fg=_C["txt2"]).pack(side=tk.LEFT, padx=(0, 6), fill=tk.X, expand=True)
+
+        # List of recent faults (5–10 lines)
+        self.fault_list = tk.Listbox(
+            fi,
+            height=6,
+            font=(_FONT_MONO, 9),
+            bg=_C["panel"],
+            fg=_C["txt"],
+            selectbackground="#264f78",
+            activestyle="none",
+            borderwidth=0,
+            highlightthickness=0,
+        )
+        self.fault_list.pack(fill=tk.BOTH, expand=True, padx=0, pady=(0, 4))
+
+        # Clear button
+        btn_row = tk.Frame(fi, bg=_C["panel"])
+        btn_row.pack(fill=tk.X)
+        tk.Button(
+            btn_row,
+            text="CLEAR HISTORY",
+            command=self._clear_fault_history,
+            font=(_FONT_UI, 9, "bold"),
+            relief=tk.FLAT,
+            bd=0,
+            bg="#111111",
+            fg=_C["txt2"],
+            activebackground="#222222",
+            activeforeground=_C["txt"]
+        ).pack(side=tk.RIGHT, padx=(0, 4), pady=(0, 2))
+
+        self.fault_outer = fo
 
     def _draw_bar(self):
         c = self._pbar
@@ -852,44 +993,74 @@ class CycleRunnerApp:
         c.create_text(w // 2, h // 2, text=f"{self._pval:.1f} %",
                       fill="white", font=(_FONT_MONO, 15, "bold"))
 
-    # --- log ---
+    # ------------------------------------------------------------------ log / alerts
 
-    def _build_log(self, parent):
-        lo, li = self._panel(parent, "SYSTEM LOG")
-        lo.pack(fill=tk.BOTH, expand=True)
+    def _log(self, msg: str):
+        """
+        Lightweight logging: print to console and show critical errors in a popup.
+        """
+        print(msg)
 
-        frame = tk.Frame(li, bg=_C["panel"])
-        frame.pack(fill=tk.BOTH, expand=True)
+        # If it's a fault or explicit error message, show a floating dialog
+        upper = msg.upper()
+        if "FAULT" in upper or "ERROR" in upper:
+            def _show():
+                messagebox.showerror("Machine Stopped", msg, parent=self.root)
+            self.root.after(0, _show)
 
-        self.log_text = tk.Text(
-            frame, font=(_FONT_MONO, 10), state=tk.DISABLED, wrap=tk.WORD,
-            bg="#0d1117", fg="#8b949e", insertbackground=_C["txt"],
-            selectbackground="#264f78", highlightthickness=1,
-            highlightbackground=_C["border"], relief=tk.FLAT)
-        sb = tk.Scrollbar(frame, orient=tk.VERTICAL, command=self.log_text.yview,
-                          bg=_C["panel"], troughcolor="#21262d")
-        self.log_text.configure(yscrollcommand=sb.set)
-        self.log_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        sb.pack(side=tk.RIGHT, fill=tk.Y)
+    # ------------------------------------------------------------------ theme
+
+    def _apply_theme(self, theme: str):
+        """
+        Apply dark or light theme by updating colors of key containers.
+        """
+        global _C
+        if theme == "dark":
+            _C = _DARK_THEME.copy()
+        else:
+            _C = _LIGHT_THEME.copy()
+
+        self.current_theme = theme
+
+        # Root and main frames
+        self.root.configure(bg=_C["bg"])
+        if hasattr(self, "header_frame"):
+            self.header_frame.configure(bg=_C["dark"])
+        if hasattr(self, "header_right"):
+            self.header_right.configure(bg=_C["dark"])
+        if hasattr(self, "body_frame"):
+            self.body_frame.configure(bg=_C["bg"])
+
+        # Update theme button appearance/text
+        if hasattr(self, "btn_theme"):
+            self.btn_theme.configure(
+                text="LIGHT" if theme == "dark" else "DARK",
+                bg=_C["panel"],
+                fg=_C["txt2"],
+                activebackground=_C["panel_hd"],
+                activeforeground=_C["txt"],
+            )
+
+        # Progress bar will use updated _C on next draw
+        self._draw_bar()
+
+        # Fault history background
+        if hasattr(self, "fault_outer"):
+            self.fault_outer.configure(bg=_C["border"])
+        if hasattr(self, "fault_list"):
+            self.fault_list.configure(bg=_C["panel"], fg=_C["txt"])
+
+    def _toggle_theme(self):
+        new_theme = "light" if self.current_theme == "dark" else "dark"
+        self._apply_theme(new_theme)
+
+    # ------------------------------------------------------------------ step indicators
 
     # ------------------------------------------------------------------ clock
 
     def _tick_clock(self):
         self.lbl_clock.config(text=datetime.now().strftime("%b %d, %Y   %H:%M:%S"))
         self.root.after(1000, self._tick_clock)
-
-    # ------------------------------------------------------------------ log
-
-    def _log(self, msg):
-        stamp = datetime.now().strftime("%H:%M:%S")
-        def _do():
-            self.log_text.config(state=tk.NORMAL)
-            self.log_text.insert(tk.END, f"  [{stamp}]  {msg}\n")
-            self.log_text.see(tk.END)
-            self.log_text.config(state=tk.DISABLED)
-        self.root.after(0, _do)
-
-    # ------------------------------------------------------------------ step indicators
 
     def _color_steps(self, active):
         for i, (f, l, d) in enumerate(zip(self.step_frames, self.step_lbls, self.step_dots)):
@@ -972,6 +1143,55 @@ class CycleRunnerApp:
                 self.lbl_avg.config(text="---")
 
         self.root.after(250, self._poll_ui)
+
+    # ------------------------------------------------------------------ fault recording
+
+    def _record_fault(self, step_name: str, code: str):
+        """
+        Add a fault entry to in-memory history, update UI list, and append to log file.
+        """
+        stamp = datetime.now().strftime("%H:%M:%S")
+
+        # Basic description mapping (extend as needed)
+        error_descriptions = {
+            "error01": "General device error",
+        }
+        desc = error_descriptions.get(code, "")
+
+        detail = f"{code}" + (f" - {desc}" if desc else "")
+        entry = f"{stamp:<8} {step_name:<14} {detail}"
+
+        # Keep only last 10 entries
+        self._fault_history.append(entry)
+        self._fault_history = self._fault_history[-10:]
+
+        def _update_list():
+            if hasattr(self, "fault_list"):
+                self.fault_list.delete(0, tk.END)
+                for e in self._fault_history:
+                    self.fault_list.insert(tk.END, e)
+
+        self.root.after(0, _update_list)
+
+        # Append to file for long-term history
+        try:
+            with open(self._fault_log_path, "a", encoding="utf-8") as f:
+                f.write(entry + "\n")
+        except Exception as e:
+            print(f"Error writing fault history file: {e}")
+
+    def _clear_fault_history(self):
+        """
+        Clear in-memory and on-disk fault history.
+        """
+        self._fault_history.clear()
+        if hasattr(self, "fault_list"):
+            self.fault_list.delete(0, tk.END)
+        try:
+            with open(self._fault_log_path, "w", encoding="utf-8") as f:
+                f.write("")
+        except Exception as e:
+            print(f"Error clearing fault history file: {e}")
 
     # ------------------------------------------------------------------ actions
 
@@ -1114,6 +1334,7 @@ class CycleRunnerApp:
                     return
                 if result != "success":
                     self._log(f"    FAULT in {dname}: {result}")
+                    self._record_fault(dname, str(result))
                     self._finish(f"FAULT: {result}")
                     return
 
