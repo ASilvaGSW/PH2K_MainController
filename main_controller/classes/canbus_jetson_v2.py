@@ -38,6 +38,9 @@ class Canbus:
         self._reader_thread = None
         self._stop_reader_event = threading.Event()
         self._send_lock = threading.Lock()  # Evita envíos concurrentes desde múltiples hilos
+        self._cleaner_thread = None
+        self._stop_cleaner_event = threading.Event()
+        self._message_ttl = 30.0  # segundos que se conserva un mensaje en la cola
         
         # Configurar automáticamente la interfaz CAN al inicializar
         self.setup_can_interface()
@@ -143,6 +146,11 @@ class Canbus:
             self._reader_thread = threading.Thread(target=self._reader_loop, daemon=True)
             self._reader_thread.start()
             
+            # Iniciar el hilo de limpieza de mensajes expirados
+            self._stop_cleaner_event.clear()
+            self._cleaner_thread = threading.Thread(target=self._cleaner_loop, daemon=True)
+            self._cleaner_thread.start()
+            
             self.is_started = True
             return True
         except can.CanError as e:
@@ -161,7 +169,9 @@ class Canbus:
             try:
                 msg = self.channel.recv(1.0)  # Timeout de 1 segundo para no bloquear
                 if msg is not None:
-                    self.incoming_messages_queue.put(msg)
+                    # Guardamos el mensaje junto con un timestamp para poder
+                    # descartar mensajes antiguos en el hilo de limpieza.
+                    self.incoming_messages_queue.put((msg, time.time()))
             except Exception as e:
                 if self.is_started:
                     print(f"Error in CAN reader thread: {e}")
@@ -235,8 +245,13 @@ class Canbus:
         try:
             while time.time() - start_time < timeout_seconds:
                 try:
-                    msg = self.incoming_messages_queue.get(timeout=0.1)
-                    
+                    packed = self.incoming_messages_queue.get(timeout=0.1)
+                    msg, enqueued_ts = packed
+
+                    # Si el mensaje lleva demasiado tiempo en la cola, lo descartamos
+                    if time.time() - enqueued_ts > self._message_ttl:
+                        continue
+
                     if msg.arbitration_id == search_can_id:
                         can_data = list(msg.data)
                         if len(can_data) > 1 and function_id == can_data[0]:
@@ -250,7 +265,7 @@ class Canbus:
                                 print(f"Valid response (error) from CAN ID {search_can_id}: {can_data}")
                                 return 'error', can_data
                     else:
-                        unmatched_messages.append(msg)
+                        unmatched_messages.append((msg, enqueued_ts))
 
                 except queue.Empty:
                     continue
@@ -267,12 +282,39 @@ class Canbus:
                 self.incoming_messages_queue.put(item)
             return 'not_found', None
 
+    def _cleaner_loop(self):
+        """Hilo de mantenimiento que elimina mensajes antiguos de la cola."""
+        print("CAN queue cleaner thread started.")
+        while not self._stop_cleaner_event.is_set():
+            try:
+                items_to_check = self.incoming_messages_queue.qsize()
+                now = time.time()
+                for _ in range(items_to_check):
+                    try:
+                        packed = self.incoming_messages_queue.get_nowait()
+                    except queue.Empty:
+                        break
+
+                    msg, enqueued_ts = packed
+                    if now - enqueued_ts <= self._message_ttl:
+                        self.incoming_messages_queue.put(packed)
+                    # Si está expirado, simplemente se descarta
+            except Exception as e:
+                print(f"Error in cleaner thread: {e}")
+
+            time.sleep(5.0)
+        print("CAN queue cleaner thread stopped.")
+
     def close_canbus(self):
         """Cierra la comunicación CAN y detiene el hilo lector."""
         if self.is_started:
             self._stop_reader_event.set()
             if self._reader_thread and self._reader_thread.is_alive():
                 self._reader_thread.join(timeout=1)
+
+            self._stop_cleaner_event.set()
+            if self._cleaner_thread and self._cleaner_thread.is_alive():
+                self._cleaner_thread.join(timeout=1)
 
             if self.channel:
                 self.channel.shutdown()
