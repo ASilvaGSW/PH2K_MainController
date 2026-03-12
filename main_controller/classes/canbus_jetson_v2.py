@@ -188,7 +188,7 @@ class Canbus:
                 break
         print("Message queue flushed.")
 
-    def send_message(self, can_id, data, wait_for_reply=False, max_retries=None):
+    def send_message(self, can_id, data, wait_for_reply=True, max_retries=None):
         """
         Envía un mensaje CAN y espera una respuesta del mismo CAN ID.
         Thread-safe: usa lock para envío y busca respuesta en la queue (no en el bus).
