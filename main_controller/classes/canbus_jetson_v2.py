@@ -34,7 +34,9 @@ class Canbus:
         self.interface = 'can0'  # Interfaz socketcan por defecto en Jetson
         
         # Nuevos atributos para el lector en segundo plano
-        self.incoming_messages_queue = queue.Queue()
+        # Buffer compartido de mensajes y candado para acceso concurrente
+        self._messages = []  # lista de tuplas (msg, timestamp)
+        self._messages_lock = threading.Lock()
         self._reader_thread = None
         self._stop_reader_event = threading.Event()
         self._send_lock = threading.Lock()  # Evita envíos concurrentes desde múltiples hilos
@@ -169,9 +171,9 @@ class Canbus:
             try:
                 msg = self.channel.recv(1.0)  # Timeout de 1 segundo para no bloquear
                 if msg is not None:
-                    # Guardamos el mensaje junto con un timestamp para poder
-                    # descartar mensajes antiguos en el hilo de limpieza.
-                    self.incoming_messages_queue.put((msg, time.time()))
+                    # Guardamos el mensaje junto con un timestamp en el buffer compartido
+                    with self._messages_lock:
+                        self._messages.append((msg, time.time()))
             except Exception as e:
                 if self.is_started:
                     print(f"Error in CAN reader thread: {e}")
@@ -179,14 +181,10 @@ class Canbus:
         print("CAN reader thread stopped.")
 
     def flush_buffer(self):
-        """Limpia la cola de mensajes pendientes. NO se llama desde send_message.
-        Cuidado en multi-hilo: puede eliminar respuestas que otros hilos esperan."""
-        while not self.incoming_messages_queue.empty():
-            try:
-                self.incoming_messages_queue.get_nowait()
-            except queue.Empty:
-                break
-        print("Message queue flushed.")
+        """Limpia el buffer de mensajes pendientes."""
+        with self._messages_lock:
+            self._messages.clear()
+        print("Message buffer flushed.")
 
     def send_message(self, can_id, data, wait_for_reply=True, max_retries=None):
         """
@@ -234,71 +232,64 @@ class Canbus:
 
     def read_message(self, timeout_seconds, search_can_id, function_id=0x00):
         """
-        Busca un mensaje específico en la cola (incoming_messages_queue), NO en el bus.
+        Busca un mensaje específico en el buffer interno, NO en el bus.
         El hilo lector es el único que lee del bus; las respuestas se consumen aquí.
-        Thread-safe: queue.Queue es seguro para múltiples consumidores.
         Returns a tuple (status, reply_data).
         """
-        start_time = time.time()
-        unmatched_messages = []
+        deadline = time.time() + timeout_seconds
 
         try:
-            while time.time() - start_time < timeout_seconds:
-                try:
-                    packed = self.incoming_messages_queue.get(timeout=0.1)
-                    msg, enqueued_ts = packed
+            while time.time() < deadline:
+                with self._messages_lock:
+                    now = time.time()
+                    # Filtramos mensajes no expirados y buscamos coincidencia
+                    i = 0
+                    while i < len(self._messages):
+                        msg, enqueued_ts = self._messages[i]
 
-                    # Si el mensaje lleva demasiado tiempo en la cola, lo descartamos
-                    if time.time() - enqueued_ts > self._message_ttl:
-                        continue
+                        # Descartar mensajes expirados
+                        if now - enqueued_ts > self._message_ttl:
+                            self._messages.pop(i)
+                            continue
 
-                    if msg.arbitration_id == search_can_id:
-                        can_data = list(msg.data)
-                        if len(can_data) > 1 and function_id == can_data[0]:
-                            for item in unmatched_messages:
-                                self.incoming_messages_queue.put(item)
-                            
-                            if can_data[1] == 1:
-                                print(f"Valid response (success) from CAN ID {search_can_id}: {can_data}")
-                                return 'success', can_data
-                            elif can_data[1] in [2, 3, 4]:
-                                print(f"Valid response (error) from CAN ID {search_can_id}: {can_data}")
-                                return 'error', can_data
-                    else:
-                        unmatched_messages.append((msg, enqueued_ts))
+                        if msg.arbitration_id == search_can_id:
+                            can_data = list(msg.data)
+                            if len(can_data) > 1 and function_id == can_data[0]:
+                                # Extraemos este mensaje del buffer y retornamos
+                                self._messages.pop(i)
+                                if can_data[1] == 1:
+                                    print(f"Valid response (success) from CAN ID {search_can_id}: {can_data}")
+                                    return 'success', can_data
+                                elif can_data[1] in [2, 3, 4]:
+                                    print(f"Valid response (error) from CAN ID {search_can_id}: {can_data}")
+                                    return 'error', can_data
+                                # Si el contenido no indica éxito/error, seguimos buscando
+                                continue
 
-                except queue.Empty:
-                    continue
-            
-            for item in unmatched_messages:
-                self.incoming_messages_queue.put(item)
-            
+                        i += 1
+
+                # Si no se encontró mensaje, esperar un poco antes de reintentar
+                time.sleep(0.01)
+
             print(f"No valid response from CAN ID {search_can_id} within {timeout_seconds}s.")
             return 'not_found', None
 
         except Exception as e:
             print(f"Error in read_message: {e}")
-            for item in unmatched_messages:
-                self.incoming_messages_queue.put(item)
             return 'not_found', None
 
     def _cleaner_loop(self):
-        """Hilo de mantenimiento que elimina mensajes antiguos de la cola."""
+        """Hilo de mantenimiento que elimina mensajes antiguos del buffer."""
         print("CAN queue cleaner thread started.")
         while not self._stop_cleaner_event.is_set():
             try:
-                items_to_check = self.incoming_messages_queue.qsize()
                 now = time.time()
-                for _ in range(items_to_check):
-                    try:
-                        packed = self.incoming_messages_queue.get_nowait()
-                    except queue.Empty:
-                        break
-
-                    msg, enqueued_ts = packed
-                    if now - enqueued_ts <= self._message_ttl:
-                        self.incoming_messages_queue.put(packed)
-                    # Si está expirado, simplemente se descarta
+                with self._messages_lock:
+                    # Conservamos solo los mensajes dentro del TTL
+                    self._messages = [
+                        (msg, ts) for (msg, ts) in self._messages
+                        if now - ts <= self._message_ttl
+                    ]
             except Exception as e:
                 print(f"Error in cleaner thread: {e}")
 
