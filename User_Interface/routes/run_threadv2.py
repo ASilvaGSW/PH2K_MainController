@@ -448,7 +448,7 @@ def oneCycle():
     if insertion_jig.move_x_axis(lubricate_nozzle) != "success" : return "error17"
     if insertion_jig.move_z_axis(lubrication_position_z) != "success" : return "error16"
     if lubrication_feeder.lubricate_nozzle(lubricate_nozzle_time) != "success" : return "error18"
-
+    time.sleep(.5)
     # Nozzle Insertion
     if insertion_jig.move_z_axis(insertion_position_z) != "success" : return "error20"
     if insertion_jig.move_x_axis(insert_nozzle) != "success" : return "error20"

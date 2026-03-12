@@ -189,7 +189,7 @@ class Canbus:
     def send_message(self, can_id, data, wait_for_reply=True, max_retries=None):
         """
         Envía un mensaje CAN y espera una respuesta del mismo CAN ID.
-        Thread-safe: usa lock para envío y busca respuesta en la queue (no en el bus).
+        Thread-safe: usa lock para envío y busca respuesta en el buffer (no en el bus).
         
         Args:
             can_id: ID del mensaje CAN
@@ -202,20 +202,23 @@ class Canbus:
                 reply_data: Datos de respuesta si es exitoso, None en caso contrario
         """
         try:
-            # NO flush_buffer: otros hilos pueden estar esperando sus respuestas en la queue
             message = can.Message(
                 arbitration_id=can_id,
                 data=bytes(data),
                 is_extended_id=False
             )
+            
+            # Registramos el momento del envío ANTES de enviar
+            send_time = time.time()
+            
             with self._send_lock:
                 self.channel.send(message)
             
             if not wait_for_reply:
                 return 'success', None
             
-            # Espera la respuesta usando el nuevo read_message con un timeout de 7 segundos
-            reply_status, reply_data = self.read_message(7, can_id + 0x400, data[0])
+            # Espera la respuesta, solo acepta mensajes que llegaron DESPUÉS de send_time
+            reply_status, reply_data = self.read_message(7, can_id + 0x400, data[0], sent_after=send_time)
             
             if reply_status == 'success':
                 return 'success', reply_data
@@ -230,10 +233,17 @@ class Canbus:
             print(f"Error in send_message: {e}")
             return 'error', None
 
-    def read_message(self, timeout_seconds, search_can_id, function_id=0x00):
+    def read_message(self, timeout_seconds, search_can_id, function_id=0x00, sent_after=0.0):
         """
         Busca un mensaje específico en el buffer interno, NO en el bus.
         El hilo lector es el único que lee del bus; las respuestas se consumen aquí.
+        
+        Args:
+            timeout_seconds: Tiempo máximo de espera
+            search_can_id: CAN ID a buscar
+            function_id: ID de función esperado en data[0]
+            sent_after: Solo considerar mensajes que llegaron DESPUÉS de este timestamp
+            
         Returns a tuple (status, reply_data).
         """
         deadline = time.time() + timeout_seconds
@@ -242,14 +252,18 @@ class Canbus:
             while time.time() < deadline:
                 with self._messages_lock:
                     now = time.time()
-                    # Filtramos mensajes no expirados y buscamos coincidencia
                     i = 0
                     while i < len(self._messages):
                         msg, enqueued_ts = self._messages[i]
 
-                        # Descartar mensajes expirados
+                        # Descartar mensajes expirados por TTL
                         if now - enqueued_ts > self._message_ttl:
                             self._messages.pop(i)
+                            continue
+
+                        # Ignorar mensajes que llegaron ANTES del envío actual
+                        if enqueued_ts < sent_after:
+                            i += 1
                             continue
 
                         if msg.arbitration_id == search_can_id:
