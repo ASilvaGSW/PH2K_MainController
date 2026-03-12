@@ -1281,9 +1281,9 @@ def testServos():
 
 if __name__ == "__main__":
 
-    my_main(False)
+    my_main(0)
 
-    testServos()
+    testCam()
 
     # testHome()
     # insertionServosOpen()

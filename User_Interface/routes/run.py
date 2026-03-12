@@ -389,7 +389,6 @@ def oneCycle():
     if insertion_servos.holder_hose_nozzle_semi_close() != "success" : return "error41"
     lubrication_feeder.move_feeder_until_ir(speed=feeder_speed)
     if insertion_servos.holder_hose_nozzle_close() != "success" : return "error41"
-    if lubrication_feeder.open_hose_holder() != "success" : return "error41"
 
     if not wait_if_paused(): return "stopped"
 
