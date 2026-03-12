@@ -48,10 +48,9 @@ CANBUS_ID_TRANSPORTER_FUYUS = 0x021
 CANBUS_ID_TRANSPORTER_GRIPPERS = 0x020
 CANBUS_ID_PICK_AND_PLACE_CAMERA = 0x001
 
-
-FEED_FLAG = True
-PICK_AND_PLACE_FLAG = False
-
+FIRST_FEED = True
+FEED_ERROR = None
+FEED_ERROR_LOCK = threading.Lock()
 
 def init_hardware():
     """Initialize CAN bus and device instances. Called from main() after Tkinter is ready."""
@@ -75,10 +74,10 @@ def init_hardware():
     try:
         if sys.platform.startswith('win32'):
             from classes.canbus_v2 import Canbus
-            print("Windows detected. Importing Canbus from classes.canbus_v2")
+            print("Windows detected. Importing Canbus from classes.canbus")
         elif sys.platform.startswith('linux'):
             from classes.canbus_jetson_v2 import Canbus
-            print("Linux detected. Importing Canbus from classes.canbus_jetson_v2")
+            print("Linux detected. Importing Canbus from classes.canbus_jetson")
         else:
             raise ImportError("Unsupported operating system for CAN bus")
 
@@ -110,6 +109,12 @@ def init_hardware():
 first_pick_after_align_nozzle = False
 first_pick_after_align_joint = True
 
+
+# ======================== Feeding Event ==============================
+
+feeding_event = threading.Event()
+done_feeding_event = threading.Event()
+
 # ======================== Pause / Stop Control ========================
 
 _pause_event = threading.Event()
@@ -118,33 +123,6 @@ _stop_requested = False
 
 # Reference to the running Tkinter app (set in main)
 _app = None
-
-# Prefeed background thread control
-_prefeed_stop_event = threading.Event()
-_prefeed_stop_event.set()  # initially set so thread exits if started before clear
-_first_feed_done_event = threading.Event()
-_feed_done_event = threading.Event()
-_feed_done_event.set()  # no feed in progress initially
-_feed_flag_lock = threading.Lock()
-
-# Pick-and-place background thread control
-_pnp_stop_event = threading.Event()
-_pnp_stop_event.set()
-_pnp_deliver_event = threading.Event()       # oneCycle tells PnP "jig ready, deliver now"
-_pnp_done_event = threading.Event()          # PnP tells oneCycle "delivery complete"
-_pnp_done_event.set()                        # no delivery in progress initially
-_pnp_first_ready_event = threading.Event()   # first pick done, PnP ready
-_pnp_error = None
-_pnp_error_lock = threading.Lock()
-
-
-def _set_pnp_error(code):
-    """Record a PnP error and unblock any thread waiting on PnP events."""
-    global _pnp_error
-    with _pnp_error_lock:
-        _pnp_error = code
-    _pnp_done_event.set()
-    _pnp_first_ready_event.set()
 
 
 def wait_if_paused():
@@ -173,233 +151,173 @@ def pause_for_visual_check(status_msg: str):
 
 # ======================== Machine Functions ========================
 
-def _prefeed_loop():
-    """
-    Background thread: when FEED_FLAG is True, runs the full feed sequence as soon as
-    possible (overlaps with pulling/cutting/alignment to save cycle time).
-    Stops when _prefeed_stop_event is set.
-    """
-    global FEED_FLAG, lubrication_feeder, insertion_servos
-    feeder_speed = 290
-    first_feed_done = False
-
-    while not _prefeed_stop_event.is_set():
-        do_feed = False
-        with _feed_flag_lock:
-            if FEED_FLAG:
-                FEED_FLAG = False
-                do_feed = True
-                _feed_done_event.clear()
-
-        if do_feed:
-            try:
-                lubrication_feeder.close_hose_holder()
-                insertion_servos.holder_hose_nozzle_semi_close()
-                lubrication_feeder.move_feeder_until_ir(speed=feeder_speed)
-                _feed_done_event.set()
-                if not first_feed_done:
-                    first_feed_done = True
-                    _first_feed_done_event.set()
-            except Exception as e:
-                _feed_done_event.set()
-                print(f"Prefeed thread error: {e}")
-
-        time.sleep(0.15)
-
-    # If run ended before first feed completed, unblock main thread
-    if not first_feed_done:
-        _first_feed_done_event.set()
-
-
 def prefeedHose():
-    """No-op when prefeed runs in background; kept for compatibility."""
+    global operation_status, lubrication_feeder, insertion_servos
+
+    if not wait_if_paused(): return "stopped"
+
+    lubrication_feeder.close_hose_holder()
+    insertion_servos.holder_hose_nozzle_semi_close()
+    print(lubrication_feeder.move_feeder_until_ir(speed=290, wait=False))
+
     return "success"
 
+def _prefeedHose_loop():
 
-def _pick_and_place_loop():
-    """
-    Background thread: continuously picks nozzle/joint from cassette, then waits
-    for oneCycle to signal that the insertion jig is ready before delivering.
-    Stops when _pnp_stop_event is set.
-    """
+    while True:
+
+        feeding_event.wait()
+        feeding_event.clear()
+        tmp_error = None
+
+        if lubrication_feeder.close_hose_holder() == "success":
+                    
+            if insertion_servos.holder_hose_nozzle_semi_close() == "success":
+            
+                if lubrication_feeder.move_feeder_until_ir(speed=290) == "success": 
+                    pass
+                else:
+                    tmp_error = "ER-PF03"
+            else :
+                tmp_error = "ER-PF02"
+        else:
+            tmp_error = "ER-PF01"
+
+
+        with FEED_ERROR_LOCK:
+            FEED_ERROR = tmp_error
+        done_feeding_event.set()
+
+
+#Move Pick and Place
+def movePickandPlace():
     global pick_and_place, insertion_servos, insertion_jig, pick_and_place_camera
     global first_pick_after_align_nozzle, first_pick_after_align_joint
+
+    receiving_x = 6500
+    receiving_z = 7000
 
     gap = -20
     zgap = 0
 
+    #Nozzle Data
     nozzle_high = -965
     nozzle_x = [-580,-450,-300,-170,-20,110]
     trans_nozzle_high = -600
+
     deliver_nozzle_x = -3633
     deliver_nozzle_z = -1005
 
+    # Joint Data
     joint_high = -965
     joint_x = [-1775, -1695, -1615, -1535, -1455, -1375, -1295, -1215, -1135, -1055]
     trans_joint_high = -600
+
     deliver_joint_x = -3919
     deliver_joint_z = -1005
 
-    first_cycle = True
+    # Initial Setup
+    if insertion_servos.slider_joint_receive() != "success": return "error01"
+    if insertion_servos.slider_nozzle_receive() != "success": return "error02"
+    if insertion_jig.move_z_axis(receiving_z) != "success": return "error03"
+    if insertion_jig.move_x_axis(receiving_x) != "success": return "error04"
+    if pick_and_place.open_gripper() != "success": return "error05"
 
-    while not _pnp_stop_event.is_set():
-        _pnp_done_event.clear()
+    if not wait_if_paused(): return "stopped"
 
-        try:
-            # ---- Pre-work: pick nozzle and get joint position ----
+    # Validate Home
+    if pick_and_place.move_actuator_z(0) != "success": return "error06"
+    if pick_and_place.move_actuator_x(0) != "success": return "error07"
 
-            if pick_and_place.open_gripper() != "success":
-                _set_pnp_error("error05"); return
-            if pick_and_place.move_actuator_z(0) != "success":
-                _set_pnp_error("error06"); return
-            if pick_and_place.move_actuator_x(0) != "success":
-                _set_pnp_error("error07"); return
+    # Pick Nozzle
+    time.sleep(1)
+    n_nozzle = pick_and_place_camera.pick_up_nozzle()
+    print(n_nozzle)
 
-            if not wait_if_paused(): return
-            if _pnp_stop_event.is_set(): return
+    if n_nozzle == 255:
+        print("Nozzle row empty, aligning...")
+        pick_and_place_camera.custom_alignment_nozzle()
+        first_pick_after_align_nozzle = True
+        n_nozzle = pick_and_place_camera.pick_up_nozzle()
+        if n_nozzle == 255:
+            return "error08"
 
-            # Pick Nozzle
-            time.sleep(1)
-            n_nozzle = pick_and_place_camera.pick_up_nozzle()
-            print(n_nozzle)
+    if n_nozzle is None:
+        return "error08.1"
 
-            if n_nozzle == 255:
-                print("Nozzle row empty, aligning...")
-                pick_and_place_camera.custom_alignment_nozzle()
-                first_pick_after_align_nozzle = True
-                n_nozzle = pick_and_place_camera.pick_up_nozzle()
-                if n_nozzle == 255:
-                    _set_pnp_error("error08"); return
+    if n_nozzle >= len(nozzle_x):
+        n_nozzle = len(nozzle_x) - 1
+        return f"error09_index_{n_nozzle}"
 
-            if n_nozzle is None:
-                _set_pnp_error("error08.1"); return
+    if pick_and_place.move_actuator_x(nozzle_x[n_nozzle]- gap) != "success": return "error09"
 
-            if n_nozzle >= len(nozzle_x):
-                _set_pnp_error(f"error09_index_{n_nozzle}"); return
+    if first_pick_after_align_nozzle:
+        if pick_and_place.move_actuator_z(nozzle_high + 100) != "success": return "error10"
+        # Pause so operator can confirm nozzle alignment before picking
+        if not pause_for_visual_check("PAUSED: Confirm nozzle alignment then press RESUME"):
+            return "stopped"
+    if pick_and_place.move_actuator_z(nozzle_high+zgap) != "success": return "error10"
+    if pick_and_place.close_gripper() != "success": return "error11"
 
-            if pick_and_place.move_actuator_x(nozzle_x[n_nozzle] - gap) != "success":
-                _set_pnp_error("error09"); return
+    if not wait_if_paused(): return "stopped"
 
-            if first_pick_after_align_nozzle:
-                if pick_and_place.move_actuator_z(nozzle_high + 100) != "success":
-                    _set_pnp_error("error10"); return
-                if not pause_for_visual_check("PAUSED: Confirm nozzle alignment then press RESUME"):
-                    return
+    # Deliver Nozzle
+    if pick_and_place.move_actuator_z(trans_nozzle_high) != "success": return "error12"
+    if pick_and_place.move_actuator_x(deliver_nozzle_x - gap) != "success": return "error13"
+    if pick_and_place.move_actuator_z(deliver_nozzle_z+zgap) != "success": return "error14"
+    if pick_and_place.open_gripper() != "success": return "error15"
+    time.sleep(.5)
 
-            if pick_and_place.move_actuator_z(nozzle_high + zgap) != "success":
-                _set_pnp_error("error10"); return
-            if pick_and_place.close_gripper() != "success":
-                _set_pnp_error("error11"); return
+    if not wait_if_paused(): return "stopped"
 
-            if not wait_if_paused(): return
-            if _pnp_stop_event.is_set(): return
+    # Joint Pick Up
+    if pick_and_place.move_actuator_z(0) != "success": return "error16"
 
-            # Deliver Nozzle Part - 1 (lift to transport height)
-            if pick_and_place.move_actuator_z(trans_nozzle_high) != "success":
-                _set_pnp_error("error12"); return
+    n_joint = pick_and_place_camera.pick_up_joint()
 
-            # Get joint position while nozzle is in transit
-            n_joint = pick_and_place_camera.pick_up_joint()
+    if n_joint == 255:
+        print("Joint row empty, aligning...")
+        pick_and_place_camera.custom_alignment_joint()
+        first_pick_after_align_joint = True
+        n_joint = pick_and_place_camera.pick_up_joint()
+        if n_joint == 255:
+            return "error17"
 
-            if n_joint == 255:
-                print("Joint row empty, aligning...")
-                pick_and_place_camera.custom_alignment_joint()
-                first_pick_after_align_joint = True
-                n_joint = pick_and_place_camera.pick_up_joint()
-                if n_joint == 255:
-                    _set_pnp_error("error17"); return
+    if n_joint is None:
+        return "error17.1"
 
-            if n_joint is None:
-                _set_pnp_error("error17.1"); return
+    if n_joint >= len(joint_x):
+        return f"error21_index_{n_joint}"
 
-            if n_joint >= len(joint_x):
-                _set_pnp_error(f"error21_index_{n_joint}"); return
+    if pick_and_place.move_actuator_x(joint_x[n_joint]-gap) != "success": return "error18"
 
-            # Signal that first pick cycle is done
-            if first_cycle:
-                first_cycle = False
-                _pnp_first_ready_event.set()
+    if first_pick_after_align_joint:
+        if pick_and_place.move_actuator_z(joint_high + 100) != "success": return "error20"
+        # Pause so operator can confirm joint alignment before picking
+        if not pause_for_visual_check("PAUSED: Confirm joint alignment then press RESUME"):
+            return "stopped"
+    if pick_and_place.move_actuator_z(joint_high+zgap) != "success": return "error20"
+    if pick_and_place.close_gripper() != "success": return "error21"
 
-            # ---- Wait for oneCycle to signal insertion jig is ready ----
-            while not _pnp_deliver_event.is_set():
-                if _pnp_stop_event.is_set():
-                    _pnp_done_event.set()
-                    return
-                time.sleep(0.1)
-            _pnp_deliver_event.clear()
+    if not wait_if_paused(): return "stopped"
 
-            # ---- Deliver nozzle ----
-            if pick_and_place.move_actuator_x(deliver_nozzle_x - gap) != "success":
-                _set_pnp_error("error13"); return
-            if pick_and_place.move_actuator_z(deliver_nozzle_z + zgap) != "success":
-                _set_pnp_error("error14"); return
-            if pick_and_place.open_gripper() != "success":
-                _set_pnp_error("error15"); return
-            time.sleep(.5)
+    # Deliver Joint
+    if pick_and_place.move_actuator_z(trans_joint_high) != "success": return "error22"
+    if pick_and_place.move_actuator_x(deliver_joint_x-gap) != "success": return "error23"
+    if pick_and_place.move_actuator_z(deliver_joint_z+zgap) != "success": return "error24"
+    if pick_and_place.open_gripper() != "success": return "error25"
 
-            if not wait_if_paused(): return
-            if _pnp_stop_event.is_set(): return
+    if not wait_if_paused(): return "stopped"
 
-            # ---- Pick joint ----
-            if pick_and_place.move_actuator_z(0) != "success":
-                _set_pnp_error("error16"); return
+    # Go Back to Home
+    if pick_and_place.move_actuator_z(0,False) != "success": return "error26"
+    if pick_and_place.move_actuator_x(0,False) != "success": return "error27"
 
-            if pick_and_place.move_actuator_x(joint_x[n_joint] - gap) != "success":
-                _set_pnp_error("error18"); return
+    time.sleep(1)
 
-            if first_pick_after_align_joint:
-                if pick_and_place.move_actuator_z(joint_high + 100) != "success":
-                    _set_pnp_error("error20"); return
-                if not pause_for_visual_check("PAUSED: Confirm joint alignment then press RESUME"):
-                    return
+    first_pick_after_align_nozzle = False
+    first_pick_after_align_joint = False
 
-            if pick_and_place.move_actuator_z(joint_high + zgap) != "success":
-                _set_pnp_error("error20"); return
-            if pick_and_place.close_gripper() != "success":
-                _set_pnp_error("error21"); return
-
-            if not wait_if_paused(): return
-            if _pnp_stop_event.is_set(): return
-
-            # ---- Deliver joint ----
-            if pick_and_place.move_actuator_z(trans_joint_high) != "success":
-                _set_pnp_error("error22"); return
-            if pick_and_place.move_actuator_x(deliver_joint_x - gap) != "success":
-                _set_pnp_error("error23"); return
-            if pick_and_place.move_actuator_z(deliver_joint_z + zgap) != "success":
-                _set_pnp_error("error24"); return
-            if pick_and_place.open_gripper() != "success":
-                _set_pnp_error("error25"); return
-
-            if not wait_if_paused(): return
-            if _pnp_stop_event.is_set(): return
-
-            # ---- Go home ----
-            if pick_and_place.move_actuator_z(0, False) != "success":
-                _set_pnp_error("error26"); return
-            if pick_and_place.move_actuator_x(0, False) != "success":
-                _set_pnp_error("error27"); return
-
-            time.sleep(1)
-
-            first_pick_after_align_nozzle = False
-            first_pick_after_align_joint = False
-
-            # Signal delivery complete; loop back to pick next set
-            _pnp_done_event.set()
-
-        except Exception as e:
-            _set_pnp_error(f"pnp_exception: {e}")
-            return
-
-    # Unblock waiters if thread stopped before first ready
-    if first_cycle:
-        _pnp_first_ready_event.set()
-    _pnp_done_event.set()
-
-
-def movePickandPlace():
-    """No-op when PnP runs in background; kept for compatibility."""
     return "success"
 
 
@@ -445,13 +363,8 @@ def oneCycle():
 
     global insertion_jig, insertion_servos, hose_puller, hose_jig
     global puller_extension,pick_and_place,lubrication_feeder
-    global FEED_FLAG
 
     #****************************** Insertion Jig Data ******************************
-
-
-    receiving_x = 6500
-    receiving_z = 7000
 
     offset_x = 0
     offset_z = 0
@@ -502,27 +415,17 @@ def oneCycle():
 
     #****************************** Routine ******************************
 
-     # Initial Setup
-    if insertion_servos.clamp_nozzle_open() != "success": return "error01"
-    if insertion_servos.clamp_joint_open() != "success": return "error01"
-    if insertion_servos.slider_joint_receive() != "success": return "error01"
-    if insertion_servos.slider_nozzle_receive() != "success": return "error02"
-    if insertion_jig.move_z_axis(receiving_z) != "success": return "error03"
-    if insertion_jig.move_x_axis(receiving_x) != "success": return "error04"
-    
-    _pnp_deliver_event.set()
-    _pnp_done_event.wait()
+    if FIRST_FEED:
+        FIRST_FEED = False
+        feeding_event.set()
 
-    with _pnp_error_lock:
-        if _pnp_error is not None:
-            return f"pnp_{_pnp_error}"
-
-    # Feed Hose is done by the prefeed background thread; hose is already in place here.
+    # insertionServosOpen()
+    if hose_jig.gripper_open() != "success" : return "error01"
+    if insertion_servos.slider_nozzle_receive() != "success" : return "error02"
 
     if not wait_if_paused(): return "stopped"
 
     # Clamping and Reset Gripper
-    if hose_jig.gripper_open() != "success" : return "error01"
     if insertion_servos.clamp_nozzle_close() != "success" : return "error07"
     if insertion_servos.clamp_joint_close() != "success" : return "error08"
     if puller_extension.open_gripper() != "success" : return "error09"
@@ -535,12 +438,13 @@ def oneCycle():
     if hose_jig.insertion_position(False) != "success" : return "error12"
 
     if not wait_if_paused(): return "stopped"
+    
 
-
-    _feed_done_event.wait()
+    done_feeding_event.wait()
+    done_feeding_event.clear()
 
     #Lubricate Hose
-    if insertion_servos.holder_hose_nozzle_close() != "success" : return "error24"
+    if insertion_servos.holder_hose_nozzle_close() != "success" : return "error13"
     if insertion_jig.move_x_axis(lubricate_nozzle) != "success" : return "error17"
     if insertion_jig.move_z_axis(lubrication_position_z) != "success" : return "error16"
     if lubrication_feeder.lubricate_nozzle(lubricate_nozzle_time) != "success" : return "error18"
@@ -561,7 +465,6 @@ def oneCycle():
     if not wait_if_paused(): return "stopped"
 
     # Go to Down Position for Hose Puller
-
     if insertion_jig.move_z_axis(insertion_jig_safe_zone) != "success" : return "error27"
     if insertion_jig.move_x_axis(lubricate_joint,flag=False) != "success" : return "6"
 
@@ -576,7 +479,6 @@ def oneCycle():
     if hose_puller.move_y_actuator(pickup_y) != "success" : return "error32"
     if hose_puller.move_z_actuator(z_picking_position) != "success" : return "error33"
     if puller_extension.close_gripper() != "success" : return "error34"
-    if lubrication_feeder.open_hose_holder() != "success" : return "error34.1"
     if hose_puller.move_y_actuator_with_speed(before_rise_position,hose_puller_y_speed) != "success" : return "error35"
     if hose_puller.move_z_actuator(safe_position) != "success" : return "error36"
     if hose_puller.move_y_actuator_with_speed(cutting_position,hose_puller_y_speed) != "success" : return "error37"
@@ -592,8 +494,7 @@ def oneCycle():
 
     # Alignment for Joint Insertion
     if hose_puller.move_y_actuator_with_speed(alignmnet_for_joint,200) != "success" : return "error13"
-    with _feed_flag_lock:
-        FEED_FLAG = True
+    feeding_event.set()
     if insertion_servos.holder_hose_joint_semi_close() != "success" : return "error42"
     if hose_puller.move_y_axis_until_no_hose(hose_puller_y_speed_for_alignment) != "success" : return "error43"
     if insertion_servos.holder_hose_joint_close() != "success" : return "error45"
@@ -665,7 +566,6 @@ def pickUpHose():
 
     return "success"
 
-
 # ======================== Tkinter UI ========================
 
 # Validation flags: enable/disable optional steps
@@ -673,6 +573,7 @@ ENABLE_PICK_AND_PLACE = True     # Toggle Pick & Place step
 ENABLE_PICKUP_HOSE   = True     # Toggle Transport Hose (transporter) step
 
 STEPS = [
+    ("movePickandPlace",  "Pick & Place",     movePickandPlace),
     ("oneCycle",          "Insertion Cycle",  oneCycle),
     ("pickUpHose",        "Transport Hose",   pickUpHose),
 ]
@@ -713,7 +614,7 @@ _C = _DARK_THEME.copy()
 # Fonts: Helvetica/Courier work on both Windows and Linux (avoid Segoe UI/Consolas on Jetson)
 _FONT_UI, _FONT_MONO = "Helvetica", "Courier"
 
-_STEP_LABELS = ["1  INSERTION", "2  TRANSPORT"]
+_STEP_LABELS = ["1  PICK & PLACE", "2  INSERTION", "3  TRANSPORT"]
 
 
 class CycleRunnerApp:
@@ -1247,13 +1148,15 @@ class CycleRunnerApp:
             total = self.total_cycles.get()
             self.lbl_cycle.config(text=f"{cyc} / {total}")
 
+            nsteps = len(self.step_frames) if hasattr(self, "step_frames") else len(STEPS)
+
             if self.is_running:
                 self._color_steps(step)
             elif finished:
-                self._color_steps(2)
+                self._color_steps(nsteps)
 
-            ts = total * 2
-            ds = (cyc - 1) * 2 + step if cyc > 0 else 0
+            ts = total * nsteps
+            ds = (cyc - 1) * nsteps + step if cyc > 0 else 0
             if finished:
                 ds = ts
             pct = (ds / ts) * 100 if ts > 0 else 0
@@ -1331,7 +1234,7 @@ class CycleRunnerApp:
     # ------------------------------------------------------------------ actions
 
     def _on_start(self):
-        global _stop_requested, _pause_event, FEED_FLAG, _pnp_error
+        global _stop_requested, _pause_event
         try:
             n = self.total_cycles.get()
         except tk.TclError:
@@ -1347,26 +1250,6 @@ class CycleRunnerApp:
         _stop_requested = False
         _pause_event.set()
         self.is_running = True
-
-        # Allow prefeed thread to run first feed; start it before cycle thread
-        with _feed_flag_lock:
-            FEED_FLAG = True
-        _first_feed_done_event.clear()
-        _prefeed_stop_event.clear()
-        threading.Thread(target=_prefeed_loop, daemon=True).start()
-
-        # Start pick-and-place background thread (if enabled)
-        with _pnp_error_lock:
-            _pnp_error = None
-        _pnp_deliver_event.clear()
-        _pnp_done_event.set()
-        _pnp_first_ready_event.clear()
-        _pnp_stop_event.clear()
-        if ENABLE_PICK_AND_PLACE:
-            threading.Thread(target=_pick_and_place_loop, daemon=True).start()
-        else:
-            _pnp_first_ready_event.set()
-            _pnp_done_event.set()
 
         with self._lock:
             self._current_cycle = 0
@@ -1451,27 +1334,6 @@ class CycleRunnerApp:
         total = self.total_cycles.get()
         self._log(f"Production run started: {total} cycle(s)")
 
-        # Wait for first prefeed to complete so first oneCycle has hose ready
-        if not _first_feed_done_event.wait(timeout=30.0):
-            self._log("FAULT: Prefeed did not complete within 30s")
-            self._record_fault("Prefeed", "timeout")
-            self._finish("FAULT: Prefeed timeout")
-            return
-
-        # Wait for PnP to finish first pick (nozzle picked, joint located)
-        if ENABLE_PICK_AND_PLACE:
-            if not _pnp_first_ready_event.wait(timeout=120.0):
-                self._log("FAULT: Pick & Place did not complete first pick within 60s")
-                self._record_fault("Pick & Place", "timeout")
-                self._finish("FAULT: PnP timeout")
-                return
-            with _pnp_error_lock:
-                if _pnp_error is not None:
-                    self._log(f"FAULT in Pick & Place: {_pnp_error}")
-                    self._record_fault("Pick & Place", str(_pnp_error))
-                    self._finish(f"FAULT: {_pnp_error}")
-                    return
-
         for i in range(total):
             cnum = i + 1
             cstart = time.time()
@@ -1494,6 +1356,10 @@ class CycleRunnerApp:
 
                 self._log(f"    {dname}...")
 
+                # Optionally skip the Pick & Place and Transport Hose steps
+                if fname == "movePickandPlace" and not ENABLE_PICK_AND_PLACE:
+                    self._log(f"    {dname}: skipped (disabled)")
+                    continue
                 if fname == "pickUpHose" and not ENABLE_PICKUP_HOSE:
                     self._log(f"    {dname}: skipped (disabled)")
                     continue
@@ -1524,9 +1390,6 @@ class CycleRunnerApp:
         self._finish("COMPLETED")
 
     def _finish(self, final):
-        _prefeed_stop_event.set()
-        _pnp_stop_event.set()
-        _pnp_deliver_event.set()  # unblock PnP if waiting for deliver signal
         with self._lock:
             self._status_text = final
             self._step_text = "---"
@@ -1570,6 +1433,8 @@ def main():
     root = tk.Tk()
     # Initialize CAN/hardware AFTER Tkinter is ready (avoids stack smashing on Jetson)
     init_hardware()
+    # Start pre-feed hose worker thread
+    threading.Thread(target=_prefeedHose_loop, daemon=True).start()
     _app = CycleRunnerApp(root)
     root.mainloop()
 
