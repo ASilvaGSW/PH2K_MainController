@@ -389,7 +389,6 @@ def oneCycle():
     if insertion_servos.holder_hose_nozzle_semi_close() != "success" : return "error41"
     lubrication_feeder.move_feeder_until_ir(speed=feeder_speed)
     if insertion_servos.holder_hose_nozzle_close() != "success" : return "error41"
-    if lubrication_feeder.open_hose_holder() != "success" : return "error41"
 
     if not wait_if_paused(): return "stopped"
 
@@ -442,6 +441,7 @@ def oneCycle():
     if hose_puller.move_y_actuator(pickup_y) != "success" : return "error32"
     if hose_puller.move_z_actuator(z_picking_position) != "success" : return "error33"
     if puller_extension.close_gripper() != "success" : return "error34"
+    if lubrication_feeder.open_hose_holder() != "success" : return "error41"
     if hose_puller.move_y_actuator_with_speed(before_rise_position,hose_puller_y_speed) != "success" : return "error35"
     if hose_puller.move_z_actuator(safe_position) != "success" : return "error36"
     if hose_puller.move_y_actuator_with_speed(cutting_position,hose_puller_y_speed) != "success" : return "error37"
@@ -532,8 +532,8 @@ def pickUpHose():
 # ======================== Tkinter UI ========================
 
 # Validation flags: enable/disable optional steps
-ENABLE_PICK_AND_PLACE = True     # Toggle Pick & Place step
-ENABLE_PICKUP_HOSE   = True     # Toggle Transport Hose (transporter) step
+ENABLE_PICK_AND_PLACE = False     # Toggle Pick & Place step
+ENABLE_PICKUP_HOSE   = False     # Toggle Transport Hose (transporter) step
 
 STEPS = [
     ("prefeedHose",       "Pre-Feed Hose",    prefeedHose),
