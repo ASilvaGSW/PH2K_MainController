@@ -169,7 +169,7 @@ class Canbus:
         print("CAN reader thread started.")
         while not self._stop_reader_event.is_set():
             try:
-                msg = self.channel.recv(1.0)  # Timeout de 1 segundo para no bloquear
+                msg = self.channel.recv(0.05)  # Timeout de 1 segundo para no bloquear
                 if msg is not None:
                     # Guardamos el mensaje junto con un timestamp en el buffer compartido
                     with self._messages_lock:
@@ -234,7 +234,7 @@ class Canbus:
                 return 'success', None
             
             # Espera la respuesta (ya no necesitamos sent_after porque purgamos antes)
-            reply_status, reply_data = self.read_message(7, response_can_id, function_id)
+            reply_status, reply_data = self.read_message(30, response_can_id, function_id)
             
             if reply_status == 'success':
                 return 'success', reply_data

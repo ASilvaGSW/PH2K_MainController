@@ -322,6 +322,7 @@ def movePickandPlace():
 
 
 #Main One Cycle
+
 def insertionServosOpen():
     global insertion_servos
 
@@ -494,7 +495,9 @@ def oneCycle():
 
     # Alignment for Joint Insertion
     if hose_puller.move_y_actuator_with_speed(alignmnet_for_joint,200) != "success" : return "error13"
+    
     feeding_event.set()
+
     if insertion_servos.holder_hose_joint_semi_close() != "success" : return "error42"
     if hose_puller.move_y_axis_until_no_hose(hose_puller_y_speed_for_alignment) != "success" : return "error43"
     if insertion_servos.holder_hose_joint_close() != "success" : return "error45"
