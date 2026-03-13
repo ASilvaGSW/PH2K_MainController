@@ -125,6 +125,17 @@ FIRST_PICK_AND_PLACE = True
 PICK_AND_PLACE_ERROR = None
 PICK_AND_PLACE_ERROR_LOCK = threading.Lock()
 
+
+# ======================== Hose Transporter Event ==============================
+
+
+hose_pick_event = threading.Event()
+done_hose_pick_event = threading.Event()
+HOSE_PICK_ERROR = None
+HOSE_PICK_ERROR_LOCK = threading.Lock()
+FIRST_HOSE_PICK = True
+
+
 # ======================== Pause / Stop Control ========================
 
 _pause_event = threading.Event()
@@ -161,6 +172,8 @@ def pause_for_visual_check(status_msg: str):
 
 # ======================== Machine Functions ========================
 
+# ======================== Prefeed Hose Not In Use ==============================
+
 def prefeedHose():
     global operation_status, lubrication_feeder, insertion_servos
 
@@ -172,6 +185,7 @@ def prefeedHose():
 
     return "success"
 
+# ======================== Prefeed Hose (Thread) ==============================
 def _prefeedHose_loop():
     global FEED_ERROR, FEED_ERROR_LOCK
 
@@ -179,6 +193,13 @@ def _prefeedHose_loop():
 
         feeding_event.wait()
         feeding_event.clear()
+
+        if not wait_if_paused():
+            with FEED_ERROR_LOCK:
+                FEED_ERROR = None
+            done_feeding_event.set()
+            continue
+
         tmp_error = None
 
         if lubrication_feeder.close_hose_holder() == "success":
@@ -200,7 +221,7 @@ def _prefeedHose_loop():
         done_feeding_event.set()
 
 
-#Move Pick and Place
+# ======================== Move Pick and Place ==============================
 def movePickandPlace():
     global pick_and_place, insertion_servos, insertion_jig, pick_and_place_camera
     global first_pick_after_align_nozzle, first_pick_after_align_joint
@@ -331,6 +352,8 @@ def movePickandPlace():
 
     return "success"
 
+
+# ======================== Move Pick and Place (Thread) ==============================
 
 def pickNozzle():
     global pick_and_place, pick_and_place_camera
@@ -511,12 +534,13 @@ def _movePickandPlace_loop():
         done_pick_and_place_event.set()
       
 
-#Main One Cycle
+# ======================== Main One Cycle ==============================
 
 def oneCycle():
 
     global insertion_jig, insertion_servos, hose_puller, hose_jig
-    global puller_extension,pick_and_place,lubrication_feeder,FEED_ERROR,PICK_AND_PLACE_ERROR,FIRST_FEED,FIRST_PICK_AND_PLACE
+    global puller_extension,pick_and_place,lubrication_feeder
+    global FEED_ERROR,PICK_AND_PLACE_ERROR,FIRST_FEED,FIRST_PICK_AND_PLACE,HOSE_PICK_ERROR,FIRST_HOSE_PICK
 
     #****************************** Insertion Jig Data ******************************
     receiving_x = 6500
@@ -576,6 +600,7 @@ def oneCycle():
         feeding_event.set()
 
     if FIRST_PICK_AND_PLACE:
+        if pick_and_place.open_gripper() != "success": return "error05"
         nozzle_pick_event.set()
         FIRST_PICK_AND_PLACE = False
 
@@ -585,9 +610,7 @@ def oneCycle():
     if insertion_servos.slider_nozzle_receive() != "success": return "error02"
     if insertion_jig.move_z_axis(receiving_z) != "success": return "error03"
     if insertion_jig.move_x_axis(receiving_x) != "success": return "error04"
-    if pick_and_place.open_gripper() != "success": return "error05"
-    
-        
+
     nozzle_deliver_event.set()
 
     done_pick_and_place_event.wait()
@@ -615,8 +638,15 @@ def oneCycle():
     if insertion_servos.slider_joint_home() != "success" : return "error10"
     if insertion_servos.slider_nozzle_receive() != "success" : return "error11"
 
-    # Insertio Jig Home POsition
-    if hose_jig.insertion_position(False) != "success" : return "error12"
+    # Wait for hose pick from previous cycle (skip on first cycle)
+    if not FIRST_HOSE_PICK:
+        done_hose_pick_event.wait()
+        done_hose_pick_event.clear()
+
+        if HOSE_PICK_ERROR is not None:
+            return f"ER-{HOSE_PICK_ERROR}"
+    else:
+        FIRST_HOSE_PICK = False
 
     if not wait_if_paused(): return "stopped"
     
@@ -678,8 +708,6 @@ def oneCycle():
 
     # Alignment for Joint Insertion
     if hose_puller.move_y_actuator_with_speed(alignmnet_for_joint,200) != "success" : return "error13"
-    
-    feeding_event.set()
 
     if insertion_servos.holder_hose_joint_semi_close() != "success" : return "error42"
     if hose_puller.move_y_axis_until_no_hose(hose_puller_y_speed_for_alignment) != "success" : return "error43"
@@ -689,6 +717,8 @@ def oneCycle():
     if insertion_jig.move_x_axis(lubricate_joint) != "success" : return "6"
     if insertion_jig.move_z_axis(librication_position_joint_z) != "success" : return "error47"
     if lubrication_feeder.lubricate_joint(lubricate_joint_time) != "success" : return "error48"
+
+    feeding_event.set()
 
     if not wait_if_paused(): return "stopped"
 
@@ -719,14 +749,63 @@ def oneCycle():
     if hose_jig.gripper_close() != "success" : return "error60"
     if puller_extension.open_gripper() != "success" : return "error61"
     if hose_puller.move_z_actuator(safe_position) != "success" : return "error62"
-    if hose_jig.deliver_position(False) != "success" : return "error63"
-    if hose_jig.gripper_open(False) != "success" : return "error64"
-    if hose_puller.move_z_actuator(0,False) != "success" : return "error65"
+
+    hose_pick_event.set()
 
     return "success"
 
 
-#Pick Up Hose
+# ======================== Pick Up Hose (Thread) ==============================
+
+def _pickUpHose_loop():
+
+    global transporter_fuyus, transporter_grippers, hose_jig,HOSE_PICK_ERROR
+
+    while True :
+
+        hose_pick_event.wait()
+        hose_pick_event.clear()
+
+        if not wait_if_paused():
+            with HOSE_PICK_ERROR_LOCK:
+                HOSE_PICK_ERROR = None
+            done_hose_pick_event.set()
+            continue
+
+        error = handle_hose()
+
+        with HOSE_PICK_ERROR_LOCK:
+                HOSE_PICK_ERROR = error
+
+        done_hose_pick_event.set()
+
+
+def handle_hose():
+    global transporter_fuyus, transporter_grippers, hose_jig
+
+
+    if hose_jig.deliver_position() != "success" : return "001"
+    if hose_jig.gripper_close() != "success" : return "001"
+    if transporter_fuyus.pickHome() != "success" : return "01"
+
+    if transporter_fuyus.moveToReceivingPosition() != "success" : return "03"
+    if transporter_fuyus.pickHoseFromFirstStation() != "success" : return "04"
+    if transporter_grippers.close_all_grippers() != "success" : return "05"
+    time.sleep(1)
+    if hose_jig.gripper_open() != "success" : return "06"
+
+    if transporter_fuyus.pickHome() != "success": return "07"
+    if transporter_fuyus.moveToDeliverPosition() != "success": return "03"
+    if transporter_grippers.open_all_grippers() != "success": return "05"
+    if transporter_fuyus.pickHome() != "success": return "07"
+    if transporter_fuyus.moveToSafeSpace() != "success": return "08"
+
+    if hose_jig.insertion_position() != "success" : return "error12"
+
+    return None
+
+
+# ======================== Pick Up Hose Not in Use ==============================
 def pickUpHose():
 
     global transporter_fuyus, transporter_grippers, hose_jig
@@ -799,14 +878,8 @@ def alignComponent():
 
 # ======================== Tkinter UI ========================
 
-# Validation flags: enable/disable optional steps
-ENABLE_PICK_AND_PLACE = True     # Toggle Pick & Place step
-ENABLE_PICKUP_HOSE   = True     # Toggle Transport Hose (transporter) step
-
 STEPS = [
-    ("movePickandPlace",  "Pick & Place",     movePickandPlace),
-    ("oneCycle",          "Insertion Cycle",  oneCycle),
-    ("pickUpHose",        "Transport Hose",   pickUpHose),
+    ("oneCycle", "Insertion Cycle", oneCycle),
 ]
 
 _DARK_THEME = {
@@ -845,7 +918,7 @@ _C = _DARK_THEME.copy()
 # Fonts: Helvetica/Courier work on both Windows and Linux (avoid Segoe UI/Consolas on Jetson)
 _FONT_UI, _FONT_MONO = "Helvetica", "Courier"
 
-_STEP_LABELS = ["1  PICK & PLACE", "2  INSERTION", "3  TRANSPORT"]
+_STEP_LABELS = ["1  INSERTION CYCLE"]
 
 
 class CycleRunnerApp:
@@ -862,9 +935,6 @@ class CycleRunnerApp:
         self.current_theme = "dark"
 
         self.total_cycles = tk.IntVar(value=1)
-        # UI-backed flags for optional steps
-        self.var_enable_pick_and_place = tk.BooleanVar(value=ENABLE_PICK_AND_PLACE)
-        self.var_enable_pickup_hose = tk.BooleanVar(value=ENABLE_PICKUP_HOSE)
         self.is_running = False
 
         self._lock = threading.Lock()
@@ -1036,43 +1106,7 @@ class CycleRunnerApp:
         tk.Label(top_row, text="cycles",
                  font=(_FONT_UI, 10), bg=_C["panel"], fg=_C["txt2"]).pack(side=tk.LEFT)
 
-        # Row 2: optional step toggles
-        opts_row = tk.Frame(parent, bg=_C["panel"])
-        opts_row.pack(fill=tk.X, pady=(0, 10))
-
-        def _toggle_pp():
-            global ENABLE_PICK_AND_PLACE
-            ENABLE_PICK_AND_PLACE = bool(self.var_enable_pick_and_place.get())
-
-        def _toggle_tr():
-            global ENABLE_PICKUP_HOSE
-            ENABLE_PICKUP_HOSE = bool(self.var_enable_pickup_hose.get())
-
-        pp_frame = tk.Frame(opts_row, bg=_C["panel"])
-        pp_frame.pack(side=tk.LEFT, padx=(0, 20))
-        tk.Label(pp_frame, text="Pick & Place",
-                 font=(_FONT_UI, 10), bg=_C["panel"], fg=_C["txt2"]).pack(side=tk.LEFT, padx=(0, 4))
-        tk.Checkbutton(
-            pp_frame,
-            variable=self.var_enable_pick_and_place,
-            command=_toggle_pp,
-            bg=_C["panel"], activebackground=_C["panel"],
-            selectcolor=_C["accent"]
-        ).pack(side=tk.LEFT)
-
-        tr_frame = tk.Frame(opts_row, bg=_C["panel"])
-        tr_frame.pack(side=tk.LEFT)
-        tk.Label(tr_frame, text="Transport Hose",
-                 font=(_FONT_UI, 10), bg=_C["panel"], fg=_C["txt2"]).pack(side=tk.LEFT, padx=(0, 4))
-        tk.Checkbutton(
-            tr_frame,
-            variable=self.var_enable_pickup_hose,
-            command=_toggle_tr,
-            bg=_C["panel"], activebackground=_C["panel"],
-            selectcolor=_C["accent"]
-        ).pack(side=tk.LEFT)
-
-        # Row 3–5: main controls in a 3x2 grid
+        # Row 2–4: main controls in a 3x2 grid
         _bf = (_FONT_UI, 12, "bold")
         # Unified dark button style: black background, white text (light gray when disabled)
         _btn_opts = dict(
@@ -1586,15 +1620,6 @@ class CycleRunnerApp:
                     self._status_text = f"RUNNING: {dname}"
 
                 self._log(f"    {dname}...")
-
-                # Optionally skip the Pick & Place and Transport Hose steps
-                if fname == "movePickandPlace" and not ENABLE_PICK_AND_PLACE:
-                    self._log(f"    {dname}: skipped (disabled)")
-                    continue
-                if fname == "pickUpHose" and not ENABLE_PICKUP_HOSE:
-                    self._log(f"    {dname}: skipped (disabled)")
-                    continue
-
                 result = func()
 
                 if result == "stopped":
@@ -1667,6 +1692,7 @@ def main():
     # Start pre-feed hose worker thread
     threading.Thread(target=_prefeedHose_loop, daemon=True).start()
     threading.Thread(target=_movePickandPlace_loop, daemon=True).start()
+    threading.Thread(target=_pickUpHose_loop, daemon=True).start()
     _app = CycleRunnerApp(root)
     root.mainloop()
 
